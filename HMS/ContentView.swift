@@ -1,21 +1,9 @@
-//
-//  ContentView.swift
-//  HMS
-//
-//  Created by admin99 on 07/03/26.
-//
-
 import SwiftUI
 
+// ContentView is now just a pass-through to AppRouter
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
+        AppRouter()
     }
 }
 

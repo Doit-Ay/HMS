@@ -1,0 +1,51 @@
+import SwiftUI
+
+// MARK: - App Router (Root Navigation)
+// Listens to UserSession and routes to the appropriate screen
+struct AppRouter: View {
+    @ObservedObject var session = UserSession.shared
+
+    var body: some View {
+        Group {
+            if session.isLoading {
+                SplashView()
+            } else if !session.isLoggedIn {
+                RoleSelectionView()
+            } else {
+                dashboardView
+            }
+        }
+        .animation(.easeInOut(duration: 0.4), value: session.isLoggedIn)
+        .animation(.easeInOut(duration: 0.4), value: session.isLoading)
+    }
+
+    @ViewBuilder
+    private var dashboardView: some View {
+        switch session.userRole {
+        case .patient:
+            PatientTabView()
+
+        case .admin:
+            AdminTabView()
+
+        case .doctor:
+            StaffTabView(role: .doctor)
+
+        case .nurse:
+            StaffTabView(role: .nurse)
+
+        case .labTechnician:
+            StaffTabView(role: .labTechnician)
+
+        case .pharmacist:
+            StaffTabView(role: .pharmacist)
+
+        case .none:
+            RoleSelectionView()
+        }
+    }
+}
+
+#Preview {
+    AppRouter()
+}
