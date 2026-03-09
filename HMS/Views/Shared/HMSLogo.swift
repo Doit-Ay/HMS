@@ -13,7 +13,7 @@ struct HMSLogo: View {
 
     var body: some View {
         ZStack {
-            // Outer heart — white border / glow
+            // Outer heart — white border / glow//jbjb
             HeartShape()
                 .fill(Color.white)
                 .frame(width: heartSize, height: heartSize * 0.92)
