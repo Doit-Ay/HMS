@@ -10,7 +10,7 @@ struct AppRouter: View {
             if session.isLoading {
                 SplashView()
             } else if !session.isLoggedIn {
-                RoleSelectionView()
+                LoginView()
             } else {
                 dashboardView
             }
@@ -41,7 +41,7 @@ struct AppRouter: View {
             StaffTabView(role: .pharmacist)
 
         case .none:
-            RoleSelectionView()
+            LoginView()
         }
     }
 }

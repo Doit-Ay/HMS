@@ -12,27 +12,12 @@ struct SplashView: View {
 
             VStack(spacing: 24) {
                 // App logo / icon
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [AppTheme.primary, AppTheme.primaryMid],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 120, height: 120)
-                        .shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 6)
-                        .scaleEffect(pulse ? 1.05 : 1.0)
-                        .animation(
-                            .easeInOut(duration: 1.2).repeatForever(autoreverses: true),
-                            value: pulse
-                        )
-
-                    Image(systemName: "cross.case.fill")
-                        .font(.system(size: 52, weight: .medium))
-                        .foregroundColor(.white)
-                }
+                HMSLogo(size: 120)
+                    .scaleEffect(pulse ? 1.05 : 1.0)
+                    .animation(
+                        .easeInOut(duration: 1.2).repeatForever(autoreverses: true),
+                        value: pulse
+                    )
 
                 VStack(spacing: 6) {
                     Text("HMS")

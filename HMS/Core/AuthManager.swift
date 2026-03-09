@@ -51,6 +51,35 @@ class AuthManager {
         }
     }
 
+    // MARK: - Unified Email/Password Login
+    /// Signs in any user (patient or staff) — role is determined from Firestore.
+    /// AppRouter handles routing to the correct dashboard automatically.
+    func login(email: String, password: String) async throws {
+        let result = try await Auth.auth().signIn(withEmail: email, password: password)
+        await fetchUserProfile(uid: result.user.uid)
+    }
+
+    // MARK: - Unified Google Sign-In
+    /// Google sign-in for any user. New Google users are auto-registered as patients.
+    /// Existing users are signed in regardless of role — AppRouter routes them.
+    func googleSignInUnified(presenting viewController: UIViewController) async throws {
+        let googleUser = try await googleSignIn(presenting: viewController)
+        if UserSession.shared.userRole == nil {
+            // New Google user — create as patient
+            let newUser = HMSUser(
+                id: googleUser.uid,
+                email: googleUser.email ?? "",
+                fullName: googleUser.displayName ?? "Patient",
+                role: .patient
+            )
+            try await saveUserToFirestore(user: newUser)
+            let patientProfile = PatientProfile(from: newUser)
+            try await savePatientProfile(profile: patientProfile)
+            UserSession.shared.setUser(newUser)
+        }
+        // Existing users (patient or staff) — already fetched in googleSignIn helper
+    }
+
     // MARK: - Patient Email/Password Login
     func patientLogin(email: String, password: String) async throws {
         let result = try await Auth.auth().signIn(withEmail: email, password: password)
