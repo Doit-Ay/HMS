@@ -239,7 +239,19 @@ class AuthManager {
         staff.employeeID     = employeeID
         try await saveUserToFirestore(user: staff)
 
-        // Step 5 — Send password reset email so staff sets their own password
+        // Step 5 — Save to role-specific collection (doctor / lab technician)
+        switch role {
+        case .doctor:
+            let doctorProfile = DoctorProfile(from: staff)
+            try await saveDoctorProfile(profile: doctorProfile)
+        case .labTechnician:
+            let labTechProfile = LabTechnicianProfile(from: staff)
+            try await saveLabTechnicianProfile(profile: labTechProfile)
+        default:
+            break
+        }
+
+        // Step 6 — Send password reset email so staff sets their own password
         try await Auth.auth().sendPasswordReset(withEmail: email)
     }
 
@@ -273,6 +285,20 @@ class AuthManager {
         return try Firestore.Decoder().decode(PatientProfile.self, from: data)
     }
 
+    // MARK: - Fetch Doctor Profile
+    func fetchDoctorProfile(uid: String) async throws -> DoctorProfile? {
+        let doc = try await db.collection("doctors").document(uid).getDocument()
+        guard let data = doc.data() else { return nil }
+        return try Firestore.Decoder().decode(DoctorProfile.self, from: data)
+    }
+
+    // MARK: - Fetch Lab Technician Profile
+    func fetchLabTechnicianProfile(uid: String) async throws -> LabTechnicianProfile? {
+        let doc = try await db.collection("lab_technicians").document(uid).getDocument()
+        guard let data = doc.data() else { return nil }
+        return try Firestore.Decoder().decode(LabTechnicianProfile.self, from: data)
+    }
+
     // MARK: - Save to `users` collection
     private func saveUserToFirestore(user: HMSUser) async throws {
         let data = try Firestore.Encoder().encode(user)
@@ -283,6 +309,18 @@ class AuthManager {
     private func savePatientProfile(profile: PatientProfile) async throws {
         let data = try Firestore.Encoder().encode(profile)
         try await db.collection("patients").document(profile.id).setData(data)
+    }
+
+    // MARK: - Save to `doctors` collection
+    private func saveDoctorProfile(profile: DoctorProfile) async throws {
+        let data = try Firestore.Encoder().encode(profile)
+        try await db.collection("doctors").document(profile.id).setData(data)
+    }
+
+    // MARK: - Save to `lab_technicians` collection
+    private func saveLabTechnicianProfile(profile: LabTechnicianProfile) async throws {
+        let data = try Firestore.Encoder().encode(profile)
+        try await db.collection("lab_technicians").document(profile.id).setData(data)
     }
 }
 

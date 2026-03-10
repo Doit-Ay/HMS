@@ -31,14 +31,8 @@ struct AppRouter: View {
         case .doctor:
             StaffTabView(role: .doctor)
 
-        case .nurse:
-            StaffTabView(role: .nurse)
-
         case .labTechnician:
             StaffTabView(role: .labTechnician)
-
-        case .pharmacist:
-            StaffTabView(role: .pharmacist)
 
         case .none:
             LoginView()

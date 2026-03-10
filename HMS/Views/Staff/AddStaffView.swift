@@ -16,7 +16,7 @@ struct AddStaffView: View {
     @State private var showError      = false
     @State private var showSuccess    = false
 
-    let staffRoles: [UserRole] = [.doctor, .nurse, .labTechnician, .pharmacist]
+    let staffRoles: [UserRole] = [.doctor, .labTechnician]
 
     var formValid: Bool {
         !fullName.isEmpty && !email.isEmpty && email.contains("@")

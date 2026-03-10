@@ -5,18 +5,14 @@ enum UserRole: String, Codable, CaseIterable {
     case patient       = "patient"
     case admin         = "admin"
     case doctor        = "doctor"
-    case nurse         = "nurse"
     case labTechnician = "lab_technician"
-    case pharmacist    = "pharmacist"
 
     var displayName: String {
         switch self {
         case .patient:       return "Patient"
         case .admin:         return "Admin"
         case .doctor:        return "Doctor"
-        case .nurse:         return "Nurse"
         case .labTechnician: return "Lab Technician"
-        case .pharmacist:    return "Pharmacist"
         }
     }
 
@@ -25,9 +21,7 @@ enum UserRole: String, Codable, CaseIterable {
         case .patient:       return "person.circle.fill"
         case .admin:         return "shield.checkered"
         case .doctor:        return "stethoscope.circle.fill"
-        case .nurse:         return "cross.case.fill"
         case .labTechnician: return "flask.fill"
-        case .pharmacist:    return "pills.fill"
         }
     }
 
@@ -89,6 +83,68 @@ struct PatientProfile: Codable, Identifiable {
         self.fullName    = user.fullName
         self.phoneNumber = user.phoneNumber
         self.bloodGroup  = user.bloodGroup
+        self.isActive    = true
+        self.createdAt   = Date()
+    }
+}
+
+// MARK: - Firestore `doctors` Collection
+// Doctor-specific professional details stored separately.
+// Document ID = same Firebase Auth UID   →   users/{uid} ←→ doctors/{uid}
+struct DoctorProfile: Codable, Identifiable {
+    var id: String                      // Auth UID — foreign key to users/{id}
+    var email: String
+    var fullName: String
+    var phoneNumber: String?
+    var dateOfBirth: String?
+    var gender: String?
+    var department: String?
+    var specialization: String?
+    var employeeID: String?
+    var licenseNumber: String?
+    var qualifications: [String]?
+    var createdAt: Date?
+    var isActive: Bool
+
+    /// Convenience init — copies basic fields from HMSUser
+    init(from user: HMSUser) {
+        self.id             = user.id
+        self.email          = user.email
+        self.fullName       = user.fullName
+        self.phoneNumber    = user.phoneNumber
+        self.department     = user.department
+        self.specialization = user.specialization
+        self.employeeID     = user.employeeID
+        self.isActive       = true
+        self.createdAt      = Date()
+    }
+}
+
+// MARK: - Firestore `lab_technicians` Collection
+// Lab Technician-specific professional details stored separately.
+// Document ID = same Firebase Auth UID   →   users/{uid} ←→ lab_technicians/{uid}
+struct LabTechnicianProfile: Codable, Identifiable {
+    var id: String                      // Auth UID — foreign key to users/{id}
+    var email: String
+    var fullName: String
+    var phoneNumber: String?
+    var dateOfBirth: String?
+    var gender: String?
+    var department: String?
+    var employeeID: String?
+    var certifications: [String]?
+    var labSection: String?
+    var createdAt: Date?
+    var isActive: Bool
+
+    /// Convenience init — copies basic fields from HMSUser
+    init(from user: HMSUser) {
+        self.id          = user.id
+        self.email       = user.email
+        self.fullName    = user.fullName
+        self.phoneNumber = user.phoneNumber
+        self.department  = user.department
+        self.employeeID  = user.employeeID
         self.isActive    = true
         self.createdAt   = Date()
     }

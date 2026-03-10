@@ -31,9 +31,7 @@ struct AdminDashboardView: View {
 
     let roleStats: [(String, String, Color)] = [
         ("Doctors",          "stethoscope.circle.fill", AppTheme.primary),
-        ("Nurses",           "cross.case.fill",          AppTheme.primaryMid),
         ("Lab Technicians",  "flask.fill",               AppTheme.primaryDark),
-        ("Pharmacists",      "pills.fill",               Color(hex: "#4ECDC4")),
     ]
 
     var body: some View {
