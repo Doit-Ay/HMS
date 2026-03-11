@@ -6,7 +6,7 @@ struct AppTheme {
     static let primary        = Color(hex: "#05AA97")   // Verdigris
     static let primaryLight   = Color(hex: "#D9FEFE")   // Frozen Water
     static let primaryMid     = Color(hex: "#66BEB3")   // Tropical Teal
-    static let primaryDark    = Color(hex: "#74C4BA")   // Pearl Aqua
+    static let primaryDark    = Color(hex: "#74C4BA")   // Pearl Aqual
 
     // Background tones
     static let background     = Color(hex: "#F0FAFA")
