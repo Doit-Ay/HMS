@@ -232,23 +232,23 @@ class AuthManager {
         // Step 3 — Save to `users` Firestore collection using SECONDARY app context
         // This is key: the new user is signed into secondaryAuth, so they have permissions
         // to write their own document in the secondary Firestore instance.
-        let secondaryDB = Firestore.firestore(app: secondaryApp)
+        let adminDB = Firestore.firestore()
         
         var staff = HMSUser(id: result.user.uid, email: email, fullName: fullName, role: role)
         staff.department     = department
         staff.specialization = specialization
         staff.employeeID     = employeeID
         
-        try await saveUserToFirestore(user: staff, db: secondaryDB)
+        try await saveUserToFirestore(user: staff, db: adminDB)
 
         // Step 4 — Save to role-specific collection using secondary DB
         switch role {
         case .doctor:
             let doctorProfile = DoctorProfile(from: staff)
-            try await saveDoctorProfile(profile: doctorProfile, db: secondaryDB)
+            try await saveDoctorProfile(profile: doctorProfile, db: adminDB)
         case .labTechnician:
             let labTechProfile = LabTechnicianProfile(from: staff)
-            try await saveLabTechnicianProfile(profile: labTechProfile, db: secondaryDB)
+            try await saveLabTechnicianProfile(profile: labTechProfile, db: adminDB)
         default:
             break
         }
