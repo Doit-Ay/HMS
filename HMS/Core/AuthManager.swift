@@ -211,7 +211,8 @@ class AuthManager {
         role: UserRole,
         department: String?,
         specialization: String?,
-        employeeID: String?
+        employeeID: String?,
+        defaultSlots: [String]? = nil
     ) async throws {
         // Step 1 — Get a secondary Firebase App to isolate auth from admin session
         let secondaryAppName = "HMSStaffCreation"
@@ -229,19 +230,18 @@ class AuthManager {
         let tempPassword = generateTempPassword()
         let result = try await secondaryAuth.createUser(withEmail: email, password: tempPassword)
 
-        // Step 3 — Save to `users` Firestore collection using SECONDARY app context
-        // This is key: the new user is signed into secondaryAuth, so they have permissions
-        // to write their own document in the secondary Firestore instance.
+        // Step 3 — Save to `users` Firestore collection
         let adminDB = Firestore.firestore()
         
         var staff = HMSUser(id: result.user.uid, email: email, fullName: fullName, role: role)
         staff.department     = department
         staff.specialization = specialization
         staff.employeeID     = employeeID
+        staff.defaultSlots   = defaultSlots
         
         try await saveUserToFirestore(user: staff, db: adminDB)
 
-        // Step 4 — Save to role-specific collection using secondary DB
+        // Step 4 — Save to role-specific collection
         switch role {
         case .doctor:
             let doctorProfile = DoctorProfile(from: staff)
@@ -280,7 +280,8 @@ class AuthManager {
         role: UserRole,
         department: String?,
         specialization: String?,
-        employeeID: String?
+        employeeID: String?,
+        defaultSlots: [String]? = nil
     ) async throws {
         // Step 1 — Update `users` Firestore collection
         var updates: [String: Any] = [
@@ -289,23 +290,35 @@ class AuthManager {
         updates["department"]     = department
         updates["specialization"] = specialization
         updates["employeeID"]     = employeeID
+        if let slots = defaultSlots {
+            updates["defaultSlots"] = slots
+        }
 
         try await db.collection("users").document(uid).updateData(updates)
 
-        // Step 2 — Update role-specific collection
+        // Step 2 — Update role-specific collection (merge: true creates if missing)
         switch role {
         case .doctor:
-            var doctorUpdates: [String: Any] = ["fullName": fullName]
+            var doctorUpdates: [String: Any] = [
+                "id": uid,
+                "email": "",    // will be merged, not overwritten if exists
+                "fullName": fullName,
+                "isActive": true
+            ]
             doctorUpdates["department"]     = department
             doctorUpdates["specialization"] = specialization
             doctorUpdates["employeeID"]     = employeeID
-            try await db.collection("doctors").document(uid).updateData(doctorUpdates)
+            try await db.collection("doctors").document(uid).setData(doctorUpdates, merge: true)
             
         case .labTechnician:
-            var labTechUpdates: [String: Any] = ["fullName": fullName]
+            var labTechUpdates: [String: Any] = [
+                "id": uid,
+                "fullName": fullName,
+                "isActive": true
+            ]
             labTechUpdates["department"] = department
             labTechUpdates["employeeID"] = employeeID
-            try await db.collection("lab_technicians").document(uid).updateData(labTechUpdates)
+            try await db.collection("lab_technicians").document(uid).setData(labTechUpdates, merge: true)
         default:
             break
         }
@@ -368,6 +381,119 @@ class AuthManager {
         let database = dbInstance ?? db
         let data = try Firestore.Encoder().encode(profile)
         try await database.collection("lab_technicians").document(profile.id).setData(data)
+    }
+
+    // MARK: - Fetch All Doctors
+    func fetchDoctors() async throws -> [HMSUser] {
+        let snapshot = try await db.collection("users")
+            .whereField("role", isEqualTo: "doctor")
+            .whereField("isActive", isEqualTo: true)
+            .getDocuments()
+        return snapshot.documents.compactMap {
+            try? Firestore.Decoder().decode(HMSUser.self, from: $0.data())
+        }
+    }
+
+    // MARK: - Doctor Slot Management
+
+    /// Add a single slot for a doctor
+    func addDoctorSlot(_ slot: DoctorSlot) async throws {
+        let data = try Firestore.Encoder().encode(slot)
+        try await db.collection("doctor_slots").document(slot.id).setData(data)
+    }
+
+    /// Fetch all slots for a specific doctor on a given date
+    func fetchSlots(doctorId: String, date: String) async throws -> [DoctorSlot] {
+        let snapshot = try await db.collection("doctor_slots")
+            .whereField("doctorId", isEqualTo: doctorId)
+            .whereField("date", isEqualTo: date)
+            .getDocuments()
+        return snapshot.documents.compactMap {
+            try? Firestore.Decoder().decode(DoctorSlot.self, from: $0.data())
+        }.sorted { $0.startTime < $1.startTime }
+    }
+
+    /// Toggle a slot's status between available and unavailable
+    func toggleSlotStatus(slotId: String, newStatus: SlotStatus) async throws {
+        try await db.collection("doctor_slots").document(slotId).updateData([
+            "status": newStatus.rawValue,
+            "updatedAt": FieldValue.serverTimestamp()
+        ])
+    }
+
+    /// Delete a specific slot
+    func deleteSlot(slotId: String) async throws {
+        try await db.collection("doctor_slots").document(slotId).delete()
+    }
+
+    /// Fetch ALL slots for a given date (across all doctors)
+    func fetchAllSlots(forDate date: String) async throws -> [DoctorSlot] {
+        let snapshot = try await db.collection("doctor_slots")
+            .whereField("date", isEqualTo: date)
+            .getDocuments()
+        return snapshot.documents.compactMap {
+            try? Firestore.Decoder().decode(DoctorSlot.self, from: $0.data())
+        }
+    }
+
+    /// Fetch ALL slots for a given month (format: "yyyy-MM")
+    func fetchAllSlots(forMonth month: String) async throws -> [DoctorSlot] {
+        let startDate = month + "-01"
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        guard let start = formatter.date(from: startDate) else { return [] }
+        let calendar = Calendar.current
+        guard let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: start) else { return [] }
+        let endDate = formatter.string(from: endOfMonth)
+
+        let snapshot = try await db.collection("doctor_slots")
+            .whereField("date", isGreaterThanOrEqualTo: startDate)
+            .whereField("date", isLessThanOrEqualTo: endDate)
+            .getDocuments()
+        return snapshot.documents.compactMap {
+            try? Firestore.Decoder().decode(DoctorSlot.self, from: $0.data())
+        }
+    }
+
+    // MARK: - Appointment Statistics
+
+    /// Fetch all appointments (optionally filtered by date range)
+    func fetchAppointments(from startDate: String? = nil, to endDate: String? = nil) async throws -> [Appointment] {
+        var query: Query = db.collection("appointments")
+        if let start = startDate {
+            query = query.whereField("date", isGreaterThanOrEqualTo: start)
+        }
+        if let end = endDate {
+            query = query.whereField("date", isLessThanOrEqualTo: end)
+        }
+        let snapshot = try await query.getDocuments()
+        return snapshot.documents.compactMap {
+            try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
+        }
+    }
+
+    /// Fetch appointments for a specific date
+    func fetchAppointments(forDate date: String) async throws -> [Appointment] {
+        let snapshot = try await db.collection("appointments")
+            .whereField("date", isEqualTo: date)
+            .getDocuments()
+        return snapshot.documents.compactMap {
+            try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
+        }
+    }
+
+    /// Fetch all appointments in a given month (format: "yyyy-MM")
+    func fetchAppointments(forMonth month: String) async throws -> [Appointment] {
+        let startDate = month + "-01"
+        // Calculate end of month
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        guard let start = formatter.date(from: startDate) else { return [] }
+        let calendar = Calendar.current
+        guard let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: start) else { return [] }
+        let endDate = formatter.string(from: endOfMonth)
+
+        return try await fetchAppointments(from: startDate, to: endDate)
     }
 }
 

@@ -44,6 +44,7 @@ struct HMSUser: Codable, Identifiable {
     var specialization: String?   // doctors only
     var employeeID: String?        // staff only
     var bloodGroup: String?        // patients only
+    var defaultSlots: [String]?    // doctors only — e.g. ["morning","afternoon","17:00-22:00"]
     var createdAt: Date?
     var isActive: Bool
 
@@ -148,4 +149,53 @@ struct LabTechnicianProfile: Codable, Identifiable {
         self.isActive    = true
         self.createdAt   = Date()
     }
+}
+
+// MARK: - Slot Status
+enum SlotStatus: String, Codable, CaseIterable {
+    case available   = "available"
+    case unavailable = "unavailable"
+    case booked      = "booked"
+
+    var displayName: String {
+        switch self {
+        case .available:   return "Available"
+        case .unavailable: return "Unavailable"
+        case .booked:      return "Booked"
+        }
+    }
+}
+
+// MARK: - Firestore `doctor_slots` Collection
+// Each document represents one time slot for a doctor on a specific date.
+// Document ID = auto-generated
+struct DoctorSlot: Codable, Identifiable {
+    var id: String
+    var doctorId: String                  // FK → users/{uid}
+    var doctorName: String
+    var department: String?
+    var date: String                       // "yyyy-MM-dd"
+    var startTime: String                  // "HH:mm"
+    var endTime: String                    // "HH:mm"
+    var status: SlotStatus
+    var createdAt: Date?
+    var updatedAt: Date?
+}
+
+// MARK: - Firestore `appointments` Collection
+// Each document represents a booked appointment.
+// Document ID = auto-generated
+struct Appointment: Codable, Identifiable {
+    var id: String
+    var slotId: String                     // FK → doctor_slots/{id}
+    var doctorId: String                   // FK → users/{uid}
+    var doctorName: String
+    var patientId: String                  // FK → users/{uid}
+    var patientName: String
+    var department: String?
+    var date: String                        // "yyyy-MM-dd"
+    var startTime: String
+    var endTime: String
+    var status: String                      // "scheduled", "completed", "cancelled"
+    var createdAt: Date?
 }

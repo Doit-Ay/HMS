@@ -16,6 +16,13 @@ struct EditStaffView: View {
     @State private var showError      = false
     @State private var showSuccess    = false
 
+    // Time Slot Selection (doctors only)
+    @State private var morningSelected    = false
+    @State private var afternoonSelected  = false
+    @State private var eveningSelected    = false
+    @State private var customSlots: [(start: Date, end: Date)] = []
+    @State private var showCustomPicker   = false
+
     init(staff: HMSUser, onUpdate: @escaping () -> Void) {
         self.staff = staff
         self.onUpdate = onUpdate
@@ -24,10 +31,49 @@ struct EditStaffView: View {
         _employeeID = State(initialValue: staff.employeeID ?? "")
         _department = State(initialValue: staff.department ?? "")
         _specialization = State(initialValue: staff.specialization ?? "")
+
+        // Parse existing defaultSlots
+        var morning = false, afternoon = false, evening = false
+        var customs: [(start: Date, end: Date)] = []
+        if let slots = staff.defaultSlots {
+            let f = DateFormatter(); f.dateFormat = "HH:mm"
+            for s in slots {
+                switch s {
+                case "morning":   morning = true
+                case "afternoon": afternoon = true
+                case "evening":   evening = true
+                default:
+                    let parts = s.split(separator: "-")
+                    if parts.count == 2,
+                       let start = f.date(from: String(parts[0])),
+                       let end = f.date(from: String(parts[1])) {
+                        customs.append((start: start, end: end))
+                    }
+                }
+            }
+        }
+        _morningSelected = State(initialValue: morning)
+        _afternoonSelected = State(initialValue: afternoon)
+        _eveningSelected = State(initialValue: evening)
+        _customSlots = State(initialValue: customs)
     }
 
     var formValid: Bool {
         !fullName.isEmpty
+    }
+
+    /// Build the defaultSlots array from selections
+    private var defaultSlotsArray: [String]? {
+        guard staff.role == .doctor else { return nil }
+        var slots: [String] = []
+        if morningSelected   { slots.append("morning") }
+        if afternoonSelected { slots.append("afternoon") }
+        if eveningSelected   { slots.append("evening") }
+        for custom in customSlots {
+            let f = DateFormatter(); f.dateFormat = "HH:mm"
+            slots.append("\(f.string(from: custom.start))-\(f.string(from: custom.end))")
+        }
+        return slots.isEmpty ? nil : slots
     }
 
     var body: some View {
@@ -110,6 +156,12 @@ struct EditStaffView: View {
                                 }
                             }
 
+                            // Time Slot Section (doctors only)
+                            if staff.role == .doctor {
+                                Divider().opacity(0.15)
+                                timeSlotSection
+                            }
+
                             // Save Button
                             Button {
                                 Task { await updateStaff() }
@@ -161,6 +213,107 @@ struct EditStaffView: View {
         }
     }
 
+    // MARK: - Time Slot Section
+    private var timeSlotSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Default Time Slots")
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundColor(AppTheme.primary)
+
+            Text("Select when this doctor is available by default")
+                .font(.system(size: 12, design: .rounded))
+                .foregroundColor(AppTheme.textSecondary)
+
+            // 3 preset chips
+            HStack(spacing: 10) {
+                SlotPresetChip(
+                    label: "Morning",
+                    time: "9 AM – 1 PM",
+                    icon: "sunrise.fill",
+                    isSelected: morningSelected
+                ) { morningSelected.toggle() }
+
+                SlotPresetChip(
+                    label: "Afternoon",
+                    time: "1 PM – 5 PM",
+                    icon: "sun.max.fill",
+                    isSelected: afternoonSelected
+                ) { afternoonSelected.toggle() }
+
+                SlotPresetChip(
+                    label: "Evening",
+                    time: "5 PM – 10 PM",
+                    icon: "moon.fill",
+                    isSelected: eveningSelected
+                ) { eveningSelected.toggle() }
+            }
+
+            // Custom slots
+            ForEach(customSlots.indices, id: \.self) { index in
+                HStack(spacing: 8) {
+                    Image(systemName: "clock.fill")
+                        .foregroundColor(AppTheme.primaryMid)
+                        .font(.system(size: 14))
+
+                    let f = DateFormatter()
+                    let _ = f.dateFormat = "h:mm a"
+                    Text("\(f.string(from: customSlots[index].start)) – \(f.string(from: customSlots[index].end))")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundColor(AppTheme.textPrimary)
+
+                    Spacer()
+
+                    Button {
+                        customSlots.remove(at: index)
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(AppTheme.error.opacity(0.6))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(AppTheme.primaryLight)
+                .cornerRadius(10)
+            }
+
+            // Add Custom button
+            Button {
+                showCustomPicker = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 14))
+                    Text("Add Custom Slot")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                }
+                .foregroundColor(AppTheme.primary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(AppTheme.primaryLight)
+                .cornerRadius(20)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(AppTheme.primary.opacity(0.3), lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+            .sheet(isPresented: $showCustomPicker) {
+                CustomSlotPickerSheet { start, end in
+                    customSlots.append((start: start, end: end))
+                }
+            }
+        }
+        .padding(14)
+        .background(Color.white.opacity(0.6))
+        .cornerRadius(14)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(AppTheme.primary.opacity(0.15), lineWidth: 1)
+        )
+    }
+
     // Custom Label + Field Combo
     private func hmsLabelAndField(_ label: String, icon: String, text: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -187,7 +340,8 @@ struct EditStaffView: View {
                 role: staff.role,
                 department: department.isEmpty ? nil : department,
                 specialization: specialization.isEmpty ? nil : specialization,
-                employeeID: employeeID.isEmpty ? nil : employeeID
+                employeeID: employeeID.isEmpty ? nil : employeeID,
+                defaultSlots: defaultSlotsArray
             )
             showSuccess = true
         } catch {

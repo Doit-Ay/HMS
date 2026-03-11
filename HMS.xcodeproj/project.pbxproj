@@ -16,7 +16,6 @@
 		3FB20DA92F5C6D32008B35EC /* FirebaseStorageCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 3FB20DA82F5C6D32008B35EC /* FirebaseStorageCombine-Community */; };
 		3FB20DAC2F5C6D9A008B35EC /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 3FB20DAB2F5C6D9A008B35EC /* GoogleSignIn */; };
 		3FB20DAE2F5C6D9A008B35EC /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 3FB20DAD2F5C6D9A008B35EC /* GoogleSignInSwift */; };
-		BE355F9C2F611269006FBBC8 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = BE355F9B2F611269006FBBC8 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -262,7 +261,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BE355F9C2F611269006FBBC8 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -446,6 +444,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2XF95KUMBG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = HMS/Info.plist;
@@ -479,6 +478,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2XF95KUMBG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = HMS/Info.plist;
