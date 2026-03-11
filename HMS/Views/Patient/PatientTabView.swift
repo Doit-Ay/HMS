@@ -89,7 +89,12 @@ struct PatientHomeView: View {
                                 GridItem(.flexible()),
                                 GridItem(.flexible())
                             ], spacing: 14) {
-                                PatientQuickAction(icon: "calendar.badge.plus",  title: "Book\nAppointment",  color: AppTheme.primary)
+                                // Book Appointment — navigates to doctor search
+                                NavigationLink(destination: DoctorSearchView()) {
+                                    PatientQuickActionLabel(icon: "calendar.badge.plus", title: "Book\nAppointment", color: AppTheme.primary)
+                                }
+                                .buttonStyle(.plain)
+
                                 PatientQuickAction(icon: "doc.text.fill",        title: "My\nRecords",        color: AppTheme.primaryMid)
                                 PatientQuickAction(icon: "pills.fill",           title: "Prescriptions",      color: AppTheme.primaryDark)
                                 PatientQuickAction(icon: "waveform.path.ecg",    title: "Health\nMonitor",    color: AppTheme.primary)
@@ -159,6 +164,35 @@ struct PatientQuickAction: View {
             .shadow(color: color.opacity(0.1), radius: 8, x: 0, y: 4)
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Patient Quick Action Label (for NavigationLink)
+struct PatientQuickActionLabel: View {
+    let icon: String
+    let title: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.15))
+                    .frame(width: 52, height: 52)
+                Image(systemName: icon)
+                    .font(.system(size: 24))
+                    .foregroundColor(color)
+            }
+            Text(title)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundColor(AppTheme.textPrimary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 18)
+        .background(Color.white.opacity(0.8))
+        .cornerRadius(18)
+        .shadow(color: color.opacity(0.1), radius: 8, x: 0, y: 4)
     }
 }
 

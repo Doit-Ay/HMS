@@ -1,11 +1,22 @@
 import SwiftUI
 
 struct DoctorAvailabilityView: View {
+    // Optional: when admin manages a specific doctor's availability
+    var overrideDoctorId: String? = nil
+    var doctorName: String? = nil
+    
+    @ObservedObject var session = UserSession.shared
     @State private var appearAnimation = false
     
     // Calendar State
     @State private var selectedDate: Date? = Date()
-    @State private var availabilityMap: [Date: DayAvailabilityState] = [:] // Real map of data
+    @State private var availabilityMap: [Date: DayAvailabilityState] = [:]
+    
+    // Tracks Firestore doc IDs for each date so we can delete/update
+    @State private var unavailabilityIDs: [Date: String] = [:]
+    
+    // Visible month for fetching
+    @State private var visibleMonth: Date = Date()
     
     // Bottom Panel State
     @State private var markAsSelection: DayAvailabilityState = .available
@@ -16,6 +27,24 @@ struct DoctorAvailabilityView: View {
     @State private var showToast = false
     @State private var showConflictAlert = false
     @State private var errorMessage: String? = nil
+    @State private var isSaving = false
+    @State private var isLoading = false
+    
+    private var currentDoctorId: String? {
+        overrideDoctorId ?? session.currentUser?.id
+    }
+    
+    private var headerTitle: String {
+        if let name = doctorName {
+            return "Dr. \(name)"
+        }
+        return "My Availability"
+    }
+    
+    private var visibleMonthString: String {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM"
+        return f.string(from: visibleMonth)
+    }
     
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -25,26 +54,51 @@ struct DoctorAvailabilityView: View {
                 
                 // 1. Header
                 HStack {
-                    ZStack {
-                        Circle()
-                            .fill(Color.white)
-                            .frame(width: 44, height: 44)
-                            .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(AppTheme.textPrimary)
-                    }
+                    // Left spacer for balance
+                    Color.clear.frame(width: 44, height: 44)
                     
                     Spacer()
                     
-                    Text("My Availability")
+                    Text(headerTitle)
                         .font(.system(size: 20, weight: .heavy, design: .rounded))
                         .foregroundColor(AppTheme.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                     
                     Spacer()
                     
-                    // Empty spacer to balance the massive chevron icon
-                    Color.clear.frame(width: 44, height: 44)
+                    // Save button — glass effect
+                    if selectedDate != nil {
+                        Button(action: handleSaveRequest) {
+                            if isSaving {
+                                ProgressView()
+                                    .tint(AppTheme.primary)
+                                    .frame(width: 60, height: 36)
+                            } else {
+                                Text("Save")
+                                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                                    .foregroundColor(AppTheme.primary)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        ZStack {
+                                            Color.white.opacity(0.35)
+                                            AppTheme.primary.opacity(0.08)
+                                        }
+                                    )
+                                    .background(.ultraThinMaterial)
+                                    .cornerRadius(20)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 20)
+                                            .stroke(AppTheme.primary.opacity(0.3), lineWidth: 1)
+                                    )
+                                    .shadow(color: AppTheme.primary.opacity(0.15), radius: 8, x: 0, y: 4)
+                            }
+                        }
+                        .disabled(isSaving)
+                    } else {
+                        Color.clear.frame(width: 44, height: 44)
+                    }
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 16)
@@ -54,6 +108,17 @@ struct DoctorAvailabilityView: View {
                 // Scrollable Content
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
+                        
+                        // Loading indicator
+                        if isLoading {
+                            HStack {
+                                Spacer()
+                                ProgressView("Loading availability...")
+                                    .tint(AppTheme.primary)
+                                Spacer()
+                            }
+                            .padding(.top, 20)
+                        }
                         
                         // 2. Calendar
                         AvailabilityCalendarView(
@@ -91,7 +156,7 @@ struct DoctorAvailabilityView: View {
                             }
                             .padding(.top, 8)
                             .padding(.horizontal, 24)
-                            .padding(.bottom, 100) // Space for floating Save button
+                            .padding(.bottom, 24)
                         } else {
                             // Blank state when no date is picked
                             VStack(spacing: 12) {
@@ -110,36 +175,14 @@ struct DoctorAvailabilityView: View {
             } // End of Main VStack
             .opacity(appearAnimation ? 1 : 0)
             
-            // 5. Bottom Save CTA
-            if selectedDate != nil {
-                VStack(spacing: 8) {
-                    // Error hint text
-                    if let error = errorMessage {
-                        Text(error)
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
-                            .foregroundColor(.red)
-                            .transition(.opacity)
-                    }
-                    
-                    Button(action: handleSaveRequest) {
-                        Text("Save Changes")
-                            .font(.system(size: 16, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(AppTheme.primary)
-                            .cornerRadius(16)
-                            .shadow(color: AppTheme.primary.opacity(0.3), radius: 8, x: 0, y: 4)
-                    }
-                }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 24)
-                // Add tiny white gradient behind button so it doesn't overlap text when scrolling
-                .background(
-                    LinearGradient(colors: [AppTheme.background.opacity(0), AppTheme.background, AppTheme.background], startPoint: .top, endPoint: .bottom)
-                        .ignoresSafeArea()
-                )
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+            // Error message (shown inline above toast area)
+            if let error = errorMessage {
+                Text(error)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundColor(.red)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 8)
+                    .transition(.opacity)
             }
             
             // 6. Success Toast
@@ -156,7 +199,7 @@ struct DoctorAvailabilityView: View {
                 .background(Color.green)
                 .clipShape(Capsule())
                 .shadow(color: Color.green.opacity(0.4), radius: 8, x: 0, y: 4)
-                .padding(.bottom, 100)
+                .padding(.bottom, 40)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
@@ -164,55 +207,156 @@ struct DoctorAvailabilityView: View {
             withAnimation(.easeOut(duration: 0.6)) {
                 appearAnimation = true
             }
-            // Seed fake data to prove UI
-            let today = Calendar.current.startOfDay(for: Date())
-            availabilityMap[today.addingTimeInterval(86400 * 3)] = .halfDay
+            loadUnavailability()
         }
         // Conflict Alert Modal
         .alert(isPresented: $showConflictAlert) {
             Alert(
                 title: Text("Conflict Detected"),
-                message: Text("You have 2 appointments on this day. Marking unavailable will notify patients."),
+                message: Text("You have appointments on this day. Marking unavailable will notify patients."),
                 primaryButton: .destructive(Text("Mark Anyway")) { executeSave() },
                 secondaryButton: .cancel()
             )
         }
     }
     
-    // Safety check flow
+    // MARK: - Load Unavailability from Firestore
+
+    private func loadUnavailability() {
+        guard let doctorId = currentDoctorId else { return }
+        isLoading = true
+        
+        Task {
+            do {
+                let entries = try await AuthManager.shared.fetchUnavailability(
+                    doctorId: doctorId,
+                    month: visibleMonthString
+                )
+                
+                let calendar = Calendar.current
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy-MM-dd"
+                
+                var newMap: [Date: DayAvailabilityState] = [:]
+                var newIDs: [Date: String] = [:]
+                
+                for entry in entries {
+                    guard let date = dateFormatter.date(from: entry.date) else { continue }
+                    let startOfDay = calendar.startOfDay(for: date)
+                    
+                    switch entry.type {
+                    case "unavailable":
+                        newMap[startOfDay] = .unavailable
+                    case "halfDay":
+                        newMap[startOfDay] = .halfDay
+                    default:
+                        break
+                    }
+                    newIDs[startOfDay] = entry.id
+                }
+                
+                withAnimation {
+                    availabilityMap = newMap
+                    unavailabilityIDs = newIDs
+                }
+                
+                // Sync toggle for currently selected date
+                if let selected = selectedDate {
+                    let startOfDay = calendar.startOfDay(for: selected)
+                    markAsSelection = availabilityMap[startOfDay] ?? .available
+                }
+            } catch {
+                print("⚠️ Availability fetch error: \(error.localizedDescription)")
+                // Don't show raw Firestore index errors to users
+                withAnimation { errorMessage = "Unable to load availability. Please try again." }
+            }
+            isLoading = false
+        }
+    }
+    
+    // MARK: - Save Flow
+    
     private func handleSaveRequest() {
-        guard let date = selectedDate else {
+        guard selectedDate != nil else {
             withAnimation { errorMessage = "Please select a date first" }
             return
         }
         errorMessage = nil
-        
-        // Simulating a conflict check (Random 1-in-5 chance to pop conflict alert just for UX demo)
-        let isSimulatedConflict = arc4random_uniform(5) == 0 && markAsSelection != .available
-        
-        if isSimulatedConflict {
-            showConflictAlert = true
-        } else {
-            executeSave()
-        }
+        executeSave()
     }
     
-    // Final commit flow
     private func executeSave() {
-        if let date = selectedDate {
-            let startOfDay = Calendar.current.startOfDay(for: date)
-            availabilityMap[startOfDay] = markAsSelection
-            
-            // Trigger toast
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                showToast = true
-            }
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                withAnimation {
-                    showToast = false
+        guard let date = selectedDate, let doctorId = currentDoctorId else { return }
+        
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let dateString = dateFormatter.string(from: date)
+        
+        isSaving = true
+        
+        Task {
+            do {
+                switch markAsSelection {
+                case .available:
+                    // Remove any existing unavailability entry for this date
+                    try await AuthManager.shared.deleteUnavailability(
+                        doctorId: doctorId, date: dateString
+                    )
+                    withAnimation {
+                        availabilityMap.removeValue(forKey: startOfDay)
+                        unavailabilityIDs.removeValue(forKey: startOfDay)
+                    }
+                    
+                case .unavailable:
+                    let entryId = unavailabilityIDs[startOfDay] ?? UUID().uuidString
+                    let entry = DoctorUnavailability(
+                        id: entryId,
+                        doctorId: doctorId,
+                        date: dateString,
+                        type: "unavailable",
+                        startTime: nil,
+                        endTime: nil,
+                        createdAt: Date()
+                    )
+                    try await AuthManager.shared.saveUnavailability(entry)
+                    withAnimation {
+                        availabilityMap[startOfDay] = .unavailable
+                        unavailabilityIDs[startOfDay] = entryId
+                    }
+                    
+                case .halfDay:
+                    let timeFormatter = DateFormatter()
+                    timeFormatter.dateFormat = "HH:mm"
+                    let entryId = unavailabilityIDs[startOfDay] ?? UUID().uuidString
+                    let entry = DoctorUnavailability(
+                        id: entryId,
+                        doctorId: doctorId,
+                        date: dateString,
+                        type: "halfDay",
+                        startTime: timeFormatter.string(from: startTime),
+                        endTime: timeFormatter.string(from: endTime),
+                        createdAt: Date()
+                    )
+                    try await AuthManager.shared.saveUnavailability(entry)
+                    withAnimation {
+                        availabilityMap[startOfDay] = .halfDay
+                        unavailabilityIDs[startOfDay] = entryId
+                    }
                 }
+                
+                // Show success toast
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    showToast = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                    withAnimation { showToast = false }
+                }
+            } catch {
+                withAnimation { errorMessage = error.localizedDescription }
             }
+            isSaving = false
         }
     }
 }

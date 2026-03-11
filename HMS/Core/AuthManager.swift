@@ -253,10 +253,15 @@ class AuthManager {
             break
         }
 
-        // Step 5 — Clean up: sign out of secondary auth
+        // Step 5 — Auto-generate doctor_slots for the next 7 days (doctors only)
+        if role == .doctor && defaultSlots != nil {
+            try await generateDefaultSlotsForWeek(for: staff)
+        }
+
+        // Step 6 — Clean up: sign out of secondary auth
         try? secondaryAuth.signOut()
 
-        // Step 6 — Send password reset email
+        // Step 7 — Send password reset email
         try await Auth.auth().sendPasswordReset(withEmail: email)
     }
 
@@ -495,7 +500,218 @@ class AuthManager {
 
         return try await fetchAppointments(from: startDate, to: endDate)
     }
+
+    // MARK: - Doctor Unavailability Management
+
+    /// Save or update a doctor unavailability entry
+    func saveUnavailability(_ entry: DoctorUnavailability) async throws {
+        let data = try Firestore.Encoder().encode(entry)
+        try await db.collection("doctor_unavailability").document(entry.id).setData(data, merge: true)
+    }
+
+    /// Fetch all unavailability entries for a doctor in a given month (format: "yyyy-MM")
+    func fetchUnavailability(doctorId: String, month: String) async throws -> [DoctorUnavailability] {
+        let startDate = month + "-01"
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        guard let start = formatter.date(from: startDate) else { return [] }
+        let calendar = Calendar.current
+        guard let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: start) else { return [] }
+        let endDate = formatter.string(from: endOfMonth)
+
+        // Query by doctorId only (single field — no composite index needed)
+        // then filter by date range client-side
+        let snapshot = try await db.collection("doctor_unavailability")
+            .whereField("doctorId", isEqualTo: doctorId)
+            .getDocuments()
+        return snapshot.documents.compactMap {
+            try? Firestore.Decoder().decode(DoctorUnavailability.self, from: $0.data())
+        }.filter { $0.date >= startDate && $0.date <= endDate }
+    }
+
+    /// Delete an unavailability entry (when doctor marks day as available again)
+    func deleteUnavailability(id: String) async throws {
+        try await db.collection("doctor_unavailability").document(id).delete()
+    }
+
+    /// Delete unavailability for a specific doctor on a specific date
+    func deleteUnavailability(doctorId: String, date: String) async throws {
+        let snapshot = try await db.collection("doctor_unavailability")
+            .whereField("doctorId", isEqualTo: doctorId)
+            .whereField("date", isEqualTo: date)
+            .getDocuments()
+        for doc in snapshot.documents {
+            try await doc.reference.delete()
+        }
+    }
+
+    // MARK: - Default Slot Generation
+
+    /// Generate DoctorSlot documents from a doctor's defaultSlots array for a specific date
+    func generateDefaultSlots(for doctor: HMSUser, on date: String) async throws {
+        guard let defaults = doctor.defaultSlots, !defaults.isEmpty else { return }
+
+        for slotLabel in defaults {
+            let (start, end) = slotTimeRange(for: slotLabel)
+            let slot = DoctorSlot(
+                id: UUID().uuidString,
+                doctorId: doctor.id,
+                doctorName: doctor.fullName,
+                department: doctor.department,
+                date: date,
+                startTime: start,
+                endTime: end,
+                status: .available,
+                createdAt: Date(),
+                updatedAt: Date()
+            )
+            try await addDoctorSlot(slot)
+        }
+    }
+
+    /// Generate default slots for multiple days (e.g. next 7 days after doctor creation)
+    func generateDefaultSlotsForWeek(for doctor: HMSUser) async throws {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        let calendar = Calendar.current
+
+        for dayOffset in 0..<7 {
+            guard let futureDate = calendar.date(byAdding: .day, value: dayOffset, to: Date()) else { continue }
+            let dateString = formatter.string(from: futureDate)
+            try await generateDefaultSlots(for: doctor, on: dateString)
+        }
+    }
+
+    /// Map a slot label to start/end time strings
+    private func slotTimeRange(for label: String) -> (start: String, end: String) {
+        switch label.lowercased() {
+        case "morning":   return ("09:00", "13:00")
+        case "afternoon": return ("13:00", "17:00")
+        case "evening":   return ("17:00", "22:00")
+        default:
+            // Custom format: "HH:mm-HH:mm"
+            let parts = label.split(separator: "-").map(String.init)
+            if parts.count == 2 {
+                return (parts[0].trimmingCharacters(in: .whitespaces),
+                        parts[1].trimmingCharacters(in: .whitespaces))
+            }
+            return ("09:00", "10:00") // fallback
+        }
+    }
+
+    // MARK: - Patient Appointment Booking
+
+    /// Generate 30-min slot chunks from a doctor's defaultSlots, filtering out unavailable time ranges
+    func generate30MinSlots(
+        from defaultSlots: [String],
+        unavailability: DoctorUnavailability?,
+        bookedSlots: [DoctorSlot]
+    ) -> [(start: String, end: String, isBooked: Bool)] {
+        var allChunks: [(start: String, end: String, isBooked: Bool)] = []
+
+        for label in defaultSlots {
+            let (rangeStart, rangeEnd) = slotTimeRange(for: label)
+            // Split into 30-min chunks
+            var current = rangeStart
+            while current < rangeEnd {
+                let next = add30Min(to: current)
+                if next <= rangeEnd {
+                    var isBooked = false
+                    // Check if this chunk is already booked
+                    for booked in bookedSlots {
+                        if booked.startTime == current && booked.endTime == next && booked.status == .booked {
+                            isBooked = true
+                            break
+                        }
+                    }
+                    allChunks.append((start: current, end: next, isBooked: isBooked))
+                }
+                current = next
+            }
+        }
+
+        // Filter out unavailable time ranges
+        if let unav = unavailability {
+            if unav.type == "unavailable" {
+                return [] // whole day off
+            }
+            if unav.type == "halfDay", let uStart = unav.startTime, let uEnd = unav.endTime {
+                allChunks = allChunks.filter { chunk in
+                    // Remove chunks that overlap with unavailability
+                    !(chunk.start >= uStart && chunk.start < uEnd)
+                }
+            }
+        }
+
+        return allChunks
+    }
+
+    /// Add 30 minutes to a "HH:mm" time string
+    private func add30Min(to time: String) -> String {
+        let parts = time.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2 else { return time }
+        var hour = parts[0]
+        var minute = parts[1] + 30
+        if minute >= 60 {
+            minute -= 60
+            hour += 1
+        }
+        return String(format: "%02d:%02d", hour, minute)
+    }
+
+    /// Book an appointment — creates Appointment doc and marks/creates slot as booked
+    func bookAppointment(_ appointment: Appointment) async throws {
+        // 1. Save the appointment
+        let data = try Firestore.Encoder().encode(appointment)
+        try await db.collection("appointments").document(appointment.id).setData(data)
+
+        // 2. Create or update the slot as booked
+        let slot = DoctorSlot(
+            id: appointment.slotId,
+            doctorId: appointment.doctorId,
+            doctorName: appointment.doctorName,
+            department: appointment.department,
+            date: appointment.date,
+            startTime: appointment.startTime,
+            endTime: appointment.endTime,
+            status: .booked,
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+        let slotData = try Firestore.Encoder().encode(slot)
+        try await db.collection("doctor_slots").document(slot.id).setData(slotData, merge: true)
+    }
+
+    /// Fetch appointments for a specific doctor on a given date
+    func fetchDoctorAppointments(doctorId: String, date: String) async throws -> [Appointment] {
+        let snapshot = try await db.collection("appointments")
+            .whereField("doctorId", isEqualTo: doctorId)
+            .whereField("date", isEqualTo: date)
+            .getDocuments()
+        return snapshot.documents.compactMap {
+            try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
+        }.sorted { $0.startTime < $1.startTime }
+    }
+
+    /// Fetch appointments for the logged-in patient
+    func fetchPatientAppointments(patientId: String) async throws -> [Appointment] {
+        let snapshot = try await db.collection("appointments")
+            .whereField("patientId", isEqualTo: patientId)
+            .getDocuments()
+        return snapshot.documents.compactMap {
+            try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
+        }.sorted { $0.date < $1.date }
+    }
+
+    /// Fetch a single doctor's HMSUser record
+    func fetchDoctor(id: String) async throws -> HMSUser? {
+        let doc = try await db.collection("users").document(id).getDocument()
+        guard doc.exists else { return nil }
+        return try? Firestore.Decoder().decode(HMSUser.self, from: doc.data() ?? [:])
+    }
 }
+
+
 
 // MARK: - Auth Errors
 enum AuthError: LocalizedError {

@@ -39,7 +39,6 @@
 		3FB20D3F2F5BEF56008B35EC /* HMS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HMS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3FB20D4C2F5BEF58008B35EC /* HMSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HMSTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3FB20D562F5BEF58008B35EC /* HMSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HMSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		BE355F9B2F611269006FBBC8 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -110,7 +109,6 @@
 		3FB20D362F5BEF56008B35EC = {
 			isa = PBXGroup;
 			children = (
-				BE355F9B2F611269006FBBC8 /* GoogleService-Info.plist */,
 				3FB20D412F5BEF56008B35EC /* HMS */,
 				3FB20D4F2F5BEF58008B35EC /* HMSTests */,
 				3FB20D592F5BEF58008B35EC /* HMSUITests */,

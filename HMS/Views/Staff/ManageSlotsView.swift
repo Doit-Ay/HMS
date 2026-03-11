@@ -60,7 +60,12 @@ struct ManageSlotsView: View {
         }
         .sheet(isPresented: $showSlotOverlay) {
             if let doctor = selectedDoctor {
-                DoctorSlotOverlay(doctor: doctor)
+                NavigationStack {
+                    DoctorAvailabilityView(
+                        overrideDoctorId: doctor.id,
+                        doctorName: doctor.fullName
+                    )
+                }
             }
         }
         .task {

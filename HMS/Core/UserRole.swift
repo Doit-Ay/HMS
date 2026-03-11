@@ -199,3 +199,16 @@ struct Appointment: Codable, Identifiable {
     var status: String                      // "scheduled", "completed", "cancelled"
     var createdAt: Date?
 }
+
+// MARK: - Firestore `doctor_unavailability` Collection
+// Each document represents a day-level unavailability entry for a doctor.
+// Document ID = auto-generated UUID
+struct DoctorUnavailability: Codable, Identifiable {
+    var id: String                      // auto-generated UUID
+    var doctorId: String                // FK → users/{uid}
+    var date: String                    // "yyyy-MM-dd"
+    var type: String                    // "unavailable" | "halfDay"
+    var startTime: String?             // only for halfDay, "HH:mm"
+    var endTime: String?               // only for halfDay, "HH:mm"
+    var createdAt: Date?
+}
