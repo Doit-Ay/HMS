@@ -5,18 +5,14 @@ enum UserRole: String, Codable, CaseIterable {
     case patient       = "patient"
     case admin         = "admin"
     case doctor        = "doctor"
-    case nurse         = "nurse"
     case labTechnician = "lab_technician"
-    case pharmacist    = "pharmacist"
 
     var displayName: String {
         switch self {
         case .patient:       return "Patient"
         case .admin:         return "Admin"
         case .doctor:        return "Doctor"
-        case .nurse:         return "Nurse"
         case .labTechnician: return "Lab Technician"
-        case .pharmacist:    return "Pharmacist"
         }
     }
 
@@ -25,9 +21,7 @@ enum UserRole: String, Codable, CaseIterable {
         case .patient:       return "person.circle.fill"
         case .admin:         return "shield.checkered"
         case .doctor:        return "stethoscope.circle.fill"
-        case .nurse:         return "cross.case.fill"
         case .labTechnician: return "flask.fill"
-        case .pharmacist:    return "pills.fill"
         }
     }
 
@@ -50,6 +44,7 @@ struct HMSUser: Codable, Identifiable {
     var specialization: String?   // doctors only
     var employeeID: String?        // staff only
     var bloodGroup: String?        // patients only
+    var defaultSlots: [String]?    // doctors only — e.g. ["morning","afternoon","17:00-22:00"]
     var createdAt: Date?
     var isActive: Bool
 
@@ -92,4 +87,115 @@ struct PatientProfile: Codable, Identifiable {
         self.isActive    = true
         self.createdAt   = Date()
     }
+}
+
+// MARK: - Firestore `doctors` Collection
+// Doctor-specific professional details stored separately.
+// Document ID = same Firebase Auth UID   →   users/{uid} ←→ doctors/{uid}
+struct DoctorProfile: Codable, Identifiable {
+    var id: String                      // Auth UID — foreign key to users/{id}
+    var email: String
+    var fullName: String
+    var phoneNumber: String?
+    var dateOfBirth: String?
+    var gender: String?
+    var department: String?
+    var specialization: String?
+    var employeeID: String?
+    var licenseNumber: String?
+    var qualifications: [String]?
+    var createdAt: Date?
+    var isActive: Bool
+
+    /// Convenience init — copies basic fields from HMSUser
+    init(from user: HMSUser) {
+        self.id             = user.id
+        self.email          = user.email
+        self.fullName       = user.fullName
+        self.phoneNumber    = user.phoneNumber
+        self.department     = user.department
+        self.specialization = user.specialization
+        self.employeeID     = user.employeeID
+        self.isActive       = true
+        self.createdAt      = Date()
+    }
+}
+
+// MARK: - Firestore `lab_technicians` Collection
+// Lab Technician-specific professional details stored separately.
+// Document ID = same Firebase Auth UID   →   users/{uid} ←→ lab_technicians/{uid}
+struct LabTechnicianProfile: Codable, Identifiable {
+    var id: String                      // Auth UID — foreign key to users/{id}
+    var email: String
+    var fullName: String
+    var phoneNumber: String?
+    var dateOfBirth: String?
+    var gender: String?
+    var department: String?
+    var employeeID: String?
+    var certifications: [String]?
+    var labSection: String?
+    var createdAt: Date?
+    var isActive: Bool
+
+    /// Convenience init — copies basic fields from HMSUser
+    init(from user: HMSUser) {
+        self.id          = user.id
+        self.email       = user.email
+        self.fullName    = user.fullName
+        self.phoneNumber = user.phoneNumber
+        self.department  = user.department
+        self.employeeID  = user.employeeID
+        self.isActive    = true
+        self.createdAt   = Date()
+    }
+}
+
+// MARK: - Slot Status
+enum SlotStatus: String, Codable, CaseIterable {
+    case available   = "available"
+    case unavailable = "unavailable"
+    case booked      = "booked"
+
+    var displayName: String {
+        switch self {
+        case .available:   return "Available"
+        case .unavailable: return "Unavailable"
+        case .booked:      return "Booked"
+        }
+    }
+}
+
+// MARK: - Firestore `doctor_slots` Collection
+// Each document represents one time slot for a doctor on a specific date.
+// Document ID = auto-generated
+struct DoctorSlot: Codable, Identifiable {
+    var id: String
+    var doctorId: String                  // FK → users/{uid}
+    var doctorName: String
+    var department: String?
+    var date: String                       // "yyyy-MM-dd"
+    var startTime: String                  // "HH:mm"
+    var endTime: String                    // "HH:mm"
+    var status: SlotStatus
+    var createdAt: Date?
+    var updatedAt: Date?
+}
+
+// MARK: - Firestore `appointments` Collection
+// Each document represents a booked appointment.
+// Document ID = auto-generated
+struct Appointment: Codable, Identifiable {
+    var id: String
+    var slotId: String                     // FK → doctor_slots/{id}
+    var doctorId: String                   // FK → users/{uid}
+    var doctorName: String
+    var patientId: String                  // FK → users/{uid}
+    var patientName: String
+    var department: String?
+    var date: String                        // "yyyy-MM-dd"
+    var startTime: String
+    var endTime: String
+    var status: String                      // "scheduled", "completed", "cancelled"
+    var createdAt: Date?
 }

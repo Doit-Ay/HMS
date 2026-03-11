@@ -36,9 +36,7 @@ struct StaffTabView: View {
     private var roleIcon: String {
         switch role {
         case .doctor:        return "stethoscope.circle.fill"
-        case .nurse:         return "cross.case.fill"
         case .labTechnician: return "flask.fill"
-        case .pharmacist:    return "pills.fill"
         default:             return "person.fill"
         }
     }
@@ -53,9 +51,7 @@ struct StaffDashboardView: View {
     var roleColor: Color {
         switch role {
         case .doctor:        return AppTheme.primary
-        case .nurse:         return AppTheme.primaryMid
         case .labTechnician: return AppTheme.primaryDark
-        case .pharmacist:    return Color(hex: "#4ECDC4")
         default:             return AppTheme.primary
         }
     }
@@ -69,26 +65,12 @@ struct StaffDashboardView: View {
                 ("doc.text.fill",        "Prescriptions"),
                 ("waveform.path.ecg",    "Reports")
             ]
-        case .nurse:
-            return [
-                ("bell.fill",             "Patient Alerts"),
-                ("cross.case.fill",       "Ward Rounds"),
-                ("syringe.fill",          "Medications"),
-                ("list.clipboard.fill",   "Tasks")
-            ]
         case .labTechnician:
             return [
                 ("flask.fill",            "Lab Tests"),
                 ("doc.text.fill",         "Reports"),
                 ("tray.fill",             "Samples"),
                 ("chart.bar.fill",        "Results")
-            ]
-        case .pharmacist:
-            return [
-                ("pills.fill",            "Inventory"),
-                ("doc.fill",              "Prescriptions"),
-                ("cart.fill",             "Dispense"),
-                ("clock.fill",            "Due Today")
             ]
         default:
             return []

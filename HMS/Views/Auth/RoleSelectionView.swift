@@ -57,7 +57,7 @@ struct RoleSelectionView: View {
 
                         RoleCard(
                             title: "Staff",
-                            subtitle: "Doctors, nurses & administration",
+                            subtitle: "Doctors, lab technicians & administration",
                             icon: "cross.case.fill",
                             color: AppTheme.primaryMid,
                             delay: 0.2

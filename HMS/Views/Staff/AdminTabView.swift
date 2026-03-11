@@ -15,9 +15,13 @@ struct AdminTabView: View {
                 .tabItem { Label("Staff", systemImage: "person.3.fill") }
                 .tag(1)
 
+            AppointmentStatsView()
+                .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
+                .tag(2)
+
             NavigationStack { ProfileView() }
                 .tabItem { Label("Profile", systemImage: "person.circle.fill") }
-                .tag(2)
+                .tag(3)
         }
         .tint(AppTheme.primary)
     }
@@ -31,9 +35,7 @@ struct AdminDashboardView: View {
 
     let roleStats: [(String, String, Color)] = [
         ("Doctors",          "stethoscope.circle.fill", AppTheme.primary),
-        ("Nurses",           "cross.case.fill",          AppTheme.primaryMid),
         ("Lab Technicians",  "flask.fill",               AppTheme.primaryDark),
-        ("Pharmacists",      "pills.fill",               Color(hex: "#4ECDC4")),
     ]
 
     var body: some View {
@@ -93,6 +95,41 @@ struct AdminDashboardView: View {
                             }
                             .padding(.horizontal, 20)
                         }
+
+                        // Manage Slots Card
+                        NavigationLink(destination: ManageSlotsView()) {
+                            HStack(spacing: 14) {
+                                ZStack {
+                                    Circle()
+                                        .fill(AppTheme.primary.opacity(0.12))
+                                        .frame(width: 48, height: 48)
+                                    Image(systemName: "calendar.badge.clock")
+                                        .font(.system(size: 22))
+                                        .foregroundColor(AppTheme.primary)
+                                }
+
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Manage Slots")
+                                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                                        .foregroundColor(AppTheme.textPrimary)
+                                    Text("Update doctor availability & time slots")
+                                        .font(.system(size: 12, design: .rounded))
+                                        .foregroundColor(AppTheme.textSecondary)
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(AppTheme.textSecondary.opacity(0.5))
+                            }
+                            .padding(18)
+                            .background(Color.white.opacity(0.85))
+                            .cornerRadius(18)
+                            .shadow(color: AppTheme.primary.opacity(0.08), radius: 8, x: 0, y: 3)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 20)
 
                         Spacer(minLength: 30)
                     }
@@ -195,7 +232,7 @@ struct StaffManagementView: View {
                     } else {
                         List {
                             ForEach(filteredStaff) { staff in
-                                StaffRowView(staff: staff) { deactivate(staff) }
+                                 StaffRowView(staff: staff, onUpdate: { fetchStaff() }, onDeactivate: { deactivate(staff) })
                             }
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
@@ -234,7 +271,10 @@ struct StaffManagementView: View {
         isLoading = true
         Task {
             do {
-                staffList = try await AuthManager.shared.fetchStaffMembers()
+                let list = try await AuthManager.shared.fetchStaffMembers()
+                withAnimation(.spring()) {
+                    staffList = list
+                }
             } catch {
                 errorMessage = error.localizedDescription
                 showError = true
@@ -259,8 +299,10 @@ struct StaffManagementView: View {
 // MARK: - Staff Row View
 struct StaffRowView: View {
     let staff: HMSUser
+    let onUpdate: () -> Void
     let onDeactivate: () -> Void
     @State private var showConfirm = false
+    @State private var showEdit    = false
 
     var body: some View {
         HStack(spacing: 14) {
@@ -286,7 +328,7 @@ struct StaffRowView: View {
                         .foregroundColor(AppTheme.primaryMid)
                 }
             }
-
+            
             Spacer()
 
             if staff.isActive {
@@ -314,15 +356,29 @@ struct StaffRowView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 4)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button(role: .destructive) {
+            Button {
                 showConfirm = true
             } label: {
                 Label("Deactivate", systemImage: "person.fill.xmark")
             }
+            .tint(.red)
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            Button {
+                showEdit = true
+            } label: {
+                Label("Edit", systemImage: "pencil.line")
+            }
+            .tint(AppTheme.primaryMid)
         }
         .confirmationDialog("Deactivate \(staff.fullName)?", isPresented: $showConfirm, titleVisibility: .visible) {
             Button("Deactivate", role: .destructive) { onDeactivate() }
             Button("Cancel", role: .cancel) {}
+        }
+        .sheet(isPresented: $showEdit) {
+            EditStaffView(staff: staff) {
+                onUpdate()
+            }
         }
     }
 }
