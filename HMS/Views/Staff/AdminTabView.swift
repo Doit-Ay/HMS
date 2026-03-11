@@ -193,7 +193,7 @@ struct StaffManagementView: View {
                     } else {
                         List {
                             ForEach(filteredStaff) { staff in
-                                StaffRowView(staff: staff) { deactivate(staff) }
+                                 StaffRowView(staff: staff, onUpdate: { fetchStaff() }, onDeactivate: { deactivate(staff) })
                             }
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
@@ -232,7 +232,10 @@ struct StaffManagementView: View {
         isLoading = true
         Task {
             do {
-                staffList = try await AuthManager.shared.fetchStaffMembers()
+                let list = try await AuthManager.shared.fetchStaffMembers()
+                withAnimation(.spring()) {
+                    staffList = list
+                }
             } catch {
                 errorMessage = error.localizedDescription
                 showError = true
@@ -257,8 +260,10 @@ struct StaffManagementView: View {
 // MARK: - Staff Row View
 struct StaffRowView: View {
     let staff: HMSUser
+    let onUpdate: () -> Void
     let onDeactivate: () -> Void
     @State private var showConfirm = false
+    @State private var showEdit    = false
 
     var body: some View {
         HStack(spacing: 14) {
@@ -284,7 +289,7 @@ struct StaffRowView: View {
                         .foregroundColor(AppTheme.primaryMid)
                 }
             }
-
+            
             Spacer()
 
             if staff.isActive {
@@ -312,15 +317,29 @@ struct StaffRowView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 4)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button(role: .destructive) {
+            Button {
                 showConfirm = true
             } label: {
                 Label("Deactivate", systemImage: "person.fill.xmark")
             }
+            .tint(.red)
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            Button {
+                showEdit = true
+            } label: {
+                Label("Edit", systemImage: "pencil.line")
+            }
+            .tint(AppTheme.primaryMid)
         }
         .confirmationDialog("Deactivate \(staff.fullName)?", isPresented: $showConfirm, titleVisibility: .visible) {
             Button("Deactivate", role: .destructive) { onDeactivate() }
             Button("Cancel", role: .cancel) {}
+        }
+        .sheet(isPresented: $showEdit) {
+            EditStaffView(staff: staff) {
+                onUpdate()
+            }
         }
     }
 }

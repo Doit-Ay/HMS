@@ -72,9 +72,9 @@ class AuthManager {
                 fullName: googleUser.displayName ?? "Patient",
                 role: .patient
             )
-            try await saveUserToFirestore(user: newUser)
+            try await saveUserToFirestore(user: newUser, db: nil)
             let patientProfile = PatientProfile(from: newUser)
-            try await savePatientProfile(profile: patientProfile)
+            try await savePatientProfile(profile: patientProfile, db: nil)
             UserSession.shared.setUser(newUser)
         }
         // Existing users (patient or staff) — already fetched in googleSignIn helper
@@ -119,12 +119,12 @@ class AuthManager {
         user.phoneNumber = phone
 
         // 1. Save to `users` collection (role assignment)
-        try await saveUserToFirestore(user: user)
+        try await saveUserToFirestore(user: user, db: nil)
 
         // 2. Save to `patients` collection (patient profile)
         var patientProfile = PatientProfile(from: user)
         patientProfile.phoneNumber = phone
-        try await savePatientProfile(profile: patientProfile)
+        try await savePatientProfile(profile: patientProfile, db: nil)
 
         UserSession.shared.setUser(user)
     }
@@ -142,10 +142,10 @@ class AuthManager {
                 role: .patient
             )
             // 1. Save to `users` collection
-            try await saveUserToFirestore(user: newUser)
+            try await saveUserToFirestore(user: newUser, db: nil)
             // 2. Save to `patients` collection
             let patientProfile = PatientProfile(from: newUser)
-            try await savePatientProfile(profile: patientProfile)
+            try await savePatientProfile(profile: patientProfile, db: nil)
             UserSession.shared.setUser(newUser)
         } else if UserSession.shared.userRole != .patient {
             try Auth.auth().signOut()
@@ -229,29 +229,34 @@ class AuthManager {
         let tempPassword = generateTempPassword()
         let result = try await secondaryAuth.createUser(withEmail: email, password: tempPassword)
 
-        // Step 3 — Sign out of secondary auth immediately (cleanup)
-        try? secondaryAuth.signOut()
-
-        // Step 4 — Save to `users` Firestore collection (admin's db connection is unaffected)
+        // Step 3 — Save to `users` Firestore collection using SECONDARY app context
+        // This is key: the new user is signed into secondaryAuth, so they have permissions
+        // to write their own document in the secondary Firestore instance.
+        let secondaryDB = Firestore.firestore(app: secondaryApp)
+        
         var staff = HMSUser(id: result.user.uid, email: email, fullName: fullName, role: role)
         staff.department     = department
         staff.specialization = specialization
         staff.employeeID     = employeeID
-        try await saveUserToFirestore(user: staff)
+        
+        try await saveUserToFirestore(user: staff, db: secondaryDB)
 
-        // Step 5 — Save to role-specific collection (doctor / lab technician)
+        // Step 4 — Save to role-specific collection using secondary DB
         switch role {
         case .doctor:
             let doctorProfile = DoctorProfile(from: staff)
-            try await saveDoctorProfile(profile: doctorProfile)
+            try await saveDoctorProfile(profile: doctorProfile, db: secondaryDB)
         case .labTechnician:
             let labTechProfile = LabTechnicianProfile(from: staff)
-            try await saveLabTechnicianProfile(profile: labTechProfile)
+            try await saveLabTechnicianProfile(profile: labTechProfile, db: secondaryDB)
         default:
             break
         }
 
-        // Step 6 — Send password reset email so staff sets their own password
+        // Step 5 — Clean up: sign out of secondary auth
+        try? secondaryAuth.signOut()
+
+        // Step 6 — Send password reset email
         try await Auth.auth().sendPasswordReset(withEmail: email)
     }
 
@@ -266,6 +271,44 @@ class AuthManager {
     // MARK: - Admin: Deactivate Staff Member
     func deactivateStaff(uid: String) async throws {
         try await db.collection("users").document(uid).updateData(["isActive": false])
+    }
+
+    // MARK: - Admin: Update Staff Member
+    func updateStaffMember(
+        uid: String,
+        fullName: String,
+        role: UserRole,
+        department: String?,
+        specialization: String?,
+        employeeID: String?
+    ) async throws {
+        // Step 1 — Update `users` Firestore collection
+        var updates: [String: Any] = [
+            "fullName": fullName
+        ]
+        updates["department"]     = department
+        updates["specialization"] = specialization
+        updates["employeeID"]     = employeeID
+
+        try await db.collection("users").document(uid).updateData(updates)
+
+        // Step 2 — Update role-specific collection
+        switch role {
+        case .doctor:
+            var doctorUpdates: [String: Any] = ["fullName": fullName]
+            doctorUpdates["department"]     = department
+            doctorUpdates["specialization"] = specialization
+            doctorUpdates["employeeID"]     = employeeID
+            try await db.collection("doctors").document(uid).updateData(doctorUpdates)
+            
+        case .labTechnician:
+            var labTechUpdates: [String: Any] = ["fullName": fullName]
+            labTechUpdates["department"] = department
+            labTechUpdates["employeeID"] = employeeID
+            try await db.collection("lab_technicians").document(uid).updateData(labTechUpdates)
+        default:
+            break
+        }
     }
 
     // MARK: - Admin: Fetch Staff Members
@@ -300,27 +343,31 @@ class AuthManager {
     }
 
     // MARK: - Save to `users` collection
-    private func saveUserToFirestore(user: HMSUser) async throws {
+    private func saveUserToFirestore(user: HMSUser, db dbInstance: Firestore?) async throws {
+        let database = dbInstance ?? db
         let data = try Firestore.Encoder().encode(user)
-        try await db.collection("users").document(user.id).setData(data)
+        try await database.collection("users").document(user.id).setData(data)
     }
 
     // MARK: - Save to `patients` collection
-    private func savePatientProfile(profile: PatientProfile) async throws {
+    private func savePatientProfile(profile: PatientProfile, db dbInstance: Firestore?) async throws {
+        let database = dbInstance ?? db
         let data = try Firestore.Encoder().encode(profile)
-        try await db.collection("patients").document(profile.id).setData(data)
+        try await database.collection("patients").document(profile.id).setData(data)
     }
 
     // MARK: - Save to `doctors` collection
-    private func saveDoctorProfile(profile: DoctorProfile) async throws {
+    private func saveDoctorProfile(profile: DoctorProfile, db dbInstance: Firestore?) async throws {
+        let database = dbInstance ?? db
         let data = try Firestore.Encoder().encode(profile)
-        try await db.collection("doctors").document(profile.id).setData(data)
+        try await database.collection("doctors").document(profile.id).setData(data)
     }
 
     // MARK: - Save to `lab_technicians` collection
-    private func saveLabTechnicianProfile(profile: LabTechnicianProfile) async throws {
+    private func saveLabTechnicianProfile(profile: LabTechnicianProfile, db dbInstance: Firestore?) async throws {
+        let database = dbInstance ?? db
         let data = try Firestore.Encoder().encode(profile)
-        try await db.collection("lab_technicians").document(profile.id).setData(data)
+        try await database.collection("lab_technicians").document(profile.id).setData(data)
     }
 }
 
