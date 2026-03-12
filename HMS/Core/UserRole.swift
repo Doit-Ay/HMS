@@ -16,6 +16,7 @@ enum UserRole: String, Codable, CaseIterable {
         }
     }
 
+    
     var sfSymbol: String {
         switch self {
         case .patient:       return "person.circle.fill"
