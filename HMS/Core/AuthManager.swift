@@ -278,6 +278,11 @@ class AuthManager {
         try await db.collection("users").document(uid).updateData(["isActive": false])
     }
 
+    // MARK: - Admin: Reactivate Staff Member
+    func reactivateStaff(uid: String) async throws {
+        try await db.collection("users").document(uid).updateData(["isActive": true])
+    }
+
     // MARK: - Admin: Update Staff Member
     func updateStaffMember(
         uid: String,
