@@ -27,202 +27,300 @@ struct PatientTabView: View {
 // MARK: - Patient Home View
 struct PatientHomeView: View {
     @ObservedObject var session = UserSession.shared
-    @State private var animate  = false
+    @State private var animate = false
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                HMSBackground()
+            ZStack(alignment: .top) {
+
+                AppTheme.background
+                    .ignoresSafeArea()
+
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [AppTheme.primaryLight.opacity(0.8), AppTheme.primaryLight.opacity(0.0)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 400, height: 400)
+                    .offset(x: -100, y: -200)
+                    .blur(radius: 60)
 
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 24) {
+                    VStack(spacing: 32) {
 
-                        // Greeting Header Card
-                        VStack(alignment: .leading, spacing: 8) {
+                        HeaderProfileView(session: session)
+                            .padding(.horizontal, 24)
+                            .padding(.top, 20)
+                            .offset(y: animate ? 0 : -30)
+                            .opacity(animate ? 1 : 0)
+
+                        VStack(spacing: 0) {
+
                             HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Hello, 👋")
-                                        .font(.system(size: 16, design: .rounded))
-                                        .foregroundColor(.white.opacity(0.85))
-                                    Text(session.currentUser?.fullName.components(separatedBy: " ").first ?? "Patient")
-                                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                                        .foregroundColor(.white)
-                                }
-                                Spacer()
-                                ZStack {
-                                    Circle()
-                                        .fill(Color.white.opacity(0.2))
-                                        .frame(width: 54, height: 54)
-                                    Image(systemName: "person.circle.fill")
-                                        .font(.system(size: 28))
-                                        .foregroundColor(.white)
-                                }
-                            }
+                                VStack(alignment: .leading, spacing: 8) {
 
-                            Text("How are you feeling today?")
-                                .font(.system(size: 14, design: .rounded))
-                                .foregroundColor(.white.opacity(0.8))
-                                .padding(.top, 4)
+                                    Text("Your Health,\nOur Priority")
+                                        .font(.system(size: 28, weight: .heavy, design: .rounded))
+                                        .foregroundColor(.white)
+                                        .lineSpacing(4)
+
+                                    Text("Find the right doctor and book your appointment easily.")
+                                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                                        .foregroundColor(.white.opacity(0.9))
+                                        .padding(.trailing, 40)
+                                }
+
+                                Spacer()
+                            }
+                            .padding(24)
+
+                            NavigationLink(destination: DoctorSearchView()) {
+
+                                HStack {
+                                    Text("Book Appointment")
+                                        .font(.system(size: 16, weight: .bold, design: .rounded))
+
+                                    Spacer()
+
+                                    Image(systemName: "arrow.right.circle.fill")
+                                        .font(.system(size: 24))
+                                }
+                                .foregroundColor(AppTheme.primary)
+                                .padding()
+                                .background(Color.white)
+                                .cornerRadius(16)
+                                .padding(.horizontal, 24)
+                                .padding(.bottom, 24)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .padding(24)
                         .background(
-                            LinearGradient(
-                                colors: [AppTheme.primary, AppTheme.primaryMid],
-                                startPoint: .topLeading, endPoint: .bottomTrailing
-                            )
+                            ZStack {
+
+                                LinearGradient(
+                                    colors: [AppTheme.primary, AppTheme.primaryMid],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+
+                                Image(systemName: "cross.case.fill")
+                                    .font(.system(size: 180))
+                                    .foregroundColor(.white.opacity(0.1))
+                                    .offset(x: 100, y: 20)
+                                    .rotationEffect(.degrees(-15))
+                            }
                         )
-                        .cornerRadius(24)
-                        .shadow(color: Color.black.opacity(0.12), radius: 8, x: 0, y: 4)
+                        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+                        .shadow(color: AppTheme.primary.opacity(0.25), radius: 20, x: 0, y: 10)
                         .padding(.horizontal, 20)
-                        .padding(.top, 10)
-                        .offset(y: animate ? 0 : -20)
+                        .offset(y: animate ? 0 : 30)
                         .opacity(animate ? 1 : 0)
 
-                        // Quick Actions
-                        VStack(alignment: .leading, spacing: 14) {
-                            Text("Quick Actions")
-                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                        VStack(alignment: .leading, spacing: 20) {
+
+                            Text("Top Services")
+                                .font(.system(size: 22, weight: .bold, design: .rounded))
                                 .foregroundColor(AppTheme.textPrimary)
-                                .padding(.horizontal, 20)
+                                .padding(.horizontal, 24)
 
-                            LazyVGrid(columns: [
-                                GridItem(.flexible()),
-                                GridItem(.flexible())
-                            ], spacing: 14) {
-                                // Book Appointment — navigates to doctor search
-                                NavigationLink(destination: DoctorSearchView()) {
-                                    PatientQuickActionLabel(icon: "calendar.badge.plus", title: "Book\nAppointment", color: AppTheme.primary)
-                                }
-                                .buttonStyle(.plain)
+                            HStack(spacing: 16) {
 
-                                PatientQuickAction(icon: "doc.text.fill",        title: "My\nRecords",        color: AppTheme.primaryMid)
-                                PatientQuickAction(icon: "pills.fill",           title: "Prescriptions",      color: AppTheme.primaryDark)
-                                PatientQuickAction(icon: "waveform.path.ecg",    title: "Health\nMonitor",    color: AppTheme.primary)
+                                FeatureTile(icon: "doc.text.fill", title: "Records", color: AppTheme.primaryDark)
+                                FeatureTile(icon: "pills.fill", title: "Pharmacy", color: AppTheme.primaryMid)
+                                FeatureTile(icon: "waveform.path.ecg", title: "Monitor", color: AppTheme.primary)
                             }
                             .padding(.horizontal, 20)
                         }
-                        .offset(y: animate ? 0 : 20)
+                        .offset(y: animate ? 0 : 40)
                         .opacity(animate ? 1 : 0)
 
-                        // Health Summary Card
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("Health Summary")
-                                .font(.system(size: 18, weight: .bold, design: .rounded))
-                                .foregroundColor(AppTheme.textPrimary)
+                        VStack(alignment: .leading, spacing: 20) {
 
-                            HStack(spacing: 16) {
-                                HealthStatCard(icon: "heart.fill",       label: "Heart Rate",    value: "—",     unit: "bpm",  color: .red)
-                                HealthStatCard(icon: "drop.fill",        label: "Blood Group",   value: session.currentUser?.bloodGroup ?? "—", unit: "",  color: AppTheme.primary)
+                            HStack {
+
+                                Text("Vitals Overview")
+                                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                                    .foregroundColor(AppTheme.textPrimary)
+
+                                Spacer()
+
+                                Button {
+
+                                } label: {
+
+                                    Text("See all")
+                                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                        .foregroundColor(AppTheme.primary)
+                                }
                             }
+                            .padding(.horizontal, 24)
+
+                            VStack(spacing: 16) {
+
+                                VitalRow(
+                                    icon: "heart.fill",
+                                    title: "Heart Rate",
+                                    value: "—",
+                                    unit: "bpm",
+                                    iconColor: .red
+                                )
+
+                                VitalRow(
+                                    icon: "drop.fill",
+                                    title: "Blood Group",
+                                    value: session.currentUser?.bloodGroup ?? "—",
+                                    unit: "",
+                                    iconColor: AppTheme.primary
+                                )
+                            }
+                            .padding(.horizontal, 20)
                         }
-                        .padding(.horizontal, 20)
-                        .offset(y: animate ? 0 : 20)
+                        .offset(y: animate ? 0 : 50)
                         .opacity(animate ? 1 : 0)
 
-                        Spacer(minLength: 30)
+                        Spacer(minLength: 40)
                     }
-                    .padding(.vertical, 10)
                 }
             }
-            .navigationTitle("Patient")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarHidden(true)
         }
         .onAppear {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
+            withAnimation(.spring(response: 0.7, dampingFraction: 0.8).delay(0.1)) {
                 animate = true
             }
         }
     }
 }
 
-// MARK: - Patient Quick Action Tile
-struct PatientQuickAction: View {
+// MARK: - Vital Row (FIX ADDED)
+struct VitalRow: View {
+
     let icon: String
     let title: String
-    let color: Color
-
-    var body: some View {
-        Button {} label: {
-            VStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(color.opacity(0.15))
-                        .frame(width: 52, height: 52)
-                    Image(systemName: icon)
-                        .font(.system(size: 24))
-                        .foregroundColor(color)
-                }
-                Text(title)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundColor(AppTheme.textPrimary)
-                    .multilineTextAlignment(.center)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 18)
-            .background(Color.white.opacity(0.8))
-            .cornerRadius(18)
-            .shadow(color: color.opacity(0.1), radius: 8, x: 0, y: 4)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Patient Quick Action Label (for NavigationLink)
-struct PatientQuickActionLabel: View {
-    let icon: String
-    let title: String
-    let color: Color
-
-    var body: some View {
-        VStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(color.opacity(0.15))
-                    .frame(width: 52, height: 52)
-                Image(systemName: icon)
-                    .font(.system(size: 24))
-                    .foregroundColor(color)
-            }
-            Text(title)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundColor(AppTheme.textPrimary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 18)
-        .background(Color.white.opacity(0.8))
-        .cornerRadius(18)
-        .shadow(color: color.opacity(0.1), radius: 8, x: 0, y: 4)
-    }
-}
-
-// MARK: - Health Stat Card
-struct HealthStatCard: View {
-    let icon: String
-    let label: String
     let value: String
     let unit: String
+    let iconColor: Color
+
+    var body: some View {
+
+        HStack(spacing: 16) {
+
+            ZStack {
+
+                Circle()
+                    .fill(iconColor.opacity(0.15))
+                    .frame(width: 46, height: 46)
+
+                Image(systemName: icon)
+                    .foregroundColor(iconColor)
+                    .font(.system(size: 18))
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundColor(AppTheme.textPrimary)
+
+                Text(value + (unit.isEmpty ? "" : " \(unit)"))
+                    .font(.system(size: 13))
+                    .foregroundColor(AppTheme.textSecondary)
+            }
+
+            Spacer()
+        }
+        .padding()
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 10, x: 0, y: 4)
+    }
+}
+
+// MARK: - Header Profile View
+struct HeaderProfileView: View {
+
+    @ObservedObject var session: UserSession
+
+    var body: some View {
+
+        HStack {
+
+            VStack(alignment: .leading, spacing: 6) {
+
+                Text(Date().formatted(date: .abbreviated, time: .omitted))
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundColor(AppTheme.primary)
+                    .textCase(.uppercase)
+
+                HStack(spacing: 6) {
+
+                    Text("Hi,")
+                        .font(.system(size: 28, weight: .regular, design: .rounded))
+                        .foregroundColor(AppTheme.textSecondary)
+
+                    Text(session.currentUser?.fullName.components(separatedBy: " ").first ?? "Patient")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundColor(AppTheme.textPrimary)
+                }
+            }
+
+            Spacer()
+
+            ZStack {
+
+                Circle()
+                    .stroke(AppTheme.primaryMid.opacity(0.3), lineWidth: 2)
+                    .frame(width: 58, height: 58)
+
+                Image(systemName: "person.crop.circle.fill")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 50, height: 50)
+                    .foregroundColor(AppTheme.primaryDark)
+                    .background(Circle().fill(AppTheme.primaryLight))
+            }
+        }
+    }
+}
+
+// MARK: - Feature Tile
+struct FeatureTile: View {
+
+    let icon: String
+    let title: String
     let color: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 22))
-                .foregroundColor(color)
 
-            Text(value + (unit.isEmpty ? "" : " \(unit)"))
-                .font(.system(size: 20, weight: .bold, design: .rounded))
-                .foregroundColor(AppTheme.textPrimary)
+        Button {} label: {
 
-            Text(label)
-                .font(.system(size: 12, design: .rounded))
-                .foregroundColor(AppTheme.textSecondary)
+            VStack(spacing: 16) {
+
+                ZStack {
+
+                    Circle()
+                        .fill(color.opacity(0.15))
+                        .frame(width: 54, height: 54)
+
+                    Image(systemName: icon)
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundColor(color)
+                }
+
+                Text(title)
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundColor(AppTheme.textPrimary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 24)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 15, x: 0, y: 8)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(Color.white.opacity(0.8))
-        .cornerRadius(16)
-        .shadow(color: color.opacity(0.1), radius: 8, x: 0, y: 4)
+        .buttonStyle(.plain)
     }
 }
 
