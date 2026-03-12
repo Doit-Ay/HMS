@@ -1,30 +1,30 @@
 import SwiftUI
+import FirebaseFirestore
 
 struct DoctorProfileView: View {
     @State private var isEditing = false
+    @State private var isSaving = false
     @State private var showSaveToast = false
     @State private var appearAnimation = false
+    
+    @Environment(\.dismiss) private var dismiss
     
     // Fake Doctor Identity for demo purposes
     @State private var profileImage = "Dr. S" // Placeholder for an actual Image string
     
-    // State arrays for the dynamic form
-    @State private var personalFields = [
-        ProfileInfoField(title: "Full Name", value: "Dr. Saif Ababon"),
-        ProfileInfoField(title: "Date of Birth", value: "12 May 1985"),
-        ProfileInfoField(title: "Gender", value: "Male", options: ["Male", "Female", "Other"])
-    ]
+    // Dynamic form data populated on load
+    @State private var personalFields: [ProfileInfoField] = []
+    @State private var professionalFields: [ProfileInfoField] = []
+    @State private var contactFields: [ProfileInfoField] = []
     
-    @State private var professionalFields = [
-        ProfileInfoField(title: "Specialty", value: "Cardiologist", options: ["Cardiologist", "Neurologist", "Pediatrician"]),
-        ProfileInfoField(title: "Doctor ID", value: "ID: 32145687", isEditable: false),
-        ProfileInfoField(title: "Years of Experience", value: "12 Years", keyboardType: .numberPad)
-    ]
+    // Header labels
+    @State private var profileName: String = "Loading..."
+    @State private var profileSpecialty: String = "Specialty"
     
-    @State private var contactFields = [
-        ProfileInfoField(title: "Phone Number", value: "+1 234 567 8900", keyboardType: .phonePad),
-        ProfileInfoField(title: "Email Address", value: "saif.ababon@hospital.com", keyboardType: .emailAddress)
-    ]
+    // Stats labels
+    @State private var rating: String = "Not Set"
+    @State private var totalPatients: String = "..."
+    @State private var totalAppointments: String = "..."
     
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -58,21 +58,19 @@ struct DoctorProfileView: View {
                         
                         // Top Nav Buttons
                         VStack {
-                            HStack {
-                                Button(action: { /* back logic if needed */ }) {
-                                    Image(systemName: "chevron.left")
-                                        .font(.system(size: 16, weight: .bold))
-                                        .foregroundColor(AppTheme.textPrimary)
-                                        .frame(width: 44, height: 44)
-                                        .background(Color.white)
-                                        .clipShape(Circle())
-                                        .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
-                                }
-                                
+                            HStack(spacing: 12) {
                                 Spacer()
                                 
+                                // Edit/Save Button
                                 Button(action: toggleEditMode) {
-                                    if isEditing {
+                                    if isSaving {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 8)
+                                            .background(AppTheme.primary)
+                                            .clipShape(Capsule())
+                                    } else if isEditing {
                                         Text("Save")
                                             .font(.system(size: 14, weight: .bold, design: .rounded))
                                             .foregroundColor(.white)
@@ -90,6 +88,17 @@ struct DoctorProfileView: View {
                                             .clipShape(Circle())
                                             .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
                                     }
+                                }
+                                
+                                // Close Button
+                                Button(action: { dismiss() }) {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(AppTheme.textPrimary)
+                                        .frame(width: 44, height: 44)
+                                        .background(Color.white)
+                                        .clipShape(Circle())
+                                        .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
                                 }
                             }
                             .padding(.horizontal, 24)
@@ -126,29 +135,24 @@ struct DoctorProfileView: View {
                     .ignoresSafeArea(edges: .top) // let gradient reach top of screen
                     
                     VStack(spacing: 4) {
-                        Text("Cardiologist")
+                        Text(profileSpecialty)
                             .font(.system(size: 14, weight: .medium, design: .rounded))
                             .foregroundColor(AppTheme.textSecondary)
                         
-                        Text("Dr. Saif Ababon")
+                        Text(profileName)
                             .font(.system(size: 26, weight: .heavy, design: .rounded))
                             .foregroundColor(AppTheme.textPrimary)
-                        
-                        Text("ID: 32145687")
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundColor(AppTheme.textSecondary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 4)
-                            .background(Color.gray.opacity(0.1))
-                            .clipShape(Capsule())
-                            .padding(.top, 4)
                     }
                     .padding(.top, 65) // Space for overlapping avatar
                     .offset(y: appearAnimation ? 0 : 20)
                     .opacity(appearAnimation ? 1 : 0)
                     
                     // 2. Stats Bar
-                    DoctorStatsBar()
+                    DoctorStatsBar(
+                        rating: rating,
+                        totalPatients: totalPatients,
+                        appointments: totalAppointments
+                    )
                         .padding(.horizontal, 24)
                         .padding(.top, 24)
                         .offset(y: appearAnimation ? 0 : 30)
@@ -195,22 +199,7 @@ struct DoctorProfileView: View {
                 }
             }
             
-            // 4. Bottom CTA (View Mode Only)
-            if !isEditing {
-                Button(action: toggleEditMode) {
-                    Text("Edit Profile")
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(AppTheme.primary)
-                        .cornerRadius(16)
-                        .shadow(color: AppTheme.primary.opacity(0.3), radius: 8, x: 0, y: 4)
-                }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 24)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
+            // 4. Removed Bottom CTA
             
             // 5. Success Toast
             if showSaveToast {
@@ -232,20 +221,174 @@ struct DoctorProfileView: View {
         }
         .navigationBarHidden(true)
         .onAppear {
+            loadUserData()
+            Task {
+                await fetchDoctorStats()
+                // Backfill ALL doctors with missing fields (only adds what's missing)
+                await AuthManager.shared.backfillAllDoctorsInFirestore()
+                // Backfill current user's fields too
+                if let user = UserSession.shared.currentUser {
+                    await AuthManager.shared.syncDoctorProfileToFirestore(user: user)
+                }
+            }
             withAnimation(.easeOut(duration: 0.6)) {
                 appearAnimation = true
             }
         }
     }
     
+    private func loadUserData() {
+        guard let user = UserSession.shared.currentUser else { return }
+        
+        // Set header text from session initially
+        profileName = user.fullName.hasPrefix("Dr.") ? user.fullName : "Dr. \(user.fullName)"
+        profileSpecialty = user.specialization ?? user.department ?? "Consultation"
+        profileImage = String(user.fullName.replacingOccurrences(of: "Dr. ", with: "").prefix(1))
+        
+        // Fetch the actual doctor data from `doctors` collection
+        Task {
+            let db = FirebaseFirestore.Firestore.firestore()
+            do {
+                let doc = try await db.collection("doctors").document(user.id).getDocument()
+                guard let data = doc.data() else { return }
+                
+                let fullName       = data["fullName"]       as? String ?? user.fullName
+                let dob            = data["dateOfBirth"]    as? String ?? "Not Set"
+                let gender         = data["gender"]         as? String ?? "Not Set"
+                let specialty      = data["specialization"] as? String ?? "Not Set"
+                let phone          = data["phoneNumber"]    as? String ?? "Not Set"
+                let email          = data["email"]          as? String ?? user.email
+                let department     = data["department"]     as? String ?? "Not Set"
+                let dateJoined     = data["createdAt"]      as? Timestamp
+                
+                await MainActor.run {
+                    // Update header
+                    profileName = fullName.hasPrefix("Dr.") ? fullName : "Dr. \(fullName)"
+                    profileSpecialty = (specialty != "Not Set") ? specialty : (department != "Not Set" ? department : "Consultation")
+                    profileImage = String(fullName.replacingOccurrences(of: "Dr. ", with: "").prefix(1))
+                    
+                    // Form fields from doctors table
+                    personalFields = [
+                        ProfileInfoField(title: "Full Name", value: fullName),
+                        ProfileInfoField(title: "Date of Birth", value: dob),
+                        ProfileInfoField(title: "Gender", value: gender, options: ["Male", "Female", "Other"])
+                    ]
+                    
+                    professionalFields = [
+                        ProfileInfoField(title: "Specialty", value: specialty, options: ["Cardiologist", "Neurologist", "Pediatrician", "General"]),
+                        ProfileInfoField(title: "Date Joined", value: dateJoined != nil ? formatDate(dateJoined!.dateValue()) : "Unknown", isEditable: false)
+                    ]
+                    
+                    contactFields = [
+                        ProfileInfoField(title: "Phone Number", value: phone, keyboardType: .phonePad),
+                        ProfileInfoField(title: "Email Address", value: email, isEditable: false, keyboardType: .emailAddress)
+                    ]
+                }
+            } catch {
+                print("Error loading doctor profile from doctors collection: \(error)")
+                // Fallback to session data
+                await MainActor.run {
+                    personalFields = [
+                        ProfileInfoField(title: "Full Name", value: user.fullName),
+                        ProfileInfoField(title: "Date of Birth", value: user.dateOfBirth ?? "Not Set"),
+                        ProfileInfoField(title: "Gender", value: user.gender ?? "Not Set", options: ["Male", "Female", "Other"])
+                    ]
+                    professionalFields = [
+                        ProfileInfoField(title: "Specialty", value: user.specialization ?? "Not Set", options: ["Cardiologist", "Neurologist", "Pediatrician", "General"]),
+                        ProfileInfoField(title: "Date Joined", value: formatDate(user.createdAt), isEditable: false)
+                    ]
+                    contactFields = [
+                        ProfileInfoField(title: "Phone Number", value: user.phoneNumber ?? "Not Set", keyboardType: .phonePad),
+                        ProfileInfoField(title: "Email Address", value: user.email, isEditable: false, keyboardType: .emailAddress)
+                    ]
+                }
+            }
+        }
+    }
+    
+    private func formatDate(_ date: Date?) -> String {
+        guard let date = date else { return "Unknown" }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: date)
+    }
+    
+    private func fetchDoctorStats() async {
+        guard let user = UserSession.shared.currentUser else { return }
+        let db = FirebaseFirestore.Firestore.firestore()
+        
+        do {
+            let snapshot = try await db.collection("appointments")
+                .whereField("doctorId", isEqualTo: user.id)
+                .getDocuments()
+            
+            let count = snapshot.documents.count
+            
+            // Calculate unique patients by mapping to patientId and converting to Set
+            let uniquePatientIds = Set(snapshot.documents.compactMap { doc -> String? in
+                return doc.data()["patientId"] as? String
+            })
+            
+            await MainActor.run {
+                self.totalAppointments = "\(count)"
+                self.totalPatients = "\(uniquePatientIds.count)"
+            }
+        } catch {
+            print("Error fetching dynamic doctor stats: \(error)")
+            await MainActor.run {
+                self.totalAppointments = "0"
+                self.totalPatients = "0"
+            }
+        }
+    }
+    
     private func toggleEditMode() {
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-            if isEditing {
-                // Was editing, now saving
-                isEditing = false
-                triggerToast()
-            } else {
-                // Start editing
+        if isEditing {
+            // Save Action
+            isSaving = true
+            Task {
+                guard let uid = UserSession.shared.currentUser?.id else {
+                    await MainActor.run { isSaving = false }
+                    return
+                }
+                
+                let fullName = personalFields.first(where: { $0.title == "Full Name" })?.value ?? ""
+                let dob = personalFields.first(where: { $0.title == "Date of Birth" })?.value
+                let gender = personalFields.first(where: { $0.title == "Gender" })?.value
+                let specialty = professionalFields.first(where: { $0.title == "Specialty" })?.value
+                let phone = contactFields.first(where: { $0.title == "Phone Number" })?.value
+                let safePhone = (phone == "Not Set" || phone?.isEmpty == true) ? nil : phone
+                
+                do {
+                    try await AuthManager.shared.updateCurrentDoctorProfile(
+                        uid: uid,
+                        fullName: fullName,
+                        specialization: specialty,
+                        phoneNumber: safePhone,
+                        dateOfBirth: dob,
+                        gender: gender
+                    )
+                    
+                    await MainActor.run {
+                        self.isSaving = false
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            self.isEditing = false
+                        }
+                        
+                        // Sync header display with new updated state immediately
+                        self.loadUserData()
+                        self.triggerToast()
+                    }
+                } catch {
+                    print("Error saving profile: \(error.localizedDescription)")
+                    await MainActor.run {
+                        self.isSaving = false
+                    }
+                }
+            }
+        } else {
+            // Enter Edit Mode Action
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                 isEditing = true
             }
         }

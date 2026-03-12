@@ -2,7 +2,7 @@ import SwiftUI
 import Combine
 
 struct AppointmentBlock: Identifiable {
-    let id = UUID()
+    var id: String = UUID().uuidString
     let type: String
     let startTime: Date
     let endTime: Date
@@ -104,13 +104,16 @@ struct AppointmentTimelineView: View {
         let relativeHour = hour - startHour
         let totalHours = CGFloat(relativeHour) + (CGFloat(minute) / 60.0)
         
-        return totalHours * hourHeight
+        // Offset by -8 to perfectly align with the center of the text label/divider line
+        return (totalHours * hourHeight) - 8
     }
     
     private func height(for start: Date, to end: Date) -> CGFloat {
         let durationMinutes = end.timeIntervalSince(start) / 60.0
         let hours = CGFloat(durationMinutes) / 60.0
-        return max(hours * hourHeight - 2, 40) // Minimum height minus 2 for gap
+        // No longer subtract 2 for a gap since the yOffset shift already provides visual padding
+        // Ensure it exactly fits the duration grid constraints
+        return max(hours * hourHeight, 40)
     }
     
     private func timeString(for hour: Int) -> String {
@@ -137,7 +140,8 @@ struct CurrentTimeLine: View {
         let relativeHour = hour - startHour
         let totalHours = CGFloat(relativeHour) + (CGFloat(minute) / 60.0)
         
-        return totalHours * hourHeight
+        // Offset by -8 to perfectly align with the center of the text label/divider line
+        return (totalHours * hourHeight) - 8
     }
     
     var body: some View {

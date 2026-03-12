@@ -153,7 +153,10 @@ struct WeekCalendarView: View {
         AppTheme.background.ignoresSafeArea()
         WeekCalendarView(
             selectedDate: .constant(Date()),
-            datesWithAppointments: [Date(), Calendar.current.date(byAdding: .day, value: 1, to: Date())!]
+            datesWithAppointments: Set([
+                Date(),
+                Calendar.current.date(byAdding: .day, value: 1, to: Date())!
+            ])
         )
     }
 }

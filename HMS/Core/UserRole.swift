@@ -113,6 +113,8 @@ struct DoctorProfile: Codable, Identifiable {
         self.email          = user.email
         self.fullName       = user.fullName
         self.phoneNumber    = user.phoneNumber
+        self.dateOfBirth    = user.dateOfBirth
+        self.gender         = user.gender
         self.department     = user.department
         self.specialization = user.specialization
         self.employeeID     = user.employeeID

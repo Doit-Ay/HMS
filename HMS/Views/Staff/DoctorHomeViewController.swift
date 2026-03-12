@@ -3,14 +3,14 @@ import SwiftUI
 struct DoctorHomeViewController: View {
     @State private var appearAnimation = false
     @State private var selectedDate = Date()
-    @State private var activePatientID: UUID?
     
     // Details Sheet State
     @State private var selectedAppointment: AppointmentBlock?
-    @State private var showPrescriptionForm = false
+    @State private var showProfile = false
     
     // Real appointments from Firestore
     @State private var todayAppointments: [Appointment] = []
+    @State private var monthAppointments: [Appointment] = []
     @State private var isLoadingAppointments = false
     
     // Greeting logic
@@ -26,31 +26,52 @@ struct DoctorHomeViewController: View {
         "Dr. \(UserSession.shared.currentUser?.fullName.split(separator: " ").first ?? "Saif")"
     }
     
-    // Fake Data Generation based on selected date
-    private let patientStripData = [
-        PatientStripModel(name: "Oliver Smith", time: "09:00 AM", status: .done),
-        PatientStripModel(name: "Ava Johnson", time: "10:30 AM", status: .inProgress),
-        PatientStripModel(name: "Liam Williams", time: "02:00 PM", status: .upcoming),
-        PatientStripModel(name: "Emma Davis", time: "04:15 PM", status: .upcoming)
-    ]
-    
-    // Simulate changing schedule based on date
+    // Timeline Mapping
     private var timelineData: [AppointmentBlock] {
-        let cal = Calendar.current
-        let day = cal.component(.day, from: selectedDate)
-        let startOfDay = cal.startOfDay(for: selectedDate)
-        
-        if day % 2 != 0 {
-            return [
-                AppointmentBlock(type: "Consultation", startTime: startOfDay.addingTimeInterval(9 * 3600), endTime: startOfDay.addingTimeInterval(9.75 * 3600), patientName: "Oliver Smith", color: AppTheme.primaryLight, additionalStaffCount: 0),
-                AppointmentBlock(type: "Heart ECG", startTime: startOfDay.addingTimeInterval(10.5 * 3600), endTime: startOfDay.addingTimeInterval(11.5 * 3600), patientName: "Ava Johnson", color: Color.orange.opacity(0.15), additionalStaffCount: 2),
-                AppointmentBlock(type: "Follow Up", startTime: startOfDay.addingTimeInterval(14 * 3600), endTime: startOfDay.addingTimeInterval(14.5 * 3600), patientName: "Liam Williams", color: Color.blue.opacity(0.1), additionalStaffCount: 0)
-            ]
+        return todayAppointments.compactMap { appt in
+            guard let startDate = parseDateTime(date: appt.date, time: appt.startTime),
+                  let endDate = parseDateTime(date: appt.date, time: appt.endTime) else {
+                return nil
+            }
+            
+            // Use different colors for variety based on hash
+            let colors = [AppTheme.primaryLight, Color.orange.opacity(0.15), Color.blue.opacity(0.1), Color.purple.opacity(0.1)]
+            let colorIdx = abs(appt.id.hashValue) % colors.count
+            
+            return AppointmentBlock(
+                id: appt.id,
+                type: appt.department ?? "Consultation",
+                startTime: startDate,
+                endTime: endDate,
+                patientName: appt.patientName,
+                color: colors[colorIdx],
+                additionalStaffCount: 0
+            )
+        }
+    }
+    
+    private var datesWithAppointments: Set<Date> {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return Set(monthAppointments.compactMap { formatter.date(from: $0.date) })
+    }
+    
+    private func parseDateTime(date: String, time: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter.date(from: "\(date) \(time)")
+    }
+    
+    // Appointments Label
+    private var appointmentsLabel: String {
+        if Calendar.current.isDateInToday(selectedDate) {
+            return "Today's Appointments"
+        } else if Calendar.current.isDateInTomorrow(selectedDate) {
+            return "Tomorrow's Appointments"
         } else {
-             return [
-                 AppointmentBlock(type: "Blood Test Review", startTime: startOfDay.addingTimeInterval(8.5 * 3600), endTime: startOfDay.addingTimeInterval(9 * 3600), patientName: "Noah Garcia", color: AppTheme.primaryLight, additionalStaffCount: 1),
-                 AppointmentBlock(type: "General Checkup", startTime: startOfDay.addingTimeInterval(13 * 3600), endTime: startOfDay.addingTimeInterval(14.25 * 3600), patientName: "Mia Brown", color: Color.purple.opacity(0.1), additionalStaffCount: 0)
-             ]
+            let formatter = DateFormatter()
+            formatter.dateFormat = "d MMMM"
+            return "Appointments on \(formatter.string(from: selectedDate))"
         }
     }
     
@@ -60,7 +81,6 @@ struct DoctorHomeViewController: View {
             AppTheme.background.ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // 1. Top Header Bar
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(greeting)
@@ -71,33 +91,32 @@ struct DoctorHomeViewController: View {
                             .foregroundColor(AppTheme.textPrimary)
                     }
                     
+                    Spacer()
+                    
+                    Button(action: { showProfile = true }) {
+                        ZStack {
+                            Circle()
+                                .fill(AppTheme.primaryLight)
+                                .frame(width: 44, height: 44)
+                            Text(String(doctorName.replacingOccurrences(of: "Dr. ", with: "").prefix(1)))
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .foregroundColor(AppTheme.primaryDark)
+                        }
+                    }
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 16)
                 .offset(y: appearAnimation ? 0 : -30)
                 .opacity(appearAnimation ? 1 : 0)
                 
-                // 2. Patient Strip (Scrollable)
-                PatientCardStrip(patients: patientStripData, activePatientID: $activePatientID)
-                    .padding(.top, 8)
-                
-                // 3. Weekly Calendar Strip
-                WeekCalendarView(
-                    selectedDate: $selectedDate,
-                    datesWithAppointments: [Date(), Calendar.current.date(byAdding: .day, value: 1, to: Date())!, Calendar.current.date(byAdding: .day, value: -2, to: Date())!] // Fake some dots
-                )
-                .padding(.top, 8)
-                .offset(y: appearAnimation ? 0 : 20)
-                .opacity(appearAnimation ? 1 : 0)
-                
-                // 4. Today's Booked Appointments (from Firestore)
+                // 2. Today's Booked Appointments (from Firestore)
                 if !todayAppointments.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             Image(systemName: "calendar.badge.clock")
                                 .font(.system(size: 15))
                                 .foregroundColor(AppTheme.primary)
-                            Text("Today's Appointments")
+                            Text(appointmentsLabel)
                                 .font(.system(size: 18, weight: .bold, design: .rounded))
                                 .foregroundColor(AppTheme.textPrimary)
                             Spacer()
@@ -123,6 +142,15 @@ struct DoctorHomeViewController: View {
                     .padding(.top, 8)
                 }
                 
+                // 3. Weekly Calendar Strip
+                WeekCalendarView(
+                    selectedDate: $selectedDate,
+                    datesWithAppointments: datesWithAppointments
+                )
+                .padding(.top, 8)
+                .offset(y: appearAnimation ? 0 : 20)
+                .opacity(appearAnimation ? 1 : 0)
+                
                 // 5. Vertical Timeline
                 ZStack {
                     Color.white
@@ -143,13 +171,6 @@ struct DoctorHomeViewController: View {
                 .offset(y: appearAnimation ? 0 : 50)
                 .opacity(appearAnimation ? 1 : 0)
             }
-            
-            // 5. Write Prescription FAB
-            DoctorFABView {
-                showPrescriptionForm = true
-            }
-            .padding(.trailing, 24)
-            .padding(.bottom, 24)
         }
         .onAppear {
             withAnimation(.easeOut(duration: 0.6)) {
@@ -169,15 +190,8 @@ struct DoctorHomeViewController: View {
                 AppointmentDetailSheet(appointment: appt)
             }
         }
-        .sheet(isPresented: $showPrescriptionForm) {
-            if #available(iOS 16.0, *) {
-                Text("Write Prescription Form (Coming Soon)")
-                    .font(.headline)
-                    .presentationDetents([.medium, .large])
-            } else {
-                Text("Write Prescription Form (Coming Soon)")
-                    .font(.headline)
-            }
+        .sheet(isPresented: $showProfile) {
+            DoctorProfileView()
         }
     }
     
@@ -190,12 +204,21 @@ struct DoctorHomeViewController: View {
         formatter.dateFormat = "yyyy-MM-dd"
         let dateStr = formatter.string(from: selectedDate)
         
+        let monthFormatter = DateFormatter()
+        monthFormatter.dateFormat = "yyyy-MM"
+        let monthStr = monthFormatter.string(from: selectedDate)
+        
         Task {
             do {
-                let appointments = try await AuthManager.shared.fetchDoctorAppointments(
-                    doctorId: doctorId, date: dateStr
-                )
-                withAnimation { todayAppointments = appointments }
+                async let todayFetch = AuthManager.shared.fetchDoctorAppointments(doctorId: doctorId, date: dateStr)
+                async let monthFetch = AuthManager.shared.fetchDoctorAppointments(doctorId: doctorId, month: monthStr)
+                
+                let (today, month) = try await (todayFetch, monthFetch)
+                
+                withAnimation { 
+                    self.todayAppointments = today 
+                    self.monthAppointments = month
+                }
             } catch {
                 print("⚠️ Error loading appointments: \(error)")
             }

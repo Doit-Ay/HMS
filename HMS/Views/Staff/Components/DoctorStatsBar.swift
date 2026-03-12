@@ -1,10 +1,9 @@
 import SwiftUI
 
 struct DoctorStatsBar: View {
-    // These would typically be passed in, but hardcoded here for the UI prompt requirements
-    let rating: String = "4.8"
-    let totalPatients: String = "1,240"
-    let appointments: String = "3,580"
+    var rating: String
+    var totalPatients: String
+    var appointments: String
     
     var body: some View {
         HStack(spacing: 12) {
@@ -74,7 +73,7 @@ struct StatPill: View {
 #Preview {
     ZStack {
         AppTheme.background.ignoresSafeArea()
-        DoctorStatsBar()
+        DoctorStatsBar(rating: "4.8", totalPatients: "1,200", appointments: "3,500")
             .padding()
     }
 }
