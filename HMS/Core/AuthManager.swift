@@ -278,6 +278,11 @@ class AuthManager {
         try await db.collection("users").document(uid).updateData(["isActive": false])
     }
 
+    // MARK: - Admin: Reactivate Staff Member
+    func reactivateStaff(uid: String) async throws {
+        try await db.collection("users").document(uid).updateData(["isActive": true])
+    }
+
     // MARK: - Admin: Update Staff Member
     func updateStaffMember(
         uid: String,
@@ -326,6 +331,90 @@ class AuthManager {
             try await db.collection("lab_technicians").document(uid).setData(labTechUpdates, merge: true)
         default:
             break
+        }
+    }
+
+    // MARK: - Self-Serve: Update Current Doctor Profile
+    func updateCurrentDoctorProfile(
+        uid: String,
+        fullName: String,
+        specialization: String?,
+        phoneNumber: String?,
+        dateOfBirth: String?,
+        gender: String?
+    ) async throws {
+        // 1. PRIMARY: Update `doctors` collection with ALL fields explicitly
+        let doctorUpdates: [String: Any] = [
+            "fullName":       fullName,
+            "specialization": specialization ?? "Not Set",
+            "phoneNumber":    phoneNumber    ?? "Not Set",
+            "dateOfBirth":    dateOfBirth    ?? "Not Set",
+            "gender":         gender         ?? "Not Set"
+        ]
+        try await db.collection("doctors").document(uid).updateData(doctorUpdates)
+        
+        // 2. Update the local singleton state so UI reflects immediately
+        await MainActor.run {
+            if let user = UserSession.shared.currentUser {
+                var updatedUser = user
+                updatedUser.fullName = fullName
+                updatedUser.specialization = specialization ?? updatedUser.specialization
+                updatedUser.phoneNumber = phoneNumber ?? updatedUser.phoneNumber
+                updatedUser.dateOfBirth = dateOfBirth ?? updatedUser.dateOfBirth
+                updatedUser.gender = gender ?? updatedUser.gender
+                UserSession.shared.setUser(updatedUser)
+            }
+        }
+    }
+
+    // MARK: - Sync current doctor profile fields to doctors collection
+    func syncDoctorProfileToFirestore(user: HMSUser) async {
+        let fields: [String: Any] = [
+            "id":             user.id,
+            "email":          user.email,
+            "fullName":       user.fullName,
+            "isActive":       user.isActive,
+            "phoneNumber":    user.phoneNumber    ?? "Not Set",
+            "dateOfBirth":    user.dateOfBirth    ?? "Not Set",
+            "gender":         user.gender         ?? "Not Set",
+            "department":     user.department     ?? "Not Set",
+            "specialization": user.specialization ?? "Not Set",
+            "employeeID":     user.employeeID     ?? "Not Set"
+        ]
+        do {
+            try await db.collection("doctors").document(user.id).setData(fields, merge: true)
+        } catch {
+            print("syncDoctorProfileToFirestore error: \(error)")
+        }
+    }
+
+    // MARK: - Backfill ALL doctors in doctors collection with missing fields
+    // Reads only from the `doctors` collection. Sets missing fields to "Not Set".
+    func backfillAllDoctorsInFirestore() async {
+        do {
+            let snapshot = try await db.collection("doctors").getDocuments()
+            for doc in snapshot.documents {
+                var data = doc.data()
+                var updates: [String: Any] = [:]
+
+                let requiredFields: [String] = [
+                    "phoneNumber", "dateOfBirth", "gender",
+                    "department", "specialization", "employeeID"
+                ]
+                for field in requiredFields {
+                    if data[field] == nil {
+                        updates[field] = "Not Set"
+                    }
+                }
+
+                if !updates.isEmpty {
+                    try await db.collection("doctors").document(doc.documentID).updateData(updates)
+                    print("Backfilled doctor \(doc.documentID): \(updates.keys.joined(separator: ", "))")
+                }
+            }
+            print("backfillAllDoctorsInFirestore: complete for \(snapshot.documents.count) doctors")
+        } catch {
+            print("backfillAllDoctorsInFirestore error: \(error)")
         }
     }
 
@@ -693,6 +782,24 @@ class AuthManager {
         }.sorted { $0.startTime < $1.startTime }
     }
 
+    /// Fetch appointments for a specific doctor in a given month (format: "yyyy-MM")
+    func fetchDoctorAppointments(doctorId: String, month: String) async throws -> [Appointment] {
+        let startDate = month + "-01"
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        guard let start = formatter.date(from: startDate) else { return [] }
+        let calendar = Calendar.current
+        guard let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: start) else { return [] }
+        let endDate = formatter.string(from: endOfMonth)
+
+        let snapshot = try await db.collection("appointments")
+            .whereField("doctorId", isEqualTo: doctorId)
+            .getDocuments()
+        return snapshot.documents.compactMap {
+            try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
+        }.filter { $0.date >= startDate && $0.date <= endDate }
+    }
+
     /// Fetch appointments for the logged-in patient
     func fetchPatientAppointments(patientId: String) async throws -> [Appointment] {
         let snapshot = try await db.collection("appointments")
@@ -709,9 +816,7 @@ class AuthManager {
         guard doc.exists else { return nil }
         return try? Firestore.Decoder().decode(HMSUser.self, from: doc.data() ?? [:])
     }
-}
-
-
+} // <-- Close AuthManager class here
 
 // MARK: - Auth Errors
 enum AuthError: LocalizedError {

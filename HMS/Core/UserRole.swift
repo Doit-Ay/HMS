@@ -16,6 +16,7 @@ enum UserRole: String, Codable, CaseIterable {
         }
     }
 
+    
     var sfSymbol: String {
         switch self {
         case .patient:       return "person.circle.fill"
@@ -113,6 +114,8 @@ struct DoctorProfile: Codable, Identifiable {
         self.email          = user.email
         self.fullName       = user.fullName
         self.phoneNumber    = user.phoneNumber
+        self.dateOfBirth    = user.dateOfBirth
+        self.gender         = user.gender
         self.department     = user.department
         self.specialization = user.specialization
         self.employeeID     = user.employeeID

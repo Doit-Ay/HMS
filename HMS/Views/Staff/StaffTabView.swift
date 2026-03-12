@@ -16,10 +16,6 @@ struct StaffTabView: View {
                 DoctorAvailabilityView()
                     .tabItem { Label("Availability", systemImage: "calendar.badge.clock") }
                     .tag(1)
-                
-                NavigationStack { DoctorProfileView() }
-                    .tabItem { Label("Profile", systemImage: "person.circle.fill") }
-                    .tag(2)
             } else {
                 StaffDashboardView(role: role)
                     .tabItem { Label("Dashboard", systemImage: roleIcon) }

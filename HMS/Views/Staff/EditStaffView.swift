@@ -4,6 +4,8 @@ import SwiftUI
 struct EditStaffView: View {
     @Environment(\.dismiss) var dismiss
     let staff: HMSUser
+    var onDeactivate: (() -> Void)? = nil
+    var onReactivate: (() -> Void)? = nil
     let onUpdate: () -> Void
 
     @State private var fullName: String
@@ -15,6 +17,8 @@ struct EditStaffView: View {
     @State private var errorMessage   = ""
     @State private var showError      = false
     @State private var showSuccess    = false
+    @State private var showDeactivateConfirm = false
+    @State private var showReactivateConfirm = false
 
     // Time Slot Selection (doctors only)
     @State private var morningSelected    = false
@@ -23,8 +27,10 @@ struct EditStaffView: View {
     @State private var customSlots: [(start: Date, end: Date)] = []
     @State private var showCustomPicker   = false
 
-    init(staff: HMSUser, onUpdate: @escaping () -> Void) {
+    init(staff: HMSUser, onDeactivate: (() -> Void)? = nil, onReactivate: (() -> Void)? = nil, onUpdate: @escaping () -> Void) {
         self.staff = staff
+        self.onDeactivate = onDeactivate
+        self.onReactivate = onReactivate
         self.onUpdate = onUpdate
         _fullName = State(initialValue: staff.fullName)
         _phoneNumber = State(initialValue: staff.phoneNumber ?? "")
@@ -178,6 +184,84 @@ struct EditStaffView: View {
                             .buttonStyle(PrimaryButtonStyle())
                             .disabled(isLoading || !formValid)
                             .padding(.top, 10)
+
+                            // Deactivate Button
+                            if let onDeactivate = onDeactivate, staff.isActive {
+                                Divider().opacity(0.15).padding(.vertical, 4)
+
+                                Button {
+                                    showDeactivateConfirm = true
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "person.fill.xmark")
+                                        Text("Deactivate Staff")
+                                    }
+                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 14)
+                                    .background(
+                                        LinearGradient(
+                                            colors: [Color.red.opacity(0.85), Color.red],
+                                            startPoint: .leading, endPoint: .trailing
+                                        )
+                                    )
+                                    .cornerRadius(14)
+                                }
+                                .buttonStyle(.plain)
+                                .confirmationDialog(
+                                    "Deactivate \(staff.fullName)?",
+                                    isPresented: $showDeactivateConfirm,
+                                    titleVisibility: .visible
+                                ) {
+                                    Button("Deactivate", role: .destructive) {
+                                        onDeactivate()
+                                        dismiss()
+                                    }
+                                    Button("Cancel", role: .cancel) {}
+                                } message: {
+                                    Text("This will deactivate \(staff.fullName). They won't be able to log in until reactivated.")
+                                }
+                            }
+
+                            // Reactivate Button
+                            if let onReactivate = onReactivate, !staff.isActive {
+                                Divider().opacity(0.15).padding(.vertical, 4)
+
+                                Button {
+                                    showReactivateConfirm = true
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "person.fill.checkmark")
+                                        Text("Reactivate Staff")
+                                    }
+                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 14)
+                                    .background(
+                                        LinearGradient(
+                                            colors: [AppTheme.success.opacity(0.85), AppTheme.success],
+                                            startPoint: .leading, endPoint: .trailing
+                                        )
+                                    )
+                                    .cornerRadius(14)
+                                }
+                                .buttonStyle(.plain)
+                                .confirmationDialog(
+                                    "Reactivate \(staff.fullName)?",
+                                    isPresented: $showReactivateConfirm,
+                                    titleVisibility: .visible
+                                ) {
+                                    Button("Reactivate", role: .none) {
+                                        onReactivate()
+                                        dismiss()
+                                    }
+                                    Button("Cancel", role: .cancel) {}
+                                } message: {
+                                    Text("This will restore login access and functionality for \(staff.fullName).")
+                                }
+                            }
                         }
                         .padding(24)
                         .glassCard()

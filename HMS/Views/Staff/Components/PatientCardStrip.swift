@@ -2,7 +2,7 @@ import SwiftUI
 
 // Model for the patient strip
 struct PatientStripModel: Identifiable, Equatable {
-    let id = UUID()
+    var id: String = UUID().uuidString
     let name: String
     let time: String
     let status: AppointmentStatus
@@ -30,7 +30,7 @@ struct PatientStripModel: Identifiable, Equatable {
 
 struct PatientCardStrip: View {
     let patients: [PatientStripModel]
-    @Binding var activePatientID: UUID?
+    @Binding var activePatientID: String?
     
     // Animation state
     @State private var appearAnimation = false
