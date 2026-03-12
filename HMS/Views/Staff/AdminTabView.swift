@@ -18,10 +18,6 @@ struct AdminTabView: View {
             AppointmentStatsView()
                 .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
                 .tag(2)
-
-            NavigationStack { ProfileView() }
-                .tabItem { Label("Profile", systemImage: "person.circle.fill") }
-                .tag(3)
         }
         .tint(AppTheme.primary)
     }
@@ -30,13 +26,21 @@ struct AdminTabView: View {
 // MARK: - Admin Dashboard View
 struct AdminDashboardView: View {
     @ObservedObject var session = UserSession.shared
-    @State private var staffCount = 0
     @State private var animate    = false
 
-    let roleStats: [(String, String, Color)] = [
-        ("Doctors",          "stethoscope.circle.fill", AppTheme.primary),
-        ("Lab Technicians",  "flask.fill",               AppTheme.primaryDark),
-    ]
+    private var greetingText: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12:  return "Good Morning,"
+        case 12..<17: return "Good Afternoon,"
+        case 17..<21: return "Good Evening,"
+        default:       return "Good Night,"
+        }
+    }
+
+    private var adminName: String {
+        session.currentUser?.fullName ?? "Admin"
+    }
 
     var body: some View {
         NavigationStack {
@@ -46,28 +50,42 @@ struct AdminDashboardView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
 
-                        // Admin Hero Card
+                        // Hero Card (Patient-style)
                         HStack {
                             VStack(alignment: .leading, spacing: 6) {
-                                Text("Admin Panel")
-                                    .font(.system(size: 14, design: .rounded))
-                                    .foregroundColor(.white.opacity(0.85))
-                                Text("Welcome, Admin")
+                                HStack(spacing: 4) {
+                                    Text(greetingText)
+                                    if greetingText.contains("Morning") {
+                                        Text("☀️")
+                                    } else if greetingText.contains("Afternoon") {
+                                        Text("👋")
+                                    } else {
+                                        Text("🌙")
+                                    }
+                                }
+                                .font(.system(size: 14, design: .rounded))
+                                .foregroundColor(.white.opacity(0.85))
+                                
+                                Text(adminName)
                                     .font(.system(size: 24, weight: .bold, design: .rounded))
                                     .foregroundColor(.white)
+                                
                                 Text("Manage your hospital staff")
                                     .font(.system(size: 13, design: .rounded))
                                     .foregroundColor(.white.opacity(0.75))
                             }
                             Spacer()
-                            ZStack {
-                                Circle()
-                                    .fill(Color.white.opacity(0.2))
-                                    .frame(width: 64, height: 64)
-                                Image(systemName: "shield.checkered")
-                                    .font(.system(size: 30))
-                                    .foregroundColor(.white)
+                            NavigationLink(destination: ProfileView()) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.white.opacity(0.2))
+                                        .frame(width: 54, height: 54)
+                                    Image(systemName: "person.fill")
+                                        .font(.system(size: 24))
+                                        .foregroundColor(.white)
+                                }
                             }
+                            .buttonStyle(.plain)
                         }
                         .padding(24)
                         .background(
@@ -80,21 +98,6 @@ struct AdminDashboardView: View {
                         .shadow(color: Color.black.opacity(0.10), radius: 8, x: 0, y: 4)
                         .padding(.horizontal, 20)
                         .padding(.top, 10)
-
-                        // Role Cards Grid
-                        VStack(alignment: .leading, spacing: 14) {
-                            Text("Hospital Departments")
-                                .font(.system(size: 18, weight: .bold, design: .rounded))
-                                .foregroundColor(AppTheme.textPrimary)
-                                .padding(.horizontal, 20)
-
-                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
-                                ForEach(roleStats, id: \.0) { stat in
-                                    AdminStatCard(title: stat.0, icon: stat.1, color: stat.2)
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                        }
 
                         // Manage Slots Card
                         NavigationLink(destination: ManageSlotsView()) {
@@ -232,7 +235,12 @@ struct StaffManagementView: View {
                     } else {
                         List {
                             ForEach(filteredStaff) { staff in
-                                 StaffRowView(staff: staff, onUpdate: { fetchStaff() }, onDeactivate: { deactivate(staff) })
+                                 StaffRowView(
+                                     staff: staff,
+                                     onUpdate: { fetchStaff() },
+                                     onDeactivate: { deactivate(staff) },
+                                     onReactivate: { reactivate(staff) }
+                                 )
                             }
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
@@ -294,6 +302,18 @@ struct StaffManagementView: View {
             }
         }
     }
+
+    private func reactivate(_ staff: HMSUser) {
+        Task {
+            do {
+                try await AuthManager.shared.reactivateStaff(uid: staff.id)
+                fetchStaff()
+            } catch {
+                errorMessage = error.localizedDescription
+                showError = true
+            }
+        }
+    }
 }
 
 // MARK: - Staff Row View
@@ -301,84 +321,76 @@ struct StaffRowView: View {
     let staff: HMSUser
     let onUpdate: () -> Void
     let onDeactivate: () -> Void
-    @State private var showConfirm = false
-    @State private var showEdit    = false
+    let onReactivate: () -> Void
+    @State private var showEdit = false
 
     var body: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(AppTheme.primary.opacity(0.12))
-                    .frame(width: 48, height: 48)
-                Image(systemName: staff.role.sfSymbol)
-                    .font(.system(size: 22))
-                    .foregroundColor(AppTheme.primary)
-            }
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(staff.fullName)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundColor(AppTheme.textPrimary)
-                Text(staff.role.displayName)
-                    .font(.system(size: 13, design: .rounded))
-                    .foregroundColor(AppTheme.textSecondary)
-                if let dept = staff.department {
-                    Text(dept)
-                        .font(.system(size: 12, design: .rounded))
-                        .foregroundColor(AppTheme.primaryMid)
+        Button {
+            showEdit = true
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(AppTheme.primary.opacity(0.12))
+                        .frame(width: 48, height: 48)
+                    Image(systemName: staff.role.sfSymbol)
+                        .font(.system(size: 22))
+                        .foregroundColor(AppTheme.primary)
                 }
-            }
-            
-            Spacer()
 
-            if staff.isActive {
-                Text("Active")
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundColor(AppTheme.primary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(AppTheme.primary.opacity(0.1))
-                    .cornerRadius(20)
-            } else {
-                Text("Inactive")
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundColor(AppTheme.textSecondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(20)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(staff.fullName)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundColor(AppTheme.textPrimary)
+                    Text(staff.role.displayName)
+                        .font(.system(size: 13, design: .rounded))
+                        .foregroundColor(AppTheme.textSecondary)
+                    if let dept = staff.department {
+                        Text(dept)
+                            .font(.system(size: 12, design: .rounded))
+                            .foregroundColor(AppTheme.primaryMid)
+                    }
+                }
+                
+                Spacer()
+
+                if staff.isActive {
+                    Text("Active")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundColor(AppTheme.primary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(AppTheme.primary.opacity(0.1))
+                        .cornerRadius(20)
+                } else {
+                    Text("Inactive")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundColor(AppTheme.textSecondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(20)
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(AppTheme.textSecondary.opacity(0.4))
             }
+            .padding(16)
+            .background(Color.white.opacity(0.8))
+            .cornerRadius(16)
+            .shadow(color: AppTheme.primary.opacity(0.06), radius: 6, x: 0, y: 3)
         }
-        .padding(16)
-        .background(Color.white.opacity(0.8))
-        .cornerRadius(16)
-        .shadow(color: AppTheme.primary.opacity(0.06), radius: 6, x: 0, y: 3)
+        .buttonStyle(.plain)
         .padding(.horizontal, 16)
         .padding(.vertical, 4)
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button {
-                showConfirm = true
-            } label: {
-                Label("Deactivate", systemImage: "person.fill.xmark")
-            }
-            .tint(.red)
-        }
-        .swipeActions(edge: .leading, allowsFullSwipe: true) {
-            Button {
-                showEdit = true
-            } label: {
-                Label("Edit", systemImage: "pencil.line")
-            }
-            .tint(AppTheme.primaryMid)
-        }
-        .confirmationDialog("Deactivate \(staff.fullName)?", isPresented: $showConfirm, titleVisibility: .visible) {
-            Button("Deactivate", role: .destructive) { onDeactivate() }
-            Button("Cancel", role: .cancel) {}
-        }
         .sheet(isPresented: $showEdit) {
-            EditStaffView(staff: staff) {
-                onUpdate()
-            }
+            EditStaffView(
+                staff: staff,
+                onDeactivate: { onDeactivate() },
+                onReactivate: { onReactivate() },
+                onUpdate: { onUpdate() }
+            )
         }
     }
 }
