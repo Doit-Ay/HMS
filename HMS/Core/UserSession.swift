@@ -11,15 +11,30 @@ class UserSession: ObservableObject {
     @Published var userRole: UserRole? = nil
     @Published var isLoading: Bool = true
 
+    // OTP verification state
+    @Published var needsOTPVerification: Bool = false
+    @Published var pendingOTPEmail: String? = nil
+
     static let shared = UserSession()
 
     private init() {}
 
-    func setUser(_ user: HMSUser) {
+    /// Sets user data. When `requiresOTP` is true (fresh login/register),
+    /// the user must verify OTP before reaching the dashboard.
+    /// When false (app reopen via auth listener), the user goes straight to dashboard.
+    func setUser(_ user: HMSUser, requiresOTP: Bool = false) {
         self.currentUser = user
         self.userRole = user.role
         self.isLoggedIn = true
+        self.needsOTPVerification = requiresOTP
+        self.pendingOTPEmail = requiresOTP ? user.email : nil
         self.isLoading = false
+    }
+
+    /// Called after OTP is successfully verified — clears the OTP gate.
+    func confirmOTPVerification() {
+        self.needsOTPVerification = false
+        self.pendingOTPEmail = nil
     }
 
     func clearSession() {
@@ -27,6 +42,8 @@ class UserSession: ObservableObject {
         self.userRole = nil
         self.isLoggedIn = false
         self.isLoading = false
+        self.needsOTPVerification = false
+        self.pendingOTPEmail = nil
     }
 
     func setLoading(_ loading: Bool) {

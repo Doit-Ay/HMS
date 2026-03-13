@@ -11,12 +11,15 @@ struct AppRouter: View {
                 SplashView()
             } else if !session.isLoggedIn {
                 LoginView()
+            } else if session.needsOTPVerification {
+                OTPVerificationView()
             } else {
                 dashboardView
             }
         }
         .animation(.easeInOut(duration: 0.4), value: session.isLoggedIn)
         .animation(.easeInOut(duration: 0.4), value: session.isLoading)
+        .animation(.easeInOut(duration: 0.4), value: session.needsOTPVerification)
     }
 
     @ViewBuilder

@@ -41,7 +41,8 @@ class AuthManager {
         do {
             let doc = try await db.collection("users").document(uid).getDocument()
             if let data = doc.data(), let user = try? Firestore.Decoder().decode(HMSUser.self, from: data) {
-                UserSession.shared.setUser(user)
+                // Default: no OTP required (app reopen via auth listener)
+                UserSession.shared.setUser(user, requiresOTP: false)
             } else {
                 UserSession.shared.setLoading(false)
             }
@@ -57,6 +58,10 @@ class AuthManager {
     func login(email: String, password: String) async throws {
         let result = try await Auth.auth().signIn(withEmail: email, password: password)
         await fetchUserProfile(uid: result.user.uid)
+        // Trigger OTP for fresh login
+        UserSession.shared.needsOTPVerification = true
+        UserSession.shared.pendingOTPEmail = email
+        await sendOTPForUser(email: email)
     }
 
     // MARK: - Unified Google Sign-In
@@ -75,9 +80,13 @@ class AuthManager {
             try await saveUserToFirestore(user: newUser, db: nil)
             let patientProfile = PatientProfile(from: newUser)
             try await savePatientProfile(profile: patientProfile, db: nil)
-            UserSession.shared.setUser(newUser)
+            UserSession.shared.setUser(newUser, requiresOTP: true)
         }
-        // Existing users (patient or staff) — already fetched in googleSignIn helper
+        // Trigger OTP for fresh Google sign-in
+        let email = googleUser.email ?? UserSession.shared.currentUser?.email ?? ""
+        UserSession.shared.needsOTPVerification = true
+        UserSession.shared.pendingOTPEmail = email
+        await sendOTPForUser(email: email)
     }
 
     // MARK: - Patient Email/Password Login
@@ -90,6 +99,10 @@ class AuthManager {
             UserSession.shared.clearSession()
             throw AuthError.wrongRole("This account is not a patient account. Please use Staff login.")
         }
+        // Trigger OTP for fresh login
+        UserSession.shared.needsOTPVerification = true
+        UserSession.shared.pendingOTPEmail = email
+        await sendOTPForUser(email: email)
     }
 
     // MARK: - Staff Email/Password Login
@@ -102,6 +115,10 @@ class AuthManager {
             UserSession.shared.clearSession()
             throw AuthError.wrongRole("This account is not a staff account. Please use Patient login.")
         }
+        // Trigger OTP for fresh login
+        UserSession.shared.needsOTPVerification = true
+        UserSession.shared.pendingOTPEmail = email
+        await sendOTPForUser(email: email)
     }
 
     // MARK: - Patient Registration
@@ -126,7 +143,9 @@ class AuthManager {
         patientProfile.phoneNumber = phone
         try await savePatientProfile(profile: patientProfile, db: nil)
 
-        UserSession.shared.setUser(user)
+        UserSession.shared.setUser(user, requiresOTP: true)
+        // Send OTP for email verification
+        await sendOTPForUser(email: email)
     }
 
     // MARK: - Google Sign-In (Patient)
@@ -146,12 +165,17 @@ class AuthManager {
             // 2. Save to `patients` collection
             let patientProfile = PatientProfile(from: newUser)
             try await savePatientProfile(profile: patientProfile, db: nil)
-            UserSession.shared.setUser(newUser)
+            UserSession.shared.setUser(newUser, requiresOTP: true)
         } else if UserSession.shared.userRole != .patient {
             try Auth.auth().signOut()
             UserSession.shared.clearSession()
             throw AuthError.wrongRole("This Google account is registered as staff. Please use Staff login.")
         }
+        // Trigger OTP for fresh Google sign-in
+        let email = googleUser.email ?? UserSession.shared.currentUser?.email ?? ""
+        UserSession.shared.needsOTPVerification = true
+        UserSession.shared.pendingOTPEmail = email
+        await sendOTPForUser(email: email)
     }
 
     // MARK: - Google Sign-In (Staff)
@@ -166,6 +190,11 @@ class AuthManager {
             UserSession.shared.clearSession()
             throw AuthError.wrongRole("This Google account is registered as a patient. Please use Patient login.")
         }
+        // Trigger OTP for fresh Google sign-in
+        let email = user.email ?? UserSession.shared.currentUser?.email ?? ""
+        UserSession.shared.needsOTPVerification = true
+        UserSession.shared.pendingOTPEmail = email
+        await sendOTPForUser(email: email)
     }
 
     // MARK: - Private Google Sign-In Helper
@@ -815,6 +844,16 @@ class AuthManager {
         let doc = try await db.collection("users").document(id).getDocument()
         guard doc.exists else { return nil }
         return try? Firestore.Decoder().decode(HMSUser.self, from: doc.data() ?? [:])
+    }
+
+    // MARK: - OTP Helper
+    /// Sends an OTP email for the given user. Failures are logged but do not block auth.
+    private func sendOTPForUser(email: String) async {
+        do {
+            try await EmailOTPManager.shared.sendOTP(to: email)
+        } catch {
+            print("⚠️ Failed to send OTP: \(error.localizedDescription)")
+        }
     }
 } // <-- Close AuthManager class here
 
