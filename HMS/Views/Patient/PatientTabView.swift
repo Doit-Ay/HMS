@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseFirestore
 
 // MARK: - Patient Tab View
 struct PatientTabView: View {
@@ -28,6 +29,8 @@ struct PatientTabView: View {
 struct PatientHomeView: View {
     @ObservedObject var session = UserSession.shared
     @State private var animate = false
+    @State private var upcomingAppointments: [Appointment] = []
+    @State private var isLoadingAppointments = true
 
     var body: some View {
         NavigationStack {
@@ -129,56 +132,105 @@ struct PatientHomeView: View {
                             HStack(spacing: 16) {
 
                                 FeatureTile(icon: "doc.text.fill", title: "Records", color: AppTheme.primaryDark)
-                                FeatureTile(icon: "pills.fill", title: "Pharmacy", color: AppTheme.primaryMid)
-                                FeatureTile(icon: "waveform.path.ecg", title: "Monitor", color: AppTheme.primary)
+                                FeatureTile(icon: "pills.fill", title: "Lab Tests", color: AppTheme.primaryMid)
+//                                FeatureTile(icon: "waveform.path.ecg", title: "Appointments", color: AppTheme.primary)
                             }
                             .padding(.horizontal, 20)
                         }
                         .offset(y: animate ? 0 : 40)
                         .opacity(animate ? 1 : 0)
 
+//                        VStack(alignment: .leading, spacing: 20) {
+//
+//                            HStack {
+//
+//                                Text("Vitals Overview")
+//                                    .font(.system(size: 22, weight: .bold, design: .rounded))
+//                                    .foregroundColor(AppTheme.textPrimary)
+//
+//                                Spacer()
+//
+//                                Button {
+//
+//                                } label: {
+//
+//                                    Text("See all")
+//                                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+//                                        .foregroundColor(AppTheme.primary)
+//                                }
+//                            }
+//                            .padding(.horizontal, 24)
+//
+//                            VStack(spacing: 16) {
+//
+//                                VitalRow(
+//                                    icon: "heart.fill",
+//                                    title: "Heart Rate",
+//                                    value: "—",
+//                                    unit: "bpm",
+//                                    iconColor: .red
+//                                )
+//
+//                                VitalRow(
+//                                    icon: "drop.fill",
+//                                    title: "Blood Group",
+//                                    value: session.currentUser?.bloodGroup ?? "—",
+//                                    unit: "",
+//                                    iconColor: AppTheme.primary
+//                                )
+//                            }
+//                            .padding(.horizontal, 20)
+//                        }
+//                        .offset(y: animate ? 0 : 50)
+//                        .opacity(animate ? 1 : 0)
+
                         VStack(alignment: .leading, spacing: 20) {
-
                             HStack {
-
-                                Text("Vitals Overview")
+                                Text("Upcoming Appointments")
                                     .font(.system(size: 22, weight: .bold, design: .rounded))
                                     .foregroundColor(AppTheme.textPrimary)
-
+                                
                                 Spacer()
-
-                                Button {
-
-                                } label: {
-
+                                
+                                NavigationLink(destination: PatientAppointmentsView()) {
                                     Text("See all")
                                         .font(.system(size: 15, weight: .semibold, design: .rounded))
                                         .foregroundColor(AppTheme.primary)
                                 }
                             }
                             .padding(.horizontal, 24)
-
-                            VStack(spacing: 16) {
-
-                                VitalRow(
-                                    icon: "heart.fill",
-                                    title: "Heart Rate",
-                                    value: "—",
-                                    unit: "bpm",
-                                    iconColor: .red
-                                )
-
-                                VitalRow(
-                                    icon: "drop.fill",
-                                    title: "Blood Group",
-                                    value: session.currentUser?.bloodGroup ?? "—",
-                                    unit: "",
-                                    iconColor: AppTheme.primary
-                                )
+                            
+                            if isLoadingAppointments {
+                                HStack {
+                                    Spacer()
+                                    ProgressView()
+                                        .padding(.vertical, 30)
+                                    Spacer()
+                                }
+                            } else if upcomingAppointments.isEmpty {
+                                HStack {
+                                    Spacer()
+                                    VStack(spacing: 12) {
+                                        Image(systemName: "calendar.badge.plus")
+                                            .font(.system(size: 32))
+                                            .foregroundColor(AppTheme.textSecondary.opacity(0.5))
+                                        Text("No upcoming appointments")
+                                            .font(.system(size: 15, weight: .medium, design: .rounded))
+                                            .foregroundColor(AppTheme.textSecondary)
+                                    }
+                                    .padding(.vertical, 30)
+                                    Spacer()
+                                }
+                            } else {
+                                VStack(spacing: 16) {
+                                    ForEach(upcomingAppointments.prefix(3)) { appointment in
+                                        UpcomingAppointmentCard(appointment: appointment)
+                                    }
+                                }
+                                .padding(.horizontal, 20)
                             }
-                            .padding(.horizontal, 20)
                         }
-                        .offset(y: animate ? 0 : 50)
+                        .offset(y: animate ? 0 : 60)
                         .opacity(animate ? 1 : 0)
 
                         Spacer(minLength: 40)
@@ -192,6 +244,150 @@ struct PatientHomeView: View {
                 animate = true
             }
         }
+        .task {
+            await fetchUpcomingAppointments()
+        }
+    }
+    
+    private func fetchUpcomingAppointments() async {
+        guard let userId = session.currentUser?.id else {
+            await MainActor.run { isLoadingAppointments = false }
+            return
+        }
+        
+        let db = Firestore.firestore()
+        
+        do {
+            let snapshot = try await db.collection("appointments")
+                .whereField("patientId", isEqualTo: userId)
+                .whereField("status", in: ["scheduled"])
+                .getDocuments()
+            
+            let fetchedApps = snapshot.documents.compactMap { doc -> Appointment? in
+                let data = doc.data()
+                return Appointment(
+                    id: doc.documentID,
+                    slotId: data["slotId"] as? String ?? "",
+                    doctorId: data["doctorId"] as? String ?? "",
+                    doctorName: data["doctorName"] as? String ?? "",
+                    patientId: data["patientId"] as? String ?? "",
+                    patientName: data["patientName"] as? String ?? "",
+                    department: data["department"] as? String,
+                    date: data["date"] as? String ?? "",
+                    startTime: data["startTime"] as? String ?? "",
+                    endTime: data["endTime"] as? String ?? "",
+                    status: data["status"] as? String ?? ""
+                )
+            }
+            
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd HH:mm"
+            
+            // Sort by date and time
+            let sortedApps = fetchedApps.sorted { app1, app2 in
+                if app1.date != app2.date {
+                    return app1.date < app2.date
+                }
+                return app1.startTime < app2.startTime
+            }
+            
+            // Filter future or ongoing appointments today
+            let nowStr = formatter.string(from: Date())
+            let filteredApps = sortedApps.filter { "\($0.date) \($0.endTime)" >= nowStr }
+            
+            await MainActor.run {
+                self.upcomingAppointments = filteredApps
+                withAnimation {
+                    self.isLoadingAppointments = false
+                }
+            }
+        } catch {
+            print("Error fetching appointments: \(error)")
+            await MainActor.run {
+                withAnimation {
+                    self.isLoadingAppointments = false
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Upcoming Appointment Card
+struct UpcomingAppointmentCard: View {
+    let appointment: Appointment
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                HStack(spacing: 12) {
+                    Circle()
+                        .fill(AppTheme.primaryLight.opacity(0.3))
+                        .frame(width: 46, height: 46)
+                        .overlay(
+                            Image(systemName: "stethoscope")
+                                .foregroundColor(AppTheme.primaryDark)
+                        )
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(appointment.doctorName)
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundColor(AppTheme.textPrimary)
+                        
+                        Text(appointment.department ?? "General")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
+                }
+                
+                Spacer()
+                
+                // Status badge
+                Text("Upcoming")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundColor(AppTheme.primaryDark)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(AppTheme.primaryLight)
+                    .clipShape(Capsule())
+            }
+            
+            Divider()
+                .background(Color.gray.opacity(0.1))
+            
+            HStack(spacing: 24) {
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar")
+                        .foregroundColor(AppTheme.primary)
+                        .font(.system(size: 14))
+                    Text(formatDate(appointment.date))
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundColor(AppTheme.textPrimary)
+                }
+                
+                HStack(spacing: 6) {
+                    Image(systemName: "clock.fill")
+                        .foregroundColor(AppTheme.primary)
+                        .font(.system(size: 14))
+                    Text("\(appointment.startTime) - \(appointment.endTime)")
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundColor(AppTheme.textPrimary)
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 10, x: 0, y: 4)
+    }
+    
+    private func formatDate(_ dateString: String) -> String {
+        let inputFormatter = DateFormatter()
+        inputFormatter.dateFormat = "yyyy-MM-dd"
+        guard let date = inputFormatter.date(from: dateString) else { return dateString }
+        
+        let outputFormatter = DateFormatter()
+        outputFormatter.dateFormat = "MMM d, yyyy"
+        return outputFormatter.string(from: date)
     }
 }
 
