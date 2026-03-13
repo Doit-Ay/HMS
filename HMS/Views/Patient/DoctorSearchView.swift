@@ -9,6 +9,11 @@ struct DoctorSearchView: View {
     @State private var isLoading = true
     @State private var animate = false
 
+    // Filter states
+    @State private var showFilterSheet = false
+    @State private var selectedDepartment: String? = nil
+    @State private var departments: [String] = []
+
     var body: some View {
 
         ZStack {
@@ -32,6 +37,21 @@ struct DoctorSearchView: View {
                     .cornerRadius(14)
                     .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 3)
 
+                    // MARK: Filter Button
+                    Button {
+
+                        showFilterSheet = true
+
+                    } label: {
+
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(AppTheme.primary)
+                            .frame(width: 44, height: 44)
+                            .background(Color.white)
+                            .cornerRadius(12)
+                            .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 3)
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 10)
@@ -77,8 +97,74 @@ struct DoctorSearchView: View {
                 }
             }
         }
-//        .navigationTitle("Find a Doctor")
-//        .navigationBarTitleDisplayMode(.large)
+        .sheet(isPresented: $showFilterSheet) {
+
+            NavigationStack {
+
+                ZStack {
+
+                    AppTheme.background
+                        .ignoresSafeArea()
+
+                    List {
+
+                        Button {
+
+                            selectedDepartment = nil
+                            applyFilters()
+                            showFilterSheet = false
+
+                        } label: {
+
+                            HStack {
+
+                                Text("All Departments")
+                                    .foregroundColor(AppTheme.textPrimary)
+
+                                Spacer()
+
+                                if selectedDepartment == nil {
+                                    Image(systemName: "checkmark")
+                                        .foregroundColor(AppTheme.primary)
+                                }
+                            }
+                        }
+
+                        ForEach(departments, id: \.self) { dept in
+
+                            Button {
+
+                                selectedDepartment = dept
+                                applyFilters()
+                                showFilterSheet = false
+
+                            } label: {
+
+                                HStack {
+
+                                    Text(dept)
+                                        .foregroundColor(AppTheme.textPrimary)
+
+                                    Spacer()
+
+                                    if selectedDepartment == dept {
+                                        Image(systemName: "checkmark")
+                                            .foregroundColor(AppTheme.primary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .scrollContentBackground(.hidden)
+                }
+                .navigationTitle("Filter by Department")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(AppTheme.background, for: .navigationBar)
+                .toolbarBackground(.visible, for: .navigationBar)
+            }
+            .presentationDetents([.medium])   // Half screen
+            .presentationDragIndicator(.visible)
+        }
         .onAppear { loadDoctors() }
     }
 
@@ -91,6 +177,10 @@ struct DoctorSearchView: View {
                 let result = try await AuthManager.shared.fetchDoctors()
 
                 doctors = result
+
+                // Extract unique departments
+                departments = Array(Set(result.compactMap { $0.department })).sorted()
+
                 applyFilters()
 
             } catch {
@@ -106,16 +196,22 @@ struct DoctorSearchView: View {
         }
     }
 
-    // MARK: Apply Search
+    // MARK: Apply Filters
     private func applyFilters() {
 
-        if searchText.isEmpty {
-            filteredDoctors = doctors
-        } else {
+        var result = doctors
+
+        // Department filter
+        if let dept = selectedDepartment {
+            result = result.filter { $0.department == dept }
+        }
+
+        // Search filter
+        if !searchText.isEmpty {
 
             let query = searchText.lowercased()
 
-            filteredDoctors = doctors.filter {
+            result = result.filter {
 
                 $0.fullName.lowercased().contains(query) ||
                 ($0.specialization?.lowercased().contains(query) ?? false) ||
@@ -123,8 +219,11 @@ struct DoctorSearchView: View {
 
             }
         }
+
+        filteredDoctors = result
     }
 }
+
 
 // MARK: - Doctor Profile Card (New Design)
 struct DoctorProfileCard: View {
