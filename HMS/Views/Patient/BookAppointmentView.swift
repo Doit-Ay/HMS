@@ -1,10 +1,15 @@
 import SwiftUI
+import FirebaseFirestore
 
 // MARK: - Book Appointment View (Patient Booking Flow — Step 2)
 struct BookAppointmentView: View {
     let doctor: HMSUser
     @ObservedObject var session = UserSession.shared
     @Environment(\.dismiss) var dismiss
+    
+    /// When set, the view operates in "reschedule" mode — updating an existing appointment
+    var rescheduleAppointmentId: String? = nil
+    var rescheduleOldSlotId: String? = nil
     
     // Calendar State
     @State private var selectedDate: Date? = Date()
@@ -23,6 +28,8 @@ struct BookAppointmentView: View {
     @State private var showSuccess = false
     @State private var errorMessage: String? = nil
     @State private var animate = false
+    
+    private var isRescheduleMode: Bool { rescheduleAppointmentId != nil }
     
     private let calendar = Calendar.current
     
@@ -137,16 +144,16 @@ struct BookAppointmentView: View {
                             .foregroundColor(.red)
                     }
                     
-                    Button(action: bookSelectedSlot) {
+                    Button(action: { isRescheduleMode ? rescheduleSelectedSlot() : bookSelectedSlot() }) {
                         HStack(spacing: 10) {
                             if isBooking {
                                 ProgressView().tint(.white).scaleEffect(0.8)
                             } else {
-                                Image(systemName: "checkmark.circle.fill")
+                                Image(systemName: isRescheduleMode ? "arrow.triangle.2.circlepath.circle.fill" : "checkmark.circle.fill")
                                     .font(.system(size: 18))
                             }
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(isBooking ? "Booking..." : "Confirm Booking")
+                                Text(isBooking ? (isRescheduleMode ? "Rescheduling..." : "Booking...") : (isRescheduleMode ? "Confirm Reschedule" : "Confirm Booking"))
                                     .font(.system(size: 16, weight: .bold, design: .rounded))
                                 if let slot = selectedSlot {
                                     Text("\(slot.start) – \(slot.end)")
@@ -181,7 +188,7 @@ struct BookAppointmentView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .navigationTitle("Book Appointment")
+        .navigationTitle(isRescheduleMode ? "Reschedule Appointment" : "Book Appointment")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
@@ -195,6 +202,7 @@ struct BookAppointmentView: View {
                 doctorName: doctor.fullName,
                 date: selectedDateString ?? "",
                 time: selectedSlot.map { "\($0.start) – \($0.end)" } ?? "",
+                isReschedule: isRescheduleMode,
                 onDismiss: { dismiss() }
             )
             .presentationDetents([.medium])
@@ -280,6 +288,69 @@ struct BookAppointmentView: View {
         }
     }
     
+    // MARK: - Reschedule Appointment
+    
+    private func rescheduleSelectedSlot() {
+        guard let slot = selectedSlot,
+              let dateStr = selectedDateString,
+              let patient = session.currentUser,
+              let appointmentId = rescheduleAppointmentId else { return }
+        
+        isBooking = true
+        errorMessage = nil
+        
+        let newSlotId = UUID().uuidString
+        let db = Firestore.firestore()
+        
+        Task {
+            do {
+                // 1. Free up old slot
+                if let oldSlotId = rescheduleOldSlotId, !oldSlotId.isEmpty {
+                    try await db.collection("doctor_slots")
+                        .document(oldSlotId)
+                        .updateData(["status": "available"])
+                }
+                
+                // 2. Update existing appointment with new date/time/slot
+                try await db.collection("appointments")
+                    .document(appointmentId)
+                    .updateData([
+                        "date": dateStr,
+                        "startTime": slot.start,
+                        "endTime": slot.end,
+                        "slotId": newSlotId,
+                        "status": "scheduled"
+                    ])
+                
+                // 3. Create new booked slot
+                let newSlot = DoctorSlot(
+                    id: newSlotId,
+                    doctorId: doctor.id,
+                    doctorName: doctor.fullName,
+                    department: doctor.department,
+                    date: dateStr,
+                    startTime: slot.start,
+                    endTime: slot.end,
+                    status: .booked,
+                    createdAt: Date(),
+                    updatedAt: Date()
+                )
+                let slotData = try Firestore.Encoder().encode(newSlot)
+                try await db.collection("doctor_slots").document(newSlotId).setData(slotData)
+                
+                await MainActor.run {
+                    withAnimation { showSuccess = true }
+                }
+            } catch {
+                await MainActor.run {
+                    withAnimation { errorMessage = "Reschedule failed. Please try again." }
+                }
+                print("⚠️ Reschedule error: \(error)")
+            }
+            await MainActor.run { isBooking = false }
+        }
+    }
+    
     // MARK: - Book Appointment
     
     private func bookSelectedSlot() {
@@ -327,53 +398,112 @@ struct BookAppointmentView: View {
 
 // MARK: - Doctor Info Header
 struct DoctorInfoHeader: View {
+
     let doctor: HMSUser
     
+    /// Temporary dummy fee (until added to Firestore)
+    let consultationFee: Int = 500
+
     var body: some View {
+
         HStack(spacing: 16) {
+
+            // MARK: Doctor Image
             ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [AppTheme.primary, AppTheme.primaryMid],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 60, height: 60)
-                
-                Image(systemName: "stethoscope")
-                    .font(.system(size: 26))
-                    .foregroundColor(.white)
+
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(AppTheme.primary.opacity(0.08))
+                    .frame(width: 95, height: 105)
+
+                if let url = doctor.profileImageURL,
+                   let imageURL = URL(string: url) {
+
+                    AsyncImage(url: imageURL) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } placeholder: {
+                        Image("doctor_placeholder")
+                            .resizable()
+                            .scaledToFill()
+                    }
+
+                } else {
+
+                    Image("doctor_placeholder")
+                        .resizable()
+                        .scaledToFill()
+                }
             }
-            
-            VStack(alignment: .leading, spacing: 4) {
+            .frame(width: 95, height: 105)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+
+            // MARK: Doctor Details
+            VStack(alignment: .leading, spacing: 8) {
+
+                // Rating
+                HStack(spacing: 4) {
+
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(.orange)
+
+                    Text("4.9")
+                        .font(.system(size: 13, weight: .semibold))
+
+                    Text("• 44 reviews")
+                        .font(.system(size: 12))
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+
+                // Name
                 Text("Dr. \(doctor.fullName)")
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundColor(AppTheme.textPrimary)
-                
+
+                // Specialization
                 if let spec = doctor.specialization {
+
                     Text(spec)
-                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundColor(AppTheme.primary)
+                        .font(.system(size: 14))
+                        .foregroundColor(AppTheme.textSecondary)
                 }
-                
-                if let dept = doctor.department {
+
+                // Experience + Fee Row
+                HStack(spacing: 12) {
+
+                    // Experience
                     HStack(spacing: 4) {
-                        Image(systemName: "building.2")
+                        Image(systemName: "stethoscope")
                             .font(.system(size: 11))
-                        Text(dept)
-                            .font(.system(size: 13, design: .rounded))
+                        Text("5 yrs exp")
+                            .font(.system(size: 12))
                     }
                     .foregroundColor(AppTheme.textSecondary)
+
+                    // Consultation Fee
+                    HStack(spacing: 4) {
+                        Image(systemName: "indianrupeesign.circle.fill")
+                            .font(.system(size: 13))
+                            .foregroundColor(AppTheme.primary)
+
+                        Text("₹\(consultationFee)")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(AppTheme.primary)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(AppTheme.primary.opacity(0.1))
+                    .cornerRadius(8)
                 }
             }
-            
+
             Spacer()
         }
-        .padding(18)
-        .background(Color.white.opacity(0.85))
+        .padding(16)
+        .background(Color.white)
         .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
     }
 }
 
@@ -455,6 +585,7 @@ struct BookingSuccessSheet: View {
     let doctorName: String
     let date: String
     let time: String
+    var isReschedule: Bool = false
     let onDismiss: () -> Void
     
     @State private var animate = false
@@ -485,7 +616,7 @@ struct BookingSuccessSheet: View {
                     .scaleEffect(animate ? 1 : 0)
             }
             
-            Text("Appointment Booked!")
+            Text(isReschedule ? "Appointment Rescheduled!" : "Appointment Booked!")
                 .font(.system(size: 24, weight: .bold, design: .rounded))
                 .foregroundColor(AppTheme.textPrimary)
             
