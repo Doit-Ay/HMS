@@ -13,13 +13,13 @@ struct PatientTabView: View {
                 }
                 .tag(0)
 
-            NavigationStack {
-                ProfileView()
-            }
-            .tabItem {
-                Label("Profile", systemImage: "person.circle.fill")
-            }
-            .tag(1)
+//            NavigationStack {
+//                ProfileView()
+//            }
+//            .tabItem {
+//                Label("Profile", systemImage: "person.circle.fill")
+//            }
+//            .tag(1)
         }
         .tint(AppTheme.primary)
     }
@@ -465,19 +465,24 @@ struct HeaderProfileView: View {
 
             Spacer()
 
-            ZStack {
+            // MARK: Profile Button
+            NavigationLink(destination: PatientProfileView()) {
 
-                Circle()
-                    .stroke(AppTheme.primaryMid.opacity(0.3), lineWidth: 2)
-                    .frame(width: 58, height: 58)
+                ZStack {
 
-                Image(systemName: "person.crop.circle.fill")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 50, height: 50)
-                    .foregroundColor(AppTheme.primaryDark)
-                    .background(Circle().fill(AppTheme.primaryLight))
+//                    Circle()
+//                        .stroke(AppTheme.primaryMid.opacity(0.3), lineWidth: 2)
+//                        .frame(width: 58, height: 58)
+
+                    Image(systemName: "person.crop.circle.fill")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 50, height: 50)
+                        .foregroundColor(AppTheme.primaryDark)
+                        .background(Circle().fill(AppTheme.primaryLight))
+                }
             }
+            .buttonStyle(.plain)
         }
     }
 }

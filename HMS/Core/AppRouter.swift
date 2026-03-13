@@ -26,7 +26,9 @@ struct AppRouter: View {
     private var dashboardView: some View {
         switch session.userRole {
         case .patient:
-            PatientTabView()
+            NavigationStack {
+                PatientHomeView()
+            }
 
         case .admin:
             AdminTabView()
