@@ -40,6 +40,7 @@ struct DoctorHomeViewController: View {
             
             return AppointmentBlock(
                 id: appt.id,
+                patientId: appt.patientId,
                 type: appt.department ?? "Consultation",
                 startTime: startDate,
                 endTime: endDate,
@@ -245,16 +246,24 @@ struct BookedAppointmentCard: View {
                     .fill(AppTheme.primary.opacity(0.15))
                     .frame(width: 32, height: 32)
                     .overlay(
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(AppTheme.primary)
+                        LivePatientAvatarInitial(
+                            patientId: appointment.patientId,
+                            fallbackName: appointment.patientName,
+                            font: .system(size: 14, design: .rounded),
+                            weight: .bold,
+                            color: AppTheme.primary
+                        )
                     )
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(appointment.patientName)
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                        .foregroundColor(AppTheme.textPrimary)
-                        .lineLimit(1)
+                    LivePatientNameView(
+                        patientId: appointment.patientId,
+                        fallbackName: appointment.patientName,
+                        font: .system(size: 14, design: .rounded),
+                        weight: .bold,
+                        color: AppTheme.textPrimary,
+                        lineLimit: 1
+                    )
                     
                     if let dept = appointment.department {
                         Text(dept)

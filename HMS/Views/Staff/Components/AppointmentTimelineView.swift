@@ -3,6 +3,7 @@ import Combine
 
 struct AppointmentBlock: Identifiable {
     var id: String = UUID().uuidString
+    let patientId: String
     let type: String
     let startTime: Date
     let endTime: Date
@@ -11,56 +12,80 @@ struct AppointmentBlock: Identifiable {
     let additionalStaffCount: Int
 }
 
+
 struct AppointmentTimelineView: View {
     let appointments: [AppointmentBlock]
     let onAppointmentTap: (AppointmentBlock) -> Void
     
-    // Config
-    private let hourHeight: CGFloat = 80
+    // Config — increased hourHeight for more breathing room
+    private let hourHeight: CGFloat = 100
     private let startHour = 8 // 8 AM
-    private let endHour = 18 // 6 PM
+    private let endHour = 20 // 8 PM
+    private let timeColumnWidth: CGFloat = 62
+    private let cardLeadingPadding: CGFloat = 12
+    private let cardTrailingPadding: CGFloat = 24
     
     // Animation state
     @State private var appearAnimation = false
     @State private var nowLinePulse = false
     
-    // We use a ScrollViewReader to scroll to 'now' on appear
+    /// Total height of the timeline grid
+    private var totalGridHeight: CGFloat {
+        CGFloat(endHour - startHour + 1) * hourHeight
+    }
     
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(showsIndicators: false) {
                 ZStack(alignment: .topLeading) {
                     
-                    // 1. Time Axis Background Grid
+                    // 1. Time Axis Background Grid (with half-hour lines)
                     VStack(spacing: 0) {
                         ForEach(startHour...endHour, id: \.self) { hour in
-                            HStack(alignment: .top, spacing: 12) {
-                                // Time label
-                                Text(timeString(for: hour))
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                    .foregroundColor(AppTheme.textSecondary)
-                                    .frame(width: 50, alignment: .trailing)
-                                    .offset(y: -8) // center vertically with the line
-                                
-                                // Dashed line separator
-                                VStack {
-                                    Divider()
-                                        .background(AppTheme.textSecondary.opacity(0.3))
-                                    Spacer()
+                            VStack(spacing: 0) {
+                                // Full hour row: label + line
+                                HStack(alignment: .top, spacing: 12) {
+                                    Text(timeString(for: hour))
+                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                        .foregroundColor(AppTheme.textSecondary)
+                                        .frame(width: 50, alignment: .trailing)
+                                        .offset(y: -8)
+                                    
+                                    VStack {
+                                        Divider()
+                                            .background(AppTheme.textSecondary.opacity(0.3))
+                                        Spacer()
+                                    }
                                 }
+                                .frame(height: hourHeight / 2)
+                                
+                                // Half-hour row: no label, lighter line
+                                HStack(alignment: .top, spacing: 12) {
+                                    // Empty space where label would be
+                                    Color.clear
+                                        .frame(width: 50)
+                                        .offset(y: -8)
+                                    
+                                    VStack {
+                                        Divider()
+                                            .background(AppTheme.textSecondary.opacity(0.12))
+                                        Spacer()
+                                    }
+                                }
+                                .frame(height: hourHeight / 2)
                             }
                             .frame(height: hourHeight)
-                            .id(hour) // For scrolling
+                            .id(hour)
                         }
                     }
                     
-                    // 2. Appointment Blocks
+                    // 2. Appointment Blocks — stretching full width to edges
                     ForEach(appointments) { appt in
                         AppointmentCard(appt: appt, appearAnimation: appearAnimation)
-                            .offset(y: yOffset(for: appt.startTime))
-                            .frame(height: height(for: appt.startTime, to: appt.endTime))
-                            .padding(.leading, 62 + 12) // TimeLabel width + spacing
-                            .padding(.trailing, 24)
+                            .frame(height: cardHeight(for: appt))
+                            .padding(.leading, timeColumnWidth + cardLeadingPadding)
+                            .padding(.trailing, 8) // small right margin
+                            .offset(y: yPosition(for: appt.startTime))
                             .onTapGesture {
                                 onAppointmentTap(appt)
                             }
@@ -95,8 +120,10 @@ struct AppointmentTimelineView: View {
         }
     }
     
-    // Helpers for calculating physical view positioning based on time
-    private func yOffset(for date: Date) -> CGFloat {
+    // MARK: - Positioning Helpers
+    
+    /// Calculate the Y position (top edge) of a card based on its start time
+    private func yPosition(for date: Date) -> CGFloat {
         let calendar = Calendar.current
         let hour = calendar.component(.hour, from: date)
         let minute = calendar.component(.minute, from: date)
@@ -104,16 +131,53 @@ struct AppointmentTimelineView: View {
         let relativeHour = hour - startHour
         let totalHours = CGFloat(relativeHour) + (CGFloat(minute) / 60.0)
         
-        // Offset by -8 to perfectly align with the center of the text label/divider line
-        return (totalHours * hourHeight) - 8
+        return totalHours * hourHeight
     }
     
-    private func height(for start: Date, to end: Date) -> CGFloat {
-        let durationMinutes = end.timeIntervalSince(start) / 60.0
+    /// Calculate the height of a card based on its duration
+    private func cardHeight(for appt: AppointmentBlock) -> CGFloat {
+        let durationMinutes = appt.endTime.timeIntervalSince(appt.startTime) / 60.0
         let hours = CGFloat(durationMinutes) / 60.0
-        // No longer subtract 2 for a gap since the yOffset shift already provides visual padding
-        // Ensure it exactly fits the duration grid constraints
-        return max(hours * hourHeight, 40)
+        return max(hours * hourHeight, 60) // Minimum 60pt height
+    }
+    
+    /// Detect overlapping appointments and assign columns so they sit side by side
+    private func computeColumns(appointments: [AppointmentBlock]) -> [String: (column: Int, totalColumns: Int)] {
+        // Sort by start time
+        let sorted = appointments.sorted { $0.startTime < $1.startTime }
+        
+        // Group overlapping appointments together
+        var groups: [[AppointmentBlock]] = []
+        
+        for appt in sorted {
+            var placed = false
+            for i in groups.indices {
+                // Check if this appointment overlaps with any in the group
+                let groupOverlaps = groups[i].contains { existing in
+                    appt.startTime < existing.endTime && appt.endTime > existing.startTime
+                }
+                if groupOverlaps {
+                    groups[i].append(appt)
+                    placed = true
+                    break
+                }
+            }
+            if !placed {
+                groups.append([appt])
+            }
+        }
+        
+        // Assign column indices within each group
+        var result: [String: (column: Int, totalColumns: Int)] = [:]
+        
+        for group in groups {
+            let totalCols = group.count
+            for (idx, appt) in group.enumerated() {
+                result[appt.id] = (column: idx, totalColumns: totalCols)
+            }
+        }
+        
+        return result
     }
     
     private func timeString(for hour: Int) -> String {
@@ -168,58 +232,56 @@ struct CurrentTimeLine: View {
 }
 
 
-// Visual Card for an appointment
+// Visual Card for an appointment — shows only Name + Time
 struct AppointmentCard: View {
     let appt: AppointmentBlock
     let appearAnimation: Bool
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(appt.type)
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundColor(AppTheme.textPrimary)
-            
-            Text("\(timeString(appt.startTime)) – \(timeString(appt.endTime))")
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundColor(AppTheme.textSecondary)
-            
-            Spacer(minLength: 0)
-            
-            HStack(spacing: 8) {
-                // Avatar
+        NavigationLink(destination: PatientDetailView(patientId: appt.patientId, patientName: appt.patientName)) {
+            HStack(spacing: 12) {
+                // Avatar circle
                 ZStack {
                     Circle()
                         .fill(Color.white.opacity(0.8))
-                        .frame(width: 20, height: 20)
-                    Text(String(appt.patientName.prefix(1)))
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .frame(width: 28, height: 28)
+                    
+                    LivePatientAvatarInitial(
+                        patientId: appt.patientId,
+                        fallbackName: appt.patientName,
+                        font: .system(size: 13, design: .rounded),
+                        weight: .bold,
+                        color: AppTheme.textPrimary
+                    )
                 }
                 
-                Text(appt.patientName)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundColor(AppTheme.textPrimary)
+                VStack(alignment: .leading, spacing: 3) {
+                    // Patient Name
+                    LivePatientNameView(
+                        patientId: appt.patientId,
+                        fallbackName: appt.patientName,
+                        font: .system(size: 14, design: .rounded),
+                        weight: .bold,
+                        color: AppTheme.textPrimary,
+                        lineLimit: 1
+                    )
+                    
+                    // Time slot
+                    Text("\(timeString(appt.startTime)) – \(timeString(appt.endTime))")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(AppTheme.textSecondary)
+                }
                 
                 Spacer()
-                
-                if appt.additionalStaffCount > 0 {
-                    Text("+\(appt.additionalStaffCount) nurses")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .foregroundColor(AppTheme.primaryDark)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.white.opacity(0.8))
-                        .clipShape(Capsule())
-                }
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .background(appt.color)
+            .cornerRadius(12)
+            .shadow(color: appt.color.opacity(0.3), radius: 4, x: 0, y: 2)
         }
-        .padding(12)
-        .background(appt.color)
-        .cornerRadius(12)
-        .shadow(color: appt.color.opacity(0.4), radius: 6, x: 0, y: 3)
-        // Card hover in animation
-        .offset(y: appearAnimation ? 0 : 30)
-        .opacity(appearAnimation ? 1 : 0)
+        .buttonStyle(.plain)
     }
     
     private func timeString(_ date: Date) -> String {
@@ -234,8 +296,8 @@ struct AppointmentCard: View {
         AppTheme.background.ignoresSafeArea()
         let today = Calendar.current.startOfDay(for: Date())
         AppointmentTimelineView(appointments: [
-            AppointmentBlock(type: "Consultation", startTime: today.addingTimeInterval(9 * 3600), endTime: today.addingTimeInterval(9.75 * 3600), patientName: "Oliver Smith", color: AppTheme.primaryLight, additionalStaffCount: 2),
-            AppointmentBlock(type: "Heart ECG", startTime: today.addingTimeInterval(10.5 * 3600), endTime: today.addingTimeInterval(11.5 * 3600), patientName: "Ava Johnson", color: Color.orange.opacity(0.2), additionalStaffCount: 0)
+            AppointmentBlock(patientId: "patient_1", type: "Consultation", startTime: today.addingTimeInterval(9 * 3600), endTime: today.addingTimeInterval(9.75 * 3600), patientName: "Oliver Smith", color: AppTheme.primaryLight, additionalStaffCount: 2),
+            AppointmentBlock(patientId: "patient_2", type: "Heart ECG", startTime: today.addingTimeInterval(10.5 * 3600), endTime: today.addingTimeInterval(11.5 * 3600), patientName: "Ava Johnson", color: Color.orange.opacity(0.2), additionalStaffCount: 0)
         ], onAppointmentTap: { _ in })
     }
 }

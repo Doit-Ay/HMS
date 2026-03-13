@@ -10,7 +10,7 @@ enum UserRole: String, Codable, CaseIterable {
     var displayName: String {
         switch self {
         case .patient:       return "Patient"
-        case .admin:         return "Admin"
+        case .admin:         return "A2dmin"
         case .doctor:        return "Doctor"
         case .labTechnician: return "Lab Technician"
         }
@@ -70,11 +70,15 @@ struct PatientProfile: Codable, Identifiable {
     var dateOfBirth: String?
     var gender: String?
     var bloodGroup: String?
+    var height: String?
+    var weight: String?
     var address: String?
     var emergencyContactName: String?
     var emergencyContactPhone: String?
     var allergies: [String]?
     var medicalHistory: [String]?
+    var currentMedications: [String]?
+    var age: Int?
     var createdAt: Date?
     var isActive: Bool
 
