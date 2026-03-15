@@ -15,7 +15,9 @@ struct AppointmentBlock: Identifiable {
 
 struct AppointmentTimelineView: View {
     let appointments: [AppointmentBlock]
+    let selectedDate: Date
     let onAppointmentTap: (AppointmentBlock) -> Void
+    @Binding var scrollToHour: Int?
     
     // Config — increased hourHeight for more breathing room
     private let hourHeight: CGFloat = 100
@@ -35,87 +37,147 @@ struct AppointmentTimelineView: View {
     }
     
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView(showsIndicators: false) {
-                ZStack(alignment: .topLeading) {
-                    
-                    // 1. Time Axis Background Grid (with half-hour lines)
-                    VStack(spacing: 0) {
-                        ForEach(startHour...endHour, id: \.self) { hour in
-                            VStack(spacing: 0) {
-                                // Full hour row: label + line
-                                HStack(alignment: .top, spacing: 12) {
-                                    Text(timeString(for: hour))
-                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                        .foregroundColor(AppTheme.textSecondary)
-                                        .frame(width: 50, alignment: .trailing)
-                                        .offset(y: -8)
-                                    
-                                    VStack {
-                                        Divider()
-                                            .background(AppTheme.textSecondary.opacity(0.3))
-                                        Spacer()
+        if appointments.isEmpty {
+            // Empty state — no appointments for this date
+            VStack(spacing: 16) {
+                Spacer()
+                
+                Image(systemName: "calendar.badge.checkmark")
+                    .font(.system(size: 52))
+                    .foregroundColor(AppTheme.textSecondary.opacity(0.25))
+                
+                Text(Calendar.current.isDateInToday(selectedDate)
+                     ? "No Appointments Today"
+                     : "No Appointments")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(AppTheme.textSecondary)
+                
+                Text("Your schedule is clear for this day.")
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundColor(AppTheme.textSecondary.opacity(0.7))
+                
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, minHeight: 300)
+            .padding(.horizontal, 24)
+        } else {
+            // Timeline with appointments
+            ScrollViewReader { proxy in
+                ScrollView(showsIndicators: false) {
+                    ZStack(alignment: .topLeading) {
+                        
+                        // 1. Time Axis Background Grid (with half-hour lines)
+                        VStack(spacing: 0) {
+                            ForEach(startHour...endHour, id: \.self) { hour in
+                                VStack(spacing: 0) {
+                                    // Full hour row: label + line
+                                    HStack(alignment: .top, spacing: 12) {
+                                        Text(timeString(for: hour))
+                                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                            .foregroundColor(AppTheme.textSecondary)
+                                            .frame(width: 50, alignment: .trailing)
+                                            .offset(y: -8)
+                                        
+                                        VStack {
+                                            Divider()
+                                                .background(AppTheme.textSecondary.opacity(0.3))
+                                            Spacer()
+                                        }
                                     }
-                                }
-                                .frame(height: hourHeight / 2)
-                                
-                                // Half-hour row: no label, lighter line
-                                HStack(alignment: .top, spacing: 12) {
-                                    // Empty space where label would be
-                                    Color.clear
-                                        .frame(width: 50)
-                                        .offset(y: -8)
+                                    .frame(height: hourHeight / 2)
                                     
-                                    VStack {
-                                        Divider()
-                                            .background(AppTheme.textSecondary.opacity(0.12))
-                                        Spacer()
+                                    // Half-hour row: no label, lighter line
+                                    HStack(alignment: .top, spacing: 12) {
+                                        // Empty space where label would be
+                                        Color.clear
+                                            .frame(width: 50)
+                                            .offset(y: -8)
+                                        
+                                        VStack {
+                                            Divider()
+                                                .background(AppTheme.textSecondary.opacity(0.12))
+                                            Spacer()
+                                        }
                                     }
+                                    .frame(height: hourHeight / 2)
                                 }
-                                .frame(height: hourHeight / 2)
+                                .frame(height: hourHeight)
+                                .id(hour)
                             }
-                            .frame(height: hourHeight)
-                            .id(hour)
+                        }
+                        
+                        // 2. Appointment Blocks — stretching full width to edges
+                        ForEach(appointments) { appt in
+                            AppointmentCard(appt: appt, appearAnimation: appearAnimation)
+                                .frame(height: cardHeight(for: appt))
+                                .padding(.leading, timeColumnWidth + cardLeadingPadding)
+                                .padding(.trailing, 8) // small right margin
+                                .offset(y: yPosition(for: appt.startTime))
+                                .onTapGesture {
+                                    onAppointmentTap(appt)
+                                }
+                        }
+                        
+                        // 3. Current Time ("Now") Line — only on today's date
+                        if Calendar.current.isDateInToday(selectedDate) {
+                            CurrentTimeLine(
+                                hourHeight: hourHeight,
+                                startHour: startHour,
+                                endHour: endHour,
+                                pulse: nowLinePulse
+                            )
                         }
                     }
-                    
-                    // 2. Appointment Blocks — stretching full width to edges
-                    ForEach(appointments) { appt in
-                        AppointmentCard(appt: appt, appearAnimation: appearAnimation)
-                            .frame(height: cardHeight(for: appt))
-                            .padding(.leading, timeColumnWidth + cardLeadingPadding)
-                            .padding(.trailing, 8) // small right margin
-                            .offset(y: yPosition(for: appt.startTime))
-                            .onTapGesture {
-                                onAppointmentTap(appt)
-                            }
+                    .padding(.vertical, 24)
+                }
+                .onAppear {
+                    withAnimation(.easeOut(duration: 0.8)) {
+                        appearAnimation = true
+                    }
+                    withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                        nowLinePulse = true
                     }
                     
-                    // 3. Current Time ("Now") Line
-                    CurrentTimeLine(
-                        hourHeight: hourHeight,
-                        startHour: startHour,
-                        pulse: nowLinePulse
-                    )
+                    scrollToRelevantPosition(proxy: proxy)
                 }
-                .padding(.vertical, 24)
+                .onChange(of: scrollToHour) { hour in
+                    guard let hour = hour else { return }
+                    let clamped = max(startHour, min(hour, endHour))
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        proxy.scrollTo(clamped, anchor: .top)
+                    }
+                    // Reset so the same card can be tapped again
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        scrollToHour = nil
+                    }
+                }
             }
-            .onAppear {
-                withAnimation(.easeOut(duration: 0.8)) {
-                    appearAnimation = true
-                }
-                withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
-                    nowLinePulse = true
-                }
-                
-                // Scroll to current hour minus 1 for context
-                let currentHour = Calendar.current.component(.hour, from: Date())
-                let targetHour = max(startHour, min(currentHour - 1, endHour))
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    withAnimation {
-                        proxy.scrollTo(targetHour, anchor: .top)
-                    }
-                }
+        }
+    }
+    
+    /// Scroll to the most relevant position:
+    /// - Today → current time
+    /// - Other dates → first appointment's hour
+    private func scrollToRelevantPosition(proxy: ScrollViewProxy) {
+        let targetHour: Int
+        
+        if Calendar.current.isDateInToday(selectedDate) {
+            // For today: scroll to current time
+            let currentHour = Calendar.current.component(.hour, from: Date())
+            targetHour = max(startHour, min(currentHour, endHour))
+        } else {
+            // For other dates: scroll to first appointment
+            if let firstAppt = appointments.sorted(by: { $0.startTime < $1.startTime }).first {
+                let firstHour = Calendar.current.component(.hour, from: firstAppt.startTime)
+                targetHour = max(startHour, min(firstHour, endHour))
+            } else {
+                targetHour = startHour
+            }
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            withAnimation {
+                proxy.scrollTo(targetHour, anchor: .top)
             }
         }
     }
@@ -138,7 +200,7 @@ struct AppointmentTimelineView: View {
     private func cardHeight(for appt: AppointmentBlock) -> CGFloat {
         let durationMinutes = appt.endTime.timeIntervalSince(appt.startTime) / 60.0
         let hours = CGFloat(durationMinutes) / 60.0
-        return max(hours * hourHeight, 60) // Minimum 60pt height
+        return max(hours * hourHeight, hourHeight / 2) // Match half-hour grid spacing
     }
     
     /// Detect overlapping appointments and assign columns so they sit side by side
@@ -191,10 +253,17 @@ struct AppointmentTimelineView: View {
 struct CurrentTimeLine: View {
     let hourHeight: CGFloat
     let startHour: Int
+    let endHour: Int
     let pulse: Bool
     
     @State private var now = Date()
     private let timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
+    
+    /// Whether current time is within the visible timeline range
+    private var isVisible: Bool {
+        let hour = Calendar.current.component(.hour, from: now)
+        return hour >= startHour && hour <= endHour
+    }
     
     private var yOffset: CGFloat {
         let calendar = Calendar.current
@@ -209,24 +278,26 @@ struct CurrentTimeLine: View {
     }
     
     var body: some View {
-        HStack(spacing: 0) {
-            Circle()
-                .fill(AppTheme.primary)
-                .frame(width: 8, height: 8)
-                .offset(x: -4) // Center dot on the left axis
-                .scaleEffect(pulse ? 1.2 : 1.0)
-                .opacity(pulse ? 1.0 : 0.6)
-            
-            Rectangle()
-                .fill(AppTheme.primary)
-                .frame(height: 2)
-                .opacity(pulse ? 1.0 : 0.6)
-        }
-        .padding(.leading, 62 + 12) // Match appointment padding
-        .padding(.trailing, 24)
-        .offset(y: yOffset)
-        .onReceive(timer) { input in
-            now = input
+        if isVisible {
+            HStack(spacing: 0) {
+                Circle()
+                    .fill(AppTheme.primary)
+                    .frame(width: 8, height: 8)
+                    .offset(x: -4) // Center dot on the left axis
+                    .scaleEffect(pulse ? 1.2 : 1.0)
+                    .opacity(pulse ? 1.0 : 0.6)
+                
+                Rectangle()
+                    .fill(AppTheme.primary)
+                    .frame(height: 2)
+                    .opacity(pulse ? 1.0 : 0.6)
+            }
+            .padding(.leading, 62 + 12) // Match appointment padding
+            .padding(.trailing, 24)
+            .offset(y: yOffset)
+            .onReceive(timer) { input in
+                now = input
+            }
         }
     }
 }
@@ -238,50 +309,48 @@ struct AppointmentCard: View {
     let appearAnimation: Bool
     
     var body: some View {
-        NavigationLink(destination: PatientDetailView(patientId: appt.patientId, patientName: appt.patientName)) {
-            HStack(spacing: 12) {
-                // Avatar circle
-                ZStack {
-                    Circle()
-                        .fill(Color.white.opacity(0.8))
-                        .frame(width: 28, height: 28)
-                    
-                    LivePatientAvatarInitial(
-                        patientId: appt.patientId,
-                        fallbackName: appt.patientName,
-                        font: .system(size: 13, design: .rounded),
-                        weight: .bold,
-                        color: AppTheme.textPrimary
-                    )
-                }
+        HStack(spacing: 12) {
+            // Avatar circle
+            ZStack {
+                Circle()
+                    .fill(Color.white.opacity(0.8))
+                    .frame(width: 28, height: 28)
                 
-                VStack(alignment: .leading, spacing: 3) {
-                    // Patient Name
-                    LivePatientNameView(
-                        patientId: appt.patientId,
-                        fallbackName: appt.patientName,
-                        font: .system(size: 14, design: .rounded),
-                        weight: .bold,
-                        color: AppTheme.textPrimary,
-                        lineLimit: 1
-                    )
-                    
-                    // Time slot
-                    Text("\(timeString(appt.startTime)) – \(timeString(appt.endTime))")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundColor(AppTheme.textSecondary)
-                }
-                
-                Spacer()
+                LivePatientAvatarInitial(
+                    patientId: appt.patientId,
+                    fallbackName: appt.patientName,
+                    font: .system(size: 13, design: .rounded),
+                    weight: .bold,
+                    color: AppTheme.textPrimary
+                )
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .background(appt.color)
-            .cornerRadius(12)
-            .shadow(color: appt.color.opacity(0.3), radius: 4, x: 0, y: 2)
+            
+            VStack(alignment: .leading, spacing: 3) {
+                // Patient Name
+                LivePatientNameView(
+                    patientId: appt.patientId,
+                    fallbackName: appt.patientName,
+                    font: .system(size: 14, design: .rounded),
+                    weight: .bold,
+                    color: AppTheme.textPrimary,
+                    lineLimit: 1
+                )
+                
+                // Time slot
+                Text("\(timeString(appt.startTime)) – \(timeString(appt.endTime))")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundColor(AppTheme.textSecondary)
+            }
+            
+            Spacer()
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(appt.color)
+        .cornerRadius(12)
+        .shadow(color: appt.color.opacity(0.3), radius: 4, x: 0, y: 2)
+        .contentShape(Rectangle()) // Ensures entire card area is tappable
     }
     
     private func timeString(_ date: Date) -> String {
@@ -298,6 +367,6 @@ struct AppointmentCard: View {
         AppointmentTimelineView(appointments: [
             AppointmentBlock(patientId: "patient_1", type: "Consultation", startTime: today.addingTimeInterval(9 * 3600), endTime: today.addingTimeInterval(9.75 * 3600), patientName: "Oliver Smith", color: AppTheme.primaryLight, additionalStaffCount: 2),
             AppointmentBlock(patientId: "patient_2", type: "Heart ECG", startTime: today.addingTimeInterval(10.5 * 3600), endTime: today.addingTimeInterval(11.5 * 3600), patientName: "Ava Johnson", color: Color.orange.opacity(0.2), additionalStaffCount: 0)
-        ], onAppointmentTap: { _ in })
+        ], selectedDate: Date(), onAppointmentTap: { _ in }, scrollToHour: .constant(nil))
     }
 }

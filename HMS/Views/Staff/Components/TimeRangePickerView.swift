@@ -16,42 +16,13 @@ struct TimeRangePickerView: View {
     
     var body: some View {
         VStack(spacing: 16) {
-            // Section header
-            HStack(spacing: 8) {
-                Image(systemName: "clock.badge.exclamationmark")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.orange)
-                Text("Set Unavailable Hours")
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .foregroundColor(AppTheme.textPrimary)
-                Spacer()
-            }
-            
-            // Time picker cards
-            HStack(spacing: 12) {
-                // FROM card
-                TimePickerCard(
-                    label: "From",
-                    icon: "sunrise.fill",
-                    iconColor: .orange,
-                    time: $startTime
-                )
+            // Time picker pills — matching the design
+            HStack(spacing: 16) {
+                // FROM pill
+                TimePillPicker(label: "From", time: $startTime)
                 
-                // Arrow connector
-                VStack(spacing: 4) {
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(AppTheme.textSecondary.opacity(0.4))
-                }
-                .padding(.top, 24)
-                
-                // TO card
-                TimePickerCard(
-                    label: "To",
-                    icon: "sunset.fill",
-                    iconColor: Color(hex: "#EF4444"),
-                    time: $endTime
-                )
+                // TO pill
+                TimePillPicker(label: "To", time: $endTime)
             }
             
             // Duration indicator
@@ -68,45 +39,54 @@ struct TimeRangePickerView: View {
             .background(Color.orange.opacity(0.08))
             .cornerRadius(10)
         }
-        .padding(20)
-        .background(
-            ZStack {
-                Color.white.opacity(0.6)
-            }
-        )
-        .background(.ultraThinMaterial)
-        .cornerRadius(20)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(Color.orange.opacity(0.15), lineWidth: 1)
-        )
-        .shadow(color: Color.orange.opacity(0.06), radius: 12, x: 0, y: 6)
     }
 }
 
-// MARK: - Individual Time Picker Card
-struct TimePickerCard: View {
+// MARK: - Pill-shaped Time Picker (matching design image)
+struct TimePillPicker: View {
     let label: String
-    let icon: String
-    let iconColor: Color
     let time: Binding<Date>
     
+    private var timeString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: time.wrappedValue)
+    }
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // Label with icon
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(iconColor)
-                Text(label)
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundColor(AppTheme.textSecondary)
-                    .textCase(.uppercase)
-                    .tracking(0.5)
-            }
+        VStack(spacing: 8) {
+            // Label
+            Text(label)
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundColor(AppTheme.textPrimary)
             
-            // Time picker
-            HStack(spacing: 8) {
+            // Pill container with DatePicker overlay
+            ZStack {
+                // Visual pill
+                HStack(spacing: 10) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(AppTheme.textSecondary.opacity(0.5))
+                    
+                    Text(timeString)
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .foregroundColor(AppTheme.textPrimary)
+                    
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(AppTheme.textSecondary.opacity(0.4))
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
+                .background(Color.white)
+                .cornerRadius(28)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28)
+                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
+                
+                // Invisible DatePicker overlay for interaction
                 DatePicker(
                     "",
                     selection: time,
@@ -114,18 +94,9 @@ struct TimePickerCard: View {
                 )
                 .labelsHidden()
                 .colorScheme(.light)
-                .scaleEffect(1.05)
-                
-                Spacer(minLength: 0)
+                .opacity(0.02) // Nearly invisible but tappable
+                .allowsHitTesting(true)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 6)
-            .background(Color.white.opacity(0.8))
-            .cornerRadius(14)
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(iconColor.opacity(0.15), lineWidth: 1)
-            )
         }
         .frame(maxWidth: .infinity)
     }

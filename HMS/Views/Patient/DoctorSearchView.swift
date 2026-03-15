@@ -44,7 +44,7 @@ struct DoctorSearchView: View {
 
                     } label: {
 
-                        Image(systemName: "slider.horizontal.3")
+                        Image(systemName: "line.3.horizontal.decrease.circle")
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundColor(AppTheme.primary)
                             .frame(width: 44, height: 44)
@@ -166,6 +166,8 @@ struct DoctorSearchView: View {
             .presentationDragIndicator(.visible)
         }
         .onAppear { loadDoctors() }
+        .navigationTitle("Book Appointment")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     // MARK: Load Doctors
@@ -249,16 +251,11 @@ struct DoctorProfileCard: View {
                             .resizable()
                             .scaledToFill()
                     } placeholder: {
-                        Image("doctor_placeholder")
-                            .resizable()
-                            .scaledToFill()
+                        doctorPlaceholderImage(for: doctor.gender)
                     }
 
                 } else {
-
-                    Image("doctor_placeholder")
-                        .resizable()
-                        .scaledToFill()
+                    doctorPlaceholderImage(for: doctor.gender)
                 }
             }
             .frame(width: 95, height: 105)
@@ -322,5 +319,26 @@ struct DoctorProfileCard: View {
 #Preview {
     NavigationStack {
         DoctorSearchView()
+    }
+}
+
+// MARK: - Doctor Placeholder Image Helper
+@ViewBuilder
+func doctorPlaceholderImage(for gender: String?) -> some View {
+    let g = gender?.lowercased() ?? ""
+    if g == "male" {
+        Image("doctor_placeholder_male")
+            .resizable()
+            .scaledToFill()
+    } else if g == "female" {
+        Image("doctor_placeholder_female")
+            .resizable()
+            .scaledToFill()
+    } else {
+        Image(systemName: "person.crop.circle.fill")
+            .resizable()
+            .scaledToFit()
+            .foregroundColor(AppTheme.primaryDark.opacity(0.5))
+            .padding(20)
     }
 }

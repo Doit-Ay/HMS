@@ -6,6 +6,7 @@ struct DoctorProfileView: View {
     @State private var isSaving = false
     @State private var showSaveToast = false
     @State private var appearAnimation = false
+    @State private var isLoadingProfile = true
     
     @Environment(\.dismiss) private var dismiss
     
@@ -54,39 +55,41 @@ struct DoctorProfileView: View {
                         }
                         .fill(Color.white.opacity(0.3))
                         .frame(height: 40)
-                        .offset(y: -40) // Place near bottom of gradient
+                        .offset(y: -40)
                         
                         // Top Nav Buttons
                         VStack {
                             HStack(spacing: 12) {
                                 Spacer()
                                 
-                                // Edit/Save Button
-                                Button(action: toggleEditMode) {
-                                    if isSaving {
-                                        ProgressView()
-                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                            .padding(.horizontal, 16)
-                                            .padding(.vertical, 8)
-                                            .background(AppTheme.primary)
-                                            .clipShape(Capsule())
-                                    } else if isEditing {
-                                        Text("Save")
-                                            .font(.system(size: 14, weight: .bold, design: .rounded))
-                                            .foregroundColor(.white)
-                                            .padding(.horizontal, 16)
-                                            .padding(.vertical, 8)
-                                            .background(AppTheme.primary)
-                                            .clipShape(Capsule())
-                                            .shadow(color: AppTheme.primary.opacity(0.3), radius: 4, x: 0, y: 2)
-                                    } else {
-                                        Image(systemName: "pencil")
-                                            .font(.system(size: 16, weight: .bold))
-                                            .foregroundColor(AppTheme.textPrimary)
-                                            .frame(width: 44, height: 44)
-                                            .background(Color.white)
-                                            .clipShape(Circle())
-                                            .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
+                                if !isLoadingProfile {
+                                    // Edit/Save Button
+                                    Button(action: toggleEditMode) {
+                                        if isSaving {
+                                            ProgressView()
+                                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                                .padding(.horizontal, 16)
+                                                .padding(.vertical, 8)
+                                                .background(AppTheme.primary)
+                                                .clipShape(Capsule())
+                                        } else if isEditing {
+                                            Text("Save")
+                                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                                .foregroundColor(.white)
+                                                .padding(.horizontal, 16)
+                                                .padding(.vertical, 8)
+                                                .background(AppTheme.primary)
+                                                .clipShape(Capsule())
+                                                .shadow(color: AppTheme.primary.opacity(0.3), radius: 4, x: 0, y: 2)
+                                        } else {
+                                            Image(systemName: "pencil")
+                                                .font(.system(size: 16, weight: .bold))
+                                                .foregroundColor(AppTheme.textPrimary)
+                                                .frame(width: 44, height: 44)
+                                                .background(Color.white)
+                                                .clipShape(Circle())
+                                                .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
+                                        }
                                     }
                                 }
                                 
@@ -114,9 +117,16 @@ struct DoctorProfileView: View {
                                     .frame(width: 110, height: 110)
                                     .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 5)
                                     .overlay(
-                                        Text(profileImage)
-                                            .font(.system(size: 40, weight: .bold, design: .rounded))
-                                            .foregroundColor(AppTheme.primaryDark)
+                                        Group {
+                                            if isLoadingProfile {
+                                                ProgressView()
+                                                    .scaleEffect(1.2)
+                                            } else {
+                                                Text(profileImage)
+                                                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                                                    .foregroundColor(AppTheme.primaryDark)
+                                            }
+                                        }
                                     )
                                 
                                 if isEditing {
@@ -129,73 +139,101 @@ struct DoctorProfileView: View {
                                         .transition(.scale)
                                 }
                             }
-                            .offset(y: 55) // Halfway out of the gradient box
+                            .offset(y: 55)
                         }
                     }
-                    .ignoresSafeArea(edges: .top) // let gradient reach top of screen
+                    .ignoresSafeArea(edges: .top)
                     
-                    VStack(spacing: 4) {
-                        Text(profileSpecialty)
-                            .font(.system(size: 14, weight: .medium, design: .rounded))
-                            .foregroundColor(AppTheme.textSecondary)
+                    if isLoadingProfile {
+                        // Loading skeleton
+                        VStack(spacing: 16) {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.gray.opacity(0.12))
+                                .frame(width: 100, height: 16)
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.gray.opacity(0.12))
+                                .frame(width: 180, height: 28)
+                            
+                            HStack(spacing: 16) {
+                                ForEach(0..<3) { _ in
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.gray.opacity(0.08))
+                                        .frame(height: 70)
+                                }
+                            }
+                            .padding(.horizontal, 24)
+                            .padding(.top, 8)
+                            
+                            ForEach(0..<3) { _ in
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color.gray.opacity(0.06))
+                                    .frame(height: 100)
+                                    .padding(.horizontal, 24)
+                            }
+                        }
+                        .padding(.top, 65)
+                    } else {
+                        VStack(spacing: 4) {
+                            Text(profileSpecialty)
+                                .font(.system(size: 14, weight: .medium, design: .rounded))
+                                .foregroundColor(AppTheme.textSecondary)
+                            
+                            Text(profileName)
+                                .font(.system(size: 26, weight: .heavy, design: .rounded))
+                                .foregroundColor(AppTheme.textPrimary)
+                        }
+                        .padding(.top, 65)
+                        .offset(y: appearAnimation ? 0 : 20)
+                        .opacity(appearAnimation ? 1 : 0)
                         
-                        Text(profileName)
-                            .font(.system(size: 26, weight: .heavy, design: .rounded))
-                            .foregroundColor(AppTheme.textPrimary)
-                    }
-                    .padding(.top, 65) // Space for overlapping avatar
-                    .offset(y: appearAnimation ? 0 : 20)
-                    .opacity(appearAnimation ? 1 : 0)
-                    
-                    // 2. Stats Bar
-                    DoctorStatsBar(
-                        rating: rating,
-                        totalPatients: totalPatients,
-                        appointments: totalAppointments
-                    )
+                        // 2. Stats Bar
+                        DoctorStatsBar(
+                            rating: rating,
+                            totalPatients: totalPatients,
+                            appointments: totalAppointments
+                        )
+                            .padding(.horizontal, 24)
+                            .padding(.top, 24)
+                            .offset(y: appearAnimation ? 0 : 30)
+                            .opacity(appearAnimation ? 1 : 0)
+                        
+                        // 3. Info Cards & Sign Out
+                        VStack(spacing: 20) {
+                            ProfileInfoCard(title: "Personal", fields: $personalFields, isEditing: isEditing)
+                            ProfileInfoCard(title: "Professional", fields: $professionalFields, isEditing: isEditing)
+                            ProfileInfoCard(title: "Contact", fields: $contactFields, isEditing: isEditing)
+                            
+                            // Sign Out Button
+                            if !isEditing {
+                                Button(action: {
+                                    try? AuthManager.shared.signOut()
+                                }) {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                                            .font(.system(size: 16, weight: .bold))
+                                        Text("Sign Out")
+                                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                                    }
+                                    .foregroundColor(Color.red.opacity(0.8))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 16)
+                                    .background(Color.white)
+                                    .cornerRadius(16)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(Color.red.opacity(0.3), lineWidth: 1)
+                                    )
+                                    .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+                                }
+                                .padding(.top, 12)
+                            }
+                        }
                         .padding(.horizontal, 24)
                         .padding(.top, 24)
-                        .offset(y: appearAnimation ? 0 : 30)
+                        .padding(.bottom, isEditing ? 40 : 100)
+                        .offset(y: appearAnimation ? 0 : 40)
                         .opacity(appearAnimation ? 1 : 0)
-                    
-                    // 3. Info Cards & Sign Out
-                    VStack(spacing: 20) {
-                        ProfileInfoCard(title: "Personal", fields: $personalFields, isEditing: isEditing)
-                        ProfileInfoCard(title: "Professional", fields: $professionalFields, isEditing: isEditing)
-                        ProfileInfoCard(title: "Contact", fields: $contactFields, isEditing: isEditing)
-                        
-                        // Sign Out Button
-                        if !isEditing {
-                            Button(action: {
-                                try? AuthManager.shared.signOut()
-                            }) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                                        .font(.system(size: 16, weight: .bold))
-                                    Text("Sign Out")
-                                        .font(.system(size: 16, weight: .bold, design: .rounded))
-                                }
-                                .foregroundColor(Color.red.opacity(0.8))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(Color.white)
-                                .cornerRadius(16)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(Color.red.opacity(0.3), lineWidth: 1)
-                                )
-                                .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
-                            }
-                            // Added top padding to separate from the cards above
-                            .padding(.top, 12)
-                        }
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 24)
-                    .padding(.bottom, isEditing ? 40 : 100)
-                    // Pushed up slightly later in animation sequence
-                    .offset(y: appearAnimation ? 0 : 40)
-                    .opacity(appearAnimation ? 1 : 0)
                 }
             }
             
@@ -220,89 +258,108 @@ struct DoctorProfileView: View {
             }
         }
         .navigationBarHidden(true)
-        .onAppear {
-            loadUserData()
-            Task {
-                await fetchDoctorStats()
-                // Backfill ALL doctors with missing fields (only adds what's missing)
-                await AuthManager.shared.backfillAllDoctorsInFirestore()
-                // Backfill current user's fields too
-                if let user = UserSession.shared.currentUser {
-                    await AuthManager.shared.syncDoctorProfileToFirestore(user: user)
-                }
-            }
-            withAnimation(.easeOut(duration: 0.6)) {
-                appearAnimation = true
-            }
+        .task {
+            await loadAllProfileData()
         }
     }
     
-    private func loadUserData() {
-        guard let user = UserSession.shared.currentUser else { return }
+    
+    /// Single entry point: load everything, then reveal with animation
+    private func loadAllProfileData() async {
+        guard let user = UserSession.shared.currentUser else {
+            isLoadingProfile = false
+            return
+        }
         
-        // Set header text from session initially
-        profileName = user.fullName.hasPrefix("Dr.") ? user.fullName : "Dr. \(user.fullName)"
-        profileSpecialty = user.specialization ?? user.department ?? "Consultation"
-        profileImage = String(user.fullName.replacingOccurrences(of: "Dr. ", with: "").prefix(1))
+        let db = FirebaseFirestore.Firestore.firestore()
         
-        // Fetch the actual doctor data from `doctors` collection
-        Task {
-            let db = FirebaseFirestore.Firestore.firestore()
-            do {
-                let doc = try await db.collection("doctors").document(user.id).getDocument()
-                guard let data = doc.data() else { return }
-                
-                let fullName       = data["fullName"]       as? String ?? user.fullName
-                let dob            = data["dateOfBirth"]    as? String ?? "Not Set"
-                let gender         = data["gender"]         as? String ?? "Not Set"
-                let specialty      = data["specialization"] as? String ?? "Not Set"
-                let phone          = data["phoneNumber"]    as? String ?? "Not Set"
-                let email          = data["email"]          as? String ?? user.email
-                let department     = data["department"]     as? String ?? "Not Set"
-                let dateJoined     = data["createdAt"]      as? Timestamp
-                
-                await MainActor.run {
-                    // Update header
-                    profileName = fullName.hasPrefix("Dr.") ? fullName : "Dr. \(fullName)"
-                    profileSpecialty = (specialty != "Not Set") ? specialty : (department != "Not Set" ? department : "Consultation")
-                    profileImage = String(fullName.replacingOccurrences(of: "Dr. ", with: "").prefix(1))
-                    
-                    // Form fields from doctors table
-                    personalFields = [
-                        ProfileInfoField(title: "Full Name", value: fullName),
-                        ProfileInfoField(title: "Date of Birth", value: dob),
-                        ProfileInfoField(title: "Gender", value: gender, options: ["Male", "Female", "Other"])
-                    ]
-                    
-                    professionalFields = [
-                        ProfileInfoField(title: "Specialty", value: specialty, options: ["Cardiologist", "Neurologist", "Pediatrician", "General"]),
-                        ProfileInfoField(title: "Date Joined", value: dateJoined != nil ? formatDate(dateJoined!.dateValue()) : "Unknown", isEditable: false)
-                    ]
-                    
-                    contactFields = [
-                        ProfileInfoField(title: "Phone Number", value: phone, keyboardType: .phonePad),
-                        ProfileInfoField(title: "Email Address", value: email, isEditable: false, keyboardType: .emailAddress)
-                    ]
-                }
-            } catch {
-                print("Error loading doctor profile from doctors collection: \(error)")
-                // Fallback to session data
-                await MainActor.run {
-                    personalFields = [
-                        ProfileInfoField(title: "Full Name", value: user.fullName),
-                        ProfileInfoField(title: "Date of Birth", value: user.dateOfBirth ?? "Not Set"),
-                        ProfileInfoField(title: "Gender", value: user.gender ?? "Not Set", options: ["Male", "Female", "Other"])
-                    ]
-                    professionalFields = [
-                        ProfileInfoField(title: "Specialty", value: user.specialization ?? "Not Set", options: ["Cardiologist", "Neurologist", "Pediatrician", "General"]),
-                        ProfileInfoField(title: "Date Joined", value: formatDate(user.createdAt), isEditable: false)
-                    ]
-                    contactFields = [
-                        ProfileInfoField(title: "Phone Number", value: user.phoneNumber ?? "Not Set", keyboardType: .phonePad),
-                        ProfileInfoField(title: "Email Address", value: user.email, isEditable: false, keyboardType: .emailAddress)
-                    ]
-                }
+        // Fetch doctor profile + stats in parallel
+        async let profileResult: Void = loadDoctorProfile(db: db, user: user)
+        async let statsResult: Void = fetchDoctorStats()
+        
+        _ = await (profileResult, statsResult)
+        
+        // Reveal content with animation (single transition, no flicker)
+        withAnimation(.easeOut(duration: 0.5)) {
+            isLoadingProfile = false
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            withAnimation(.easeOut(duration: 0.5)) {
+                appearAnimation = true
             }
+        }
+        
+        // Background sync (non-UI-blocking, runs after profile is visible)
+        await AuthManager.shared.backfillAllDoctorsInFirestore()
+        if let currentUser = UserSession.shared.currentUser {
+            await AuthManager.shared.syncDoctorProfileToFirestore(user: currentUser)
+        }
+    }
+    
+    private func loadDoctorProfile(db: Firestore, user: HMSUser) async {
+        do {
+            let doc = try await db.collection("doctors").document(user.id).getDocument()
+            guard let data = doc.data() else {
+                // Fallback to session data
+                await populateFromSession(user: user)
+                return
+            }
+            
+            let fullName       = data["fullName"]       as? String ?? user.fullName
+            let dob            = data["dateOfBirth"]    as? String ?? "Not Set"
+            let gender         = data["gender"]         as? String ?? "Not Set"
+            let specialty      = data["specialization"] as? String ?? "Not Set"
+            let phone          = data["phoneNumber"]    as? String ?? "Not Set"
+            let email          = data["email"]          as? String ?? user.email
+            let department     = data["department"]     as? String ?? "Not Set"
+            let dateJoined     = data["createdAt"]      as? Timestamp
+            
+            await MainActor.run {
+                profileName = fullName.hasPrefix("Dr.") ? fullName : "Dr. \(fullName)"
+                profileSpecialty = (specialty != "Not Set") ? specialty : (department != "Not Set" ? department : "Consultation")
+                profileImage = String(fullName.replacingOccurrences(of: "Dr. ", with: "").prefix(1))
+                
+                personalFields = [
+                    ProfileInfoField(title: "Full Name", value: fullName),
+                    ProfileInfoField(title: "Date of Birth", value: dob),
+                    ProfileInfoField(title: "Gender", value: gender, options: ["Male", "Female", "Other"])
+                ]
+                
+                professionalFields = [
+                    ProfileInfoField(title: "Specialty", value: specialty, options: ["Cardiologist", "Neurologist", "Pediatrician", "General"]),
+                    ProfileInfoField(title: "Date Joined", value: dateJoined != nil ? formatDate(dateJoined!.dateValue()) : "Unknown", isEditable: false)
+                ]
+                
+                contactFields = [
+                    ProfileInfoField(title: "Phone Number", value: phone, keyboardType: .phonePad),
+                    ProfileInfoField(title: "Email Address", value: email, isEditable: false, keyboardType: .emailAddress)
+                ]
+            }
+        } catch {
+            print("Error loading doctor profile: \(error)")
+            await populateFromSession(user: user)
+        }
+    }
+    
+    private func populateFromSession(user: HMSUser) async {
+        await MainActor.run {
+            profileName = user.fullName.hasPrefix("Dr.") ? user.fullName : "Dr. \(user.fullName)"
+            profileSpecialty = user.specialization ?? user.department ?? "Consultation"
+            profileImage = String(user.fullName.replacingOccurrences(of: "Dr. ", with: "").prefix(1))
+            
+            personalFields = [
+                ProfileInfoField(title: "Full Name", value: user.fullName),
+                ProfileInfoField(title: "Date of Birth", value: user.dateOfBirth ?? "Not Set"),
+                ProfileInfoField(title: "Gender", value: user.gender ?? "Not Set", options: ["Male", "Female", "Other"])
+            ]
+            professionalFields = [
+                ProfileInfoField(title: "Specialty", value: user.specialization ?? "Not Set", options: ["Cardiologist", "Neurologist", "Pediatrician", "General"]),
+                ProfileInfoField(title: "Date Joined", value: formatDate(user.createdAt), isEditable: false)
+            ]
+            contactFields = [
+                ProfileInfoField(title: "Phone Number", value: user.phoneNumber ?? "Not Set", keyboardType: .phonePad),
+                ProfileInfoField(title: "Email Address", value: user.email, isEditable: false, keyboardType: .emailAddress)
+            ]
         }
     }
     
@@ -375,8 +432,13 @@ struct DoctorProfileView: View {
                             self.isEditing = false
                         }
                         
-                        // Sync header display with new updated state immediately
-                        self.loadUserData()
+                        // Sync header display from edited fields
+                        let updatedName = self.personalFields.first(where: { $0.title == "Full Name" })?.value ?? ""
+                        self.profileName = updatedName.hasPrefix("Dr.") ? updatedName : "Dr. \(updatedName)"
+                        self.profileImage = String(updatedName.replacingOccurrences(of: "Dr. ", with: "").prefix(1))
+                        if let spec = self.professionalFields.first(where: { $0.title == "Specialty" })?.value, spec != "Not Set" {
+                            self.profileSpecialty = spec
+                        }
                         self.triggerToast()
                     }
                 } catch {

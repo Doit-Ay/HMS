@@ -52,7 +52,7 @@ struct ManageSlotsView: View {
             }
         }
         .navigationTitle("Manage Slots")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .alert("Error", isPresented: $showError) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -100,9 +100,9 @@ struct ManageSlotsView: View {
             }
         }
         .padding(14)
-        .background(Color.white.opacity(0.85))
+        .background(Color.white)
         .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 3)
+        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 3)
         .padding(.horizontal, 20)
         .padding(.top, 10)
     }
@@ -110,12 +110,12 @@ struct ManageSlotsView: View {
     // MARK: - Recent Doctors
     private var recentDoctorsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
+            HStack(spacing: 6) {
                 Image(systemName: "clock.arrow.circlepath")
-                    .font(.system(size: 14))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(AppTheme.primaryMid)
-                Text("Recent")
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                Text("Recently Managed")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
                     .foregroundColor(AppTheme.textPrimary)
             }
             .padding(.horizontal, 20)
@@ -126,32 +126,25 @@ struct ManageSlotsView: View {
                         Button {
                             selectDoctor(doctor)
                         } label: {
-                            VStack(spacing: 6) {
+                            VStack(spacing: 8) {
                                 ZStack {
                                     Circle()
                                         .fill(
                                             LinearGradient(
-                                                colors: [AppTheme.primary.opacity(0.15), AppTheme.primaryMid.opacity(0.10)],
+                                                colors: [AppTheme.primary, AppTheme.primaryMid],
                                                 startPoint: .topLeading, endPoint: .bottomTrailing
                                             )
                                         )
                                         .frame(width: 52, height: 52)
-                                    Image(systemName: "stethoscope.circle.fill")
-                                        .font(.system(size: 24))
-                                        .foregroundColor(AppTheme.primary)
+                                    Text(String(doctor.fullName.prefix(1)))
+                                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                                        .foregroundColor(.white)
                                 }
 
                                 Text(doctor.fullName.components(separatedBy: " ").first ?? doctor.fullName)
-                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
                                     .foregroundColor(AppTheme.textPrimary)
                                     .lineLimit(1)
-
-                                if let dept = doctor.department {
-                                    Text(dept)
-                                        .font(.system(size: 9, design: .rounded))
-                                        .foregroundColor(AppTheme.textSecondary)
-                                        .lineLimit(1)
-                                }
                             }
                             .frame(width: 72)
                         }
@@ -168,10 +161,18 @@ struct ManageSlotsView: View {
     // MARK: - Doctor List
     private var doctorListSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(searchText.isEmpty ? "All Doctors" : "Results")
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .foregroundColor(AppTheme.textPrimary)
-                .padding(.horizontal, 20)
+            HStack {
+                Text(searchText.isEmpty ? "All Doctors" : "Results")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundColor(AppTheme.textPrimary)
+
+                if !isLoading {
+                    Text("(\(filteredDoctors.count))")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+            }
+            .padding(.horizontal, 20)
 
             if isLoading {
                 HStack {
@@ -182,22 +183,29 @@ struct ManageSlotsView: View {
                 }
                 .padding(.vertical, 40)
             } else if filteredDoctors.isEmpty {
-                VStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 32))
-                        .foregroundColor(AppTheme.primaryMid.opacity(0.4))
+                VStack(spacing: 12) {
+                    Image(systemName: "person.2.slash")
+                        .font(.system(size: 40))
+                        .foregroundColor(AppTheme.primaryMid.opacity(0.3))
                     Text(searchText.isEmpty ? "No doctors found" : "No results for \"\(searchText)\"")
-                        .font(.system(size: 14, design: .rounded))
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
                         .foregroundColor(AppTheme.textSecondary)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 40)
+                .padding(.vertical, 50)
             } else {
-                LazyVStack(spacing: 8) {
-                    ForEach(filteredDoctors) { doctor in
+                LazyVStack(spacing: 10) {
+                    ForEach(Array(filteredDoctors.enumerated()), id: \.element.id) { index, doctor in
                         DoctorSearchRow(doctor: doctor) {
                             selectDoctor(doctor)
                         }
+                        .offset(y: animate ? 0 : 20)
+                        .opacity(animate ? 1 : 0)
+                        .animation(
+                            .spring(response: 0.45, dampingFraction: 0.8)
+                            .delay(Double(index) * 0.04),
+                            value: animate
+                        )
                     }
                 }
                 .padding(.horizontal, 20)
@@ -236,46 +244,55 @@ struct DoctorSearchRow: View {
     let doctor: HMSUser
     let action: () -> Void
 
+    private var initials: String {
+        let parts = doctor.fullName.components(separatedBy: " ")
+        if parts.count >= 2 {
+            return String(parts[0].prefix(1)) + String(parts[1].prefix(1))
+        }
+        return String(doctor.fullName.prefix(2)).uppercased()
+    }
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 14) {
+                // Initials avatar
                 ZStack {
                     Circle()
-                        .fill(AppTheme.primary.opacity(0.12))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: "stethoscope.circle.fill")
-                        .font(.system(size: 20))
+                        .fill(
+                            LinearGradient(
+                                colors: [AppTheme.primary.opacity(0.15), AppTheme.primaryMid.opacity(0.1)],
+                                startPoint: .topLeading, endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 48, height: 48)
+                    Text(initials)
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
                         .foregroundColor(AppTheme.primary)
                 }
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(doctor.fullName)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Dr. \(doctor.fullName)")
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundColor(AppTheme.textPrimary)
 
                     HStack(spacing: 6) {
-                        if let dept = doctor.department {
-                            Text(dept)
+                        if let spec = doctor.specialization, spec != "Not Set" {
+                            Text(spec)
                                 .font(.system(size: 12, design: .rounded))
                                 .foregroundColor(AppTheme.textSecondary)
-                        }
-                        if let spec = doctor.specialization {
-                            Text("• \(spec)")
-                                .font(.system(size: 12, design: .rounded))
-                                .foregroundColor(AppTheme.textSecondary.opacity(0.7))
                         }
                     }
                 }
 
                 Spacer()
 
-                // Slot count badge
-                if let slots = doctor.defaultSlots, !slots.isEmpty {
-                    Text("\(slots.count) slots")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                // Department badge
+                if let dept = doctor.department, dept != "Not Set" {
+                    Text(dept)
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
                         .foregroundColor(AppTheme.primary)
                         .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
+                        .padding(.vertical, 5)
                         .background(AppTheme.primaryLight)
                         .cornerRadius(20)
                 }
@@ -284,10 +301,10 @@ struct DoctorSearchRow: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(AppTheme.textSecondary.opacity(0.4))
             }
-            .padding(14)
-            .background(Color.white.opacity(0.85))
-            .cornerRadius(14)
-            .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
+            .padding(16)
+            .background(Color.white)
+            .cornerRadius(16)
+            .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 4)
         }
         .buttonStyle(.plain)
     }

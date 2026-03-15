@@ -10,6 +10,7 @@ struct BookAppointmentView: View {
     /// When set, the view operates in "reschedule" mode — updating an existing appointment
     var rescheduleAppointmentId: String? = nil
     var rescheduleOldSlotId: String? = nil
+    var rescheduleDate: String? = nil
     
     // Calendar State
     @State private var selectedDate: Date? = Date()
@@ -28,6 +29,7 @@ struct BookAppointmentView: View {
     @State private var showSuccess = false
     @State private var errorMessage: String? = nil
     @State private var animate = false
+    @State private var showAppointmentsAfterBooking = false
     
     private var isRescheduleMode: Bool { rescheduleAppointmentId != nil }
     
@@ -191,11 +193,33 @@ struct BookAppointmentView: View {
         .navigationTitle(isRescheduleMode ? "Reschedule Appointment" : "Book Appointment")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
+            // If rescheduling, open on the appointment's original date
+            if let dateStr = rescheduleDate {
+                let f = DateFormatter()
+                f.dateFormat = "yyyy-MM-dd"
+                if let date = f.date(from: dateStr) {
+                    selectedDate = date
+                }
+            }
             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                 animate = true
             }
             loadUnavailability()
             loadSlotsForSelectedDate()
+        }
+        // Hidden NavigationLink to push Appointments after booking
+        .background(
+            NavigationLink(
+                destination: PatientAppointmentsView(cameFromBooking: true),
+                isActive: $showAppointmentsAfterBooking
+            ) { EmptyView() }
+        )
+        // When user taps back from Appointments, also pop this view
+        .onChange(of: showAppointmentsAfterBooking) { isActive in
+            if !isActive && showSuccess == false {
+                // User came back from appointments screen, pop to home
+                dismiss()
+            }
         }
         .sheet(isPresented: $showSuccess) {
             BookingSuccessSheet(
@@ -203,7 +227,17 @@ struct BookAppointmentView: View {
                 date: selectedDateString ?? "",
                 time: selectedSlot.map { "\($0.start) – \($0.end)" } ?? "",
                 isReschedule: isRescheduleMode,
-                onDismiss: { dismiss() }
+                onDismiss: {
+                    showSuccess = false
+                    if isRescheduleMode {
+                        dismiss()
+                    } else {
+                        // Navigate to My Appointments
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showAppointmentsAfterBooking = true
+                        }
+                    }
+                }
             )
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
@@ -423,16 +457,11 @@ struct DoctorInfoHeader: View {
                             .resizable()
                             .scaledToFill()
                     } placeholder: {
-                        Image("doctor_placeholder")
-                            .resizable()
-                            .scaledToFill()
+                        doctorPlaceholderImage(for: doctor.gender)
                     }
 
                 } else {
-
-                    Image("doctor_placeholder")
-                        .resizable()
-                        .scaledToFill()
+                    doctorPlaceholderImage(for: doctor.gender)
                 }
             }
             .frame(width: 95, height: 105)
@@ -637,7 +666,7 @@ struct BookingSuccessSheet: View {
             Spacer()
             
             Button(action: onDismiss) {
-                Text("Done")
+                Text(isReschedule ? "Done" : "View My Appointments")
                     .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)

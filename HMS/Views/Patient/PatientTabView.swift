@@ -31,6 +31,7 @@ struct PatientHomeView: View {
     @State private var animate = false
     @State private var upcomingAppointments: [Appointment] = []
     @State private var isLoadingAppointments = true
+    @State private var showProfileSheet = false
 
     var body: some View {
         NavigationStack {
@@ -54,7 +55,7 @@ struct PatientHomeView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 32) {
 
-                        HeaderProfileView(session: session)
+                        HeaderProfileView(session: session, showProfile: $showProfileSheet)
                             .padding(.horizontal, 24)
                             .padding(.top, 20)
                             .offset(y: animate ? 0 : -30)
@@ -238,6 +239,9 @@ struct PatientHomeView: View {
                 }
             }
             .navigationBarHidden(true)
+            .sheet(isPresented: $showProfileSheet) {
+                PatientProfileView()
+            }
         }
         .onAppear {
             withAnimation(.spring(response: 0.7, dampingFraction: 0.8).delay(0.1)) {
@@ -439,6 +443,7 @@ struct VitalRow: View {
 struct HeaderProfileView: View {
 
     @ObservedObject var session: UserSession
+    @Binding var showProfile: Bool
 
     var body: some View {
 
@@ -465,15 +470,11 @@ struct HeaderProfileView: View {
 
             Spacer()
 
-            // MARK: Profile Button
-            NavigationLink(destination: PatientProfileView()) {
-
+            // MARK: Profile Button — opens as bottom sheet
+            Button {
+                showProfile = true
+            } label: {
                 ZStack {
-
-//                    Circle()
-//                        .stroke(AppTheme.primaryMid.opacity(0.3), lineWidth: 2)
-//                        .frame(width: 58, height: 58)
-
                     Image(systemName: "person.crop.circle.fill")
                         .resizable()
                         .aspectRatio(contentMode: .fit)

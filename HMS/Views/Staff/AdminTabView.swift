@@ -27,16 +27,7 @@ struct AdminTabView: View {
 struct AdminDashboardView: View {
     @ObservedObject var session = UserSession.shared
     @State private var animate    = false
-
-    private var greetingText: String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        switch hour {
-        case 5..<12:  return "Good Morning,"
-        case 12..<17: return "Good Afternoon,"
-        case 17..<21: return "Good Evening,"
-        default:       return "Good Night,"
-        }
-    }
+    @State private var showProfileSheet = false
 
     private var adminName: String {
         session.currentUser?.fullName ?? "Admin"
@@ -44,103 +35,131 @@ struct AdminDashboardView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
+            ZStack(alignment: .top) {
                 HMSBackground()
+
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [AppTheme.primaryLight.opacity(0.8), AppTheme.primaryLight.opacity(0.0)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 400, height: 400)
+                    .offset(x: -100, y: -200)
+                    .blur(radius: 60)
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
 
-                        // Hero Card (Patient-style)
+                        // Patient-style Header
                         HStack {
                             VStack(alignment: .leading, spacing: 6) {
-                                HStack(spacing: 4) {
-                                    Text(greetingText)
-                                    if greetingText.contains("Morning") {
-                                        Text("☀️")
-                                    } else if greetingText.contains("Afternoon") {
-                                        Text("👋")
-                                    } else {
-                                        Text("🌙")
-                                    }
+                                Text(Date().formatted(date: .abbreviated, time: .omitted))
+                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                    .foregroundColor(AppTheme.primary)
+                                    .textCase(.uppercase)
+
+                                HStack(spacing: 6) {
+                                    Text("Hi,")
+                                        .font(.system(size: 28, weight: .regular, design: .rounded))
+                                        .foregroundColor(AppTheme.textSecondary)
+
+                                    Text(adminName.components(separatedBy: " ").first ?? "Admin")
+                                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                                        .foregroundColor(AppTheme.textPrimary)
                                 }
-                                .font(.system(size: 14, design: .rounded))
-                                .foregroundColor(.white.opacity(0.85))
-                                
-                                Text(adminName)
-                                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                                    .foregroundColor(.white)
-                                
-                                Text("Manage your hospital staff")
-                                    .font(.system(size: 13, design: .rounded))
-                                    .foregroundColor(.white.opacity(0.75))
                             }
+
                             Spacer()
-                            NavigationLink(destination: ProfileView()) {
+
+                            // Profile Button — opens as bottom sheet
+                            Button {
+                                showProfileSheet = true
+                            } label: {
                                 ZStack {
-                                    Circle()
-                                        .fill(Color.white.opacity(0.2))
-                                        .frame(width: 54, height: 54)
-                                    Image(systemName: "person.fill")
-                                        .font(.system(size: 24))
-                                        .foregroundColor(.white)
+                                    Image(systemName: "person.crop.circle.fill")
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                        .frame(width: 50, height: 50)
+                                        .foregroundColor(AppTheme.primaryDark)
+                                        .background(Circle().fill(AppTheme.primaryLight))
                                 }
                             }
                             .buttonStyle(.plain)
                         }
-                        .padding(24)
-                        .background(
-                            LinearGradient(
-                                colors: [AppTheme.primary, AppTheme.primaryMid],
-                                startPoint: .topLeading, endPoint: .bottomTrailing
-                            )
-                        )
-                        .cornerRadius(24)
-                        .shadow(color: Color.black.opacity(0.10), radius: 8, x: 0, y: 4)
-                        .padding(.horizontal, 20)
-                        .padding(.top, 10)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 20)
+                        .offset(y: animate ? 0 : -30)
+                        .opacity(animate ? 1 : 0)
 
-                        // Manage Slots Card
-                        NavigationLink(destination: ManageSlotsView()) {
-                            HStack(spacing: 14) {
-                                ZStack {
-                                    Circle()
-                                        .fill(AppTheme.primary.opacity(0.12))
-                                        .frame(width: 48, height: 48)
-                                    Image(systemName: "calendar.badge.clock")
-                                        .font(.system(size: 22))
-                                        .foregroundColor(AppTheme.primary)
+                        // Hero Banner with Manage Slots button inside
+                        VStack(spacing: 0) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Hospital\nManagement")
+                                        .font(.system(size: 28, weight: .heavy, design: .rounded))
+                                        .foregroundColor(.white)
+                                        .lineSpacing(4)
+
+                                    Text("Manage your staff, appointments and hospital operations.")
+                                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                                        .foregroundColor(.white.opacity(0.9))
+                                        .padding(.trailing, 40)
                                 }
+                                Spacer()
+                            }
+                            .padding(24)
 
-                                VStack(alignment: .leading, spacing: 3) {
+                            NavigationLink(destination: ManageSlotsView()) {
+                                HStack {
                                     Text("Manage Slots")
                                         .font(.system(size: 16, weight: .bold, design: .rounded))
-                                        .foregroundColor(AppTheme.textPrimary)
-                                    Text("Update doctor availability & time slots")
-                                        .font(.system(size: 12, design: .rounded))
-                                        .foregroundColor(AppTheme.textSecondary)
+
+                                    Spacer()
+
+                                    Image(systemName: "arrow.right.circle.fill")
+                                        .font(.system(size: 24))
                                 }
-
-                                Spacer()
-
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(AppTheme.textSecondary.opacity(0.5))
+                                .foregroundColor(AppTheme.primary)
+                                .padding()
+                                .background(Color.white)
+                                .cornerRadius(16)
+                                .padding(.horizontal, 24)
+                                .padding(.bottom, 24)
                             }
-                            .padding(18)
-                            .background(Color.white.opacity(0.85))
-                            .cornerRadius(18)
-                            .shadow(color: AppTheme.primary.opacity(0.08), radius: 8, x: 0, y: 3)
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
+                        .background(
+                            ZStack {
+                                LinearGradient(
+                                    colors: [AppTheme.primary, AppTheme.primaryMid],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                                Image(systemName: "shield.checkered")
+                                    .font(.system(size: 180))
+                                    .foregroundColor(.white.opacity(0.1))
+                                    .offset(x: 100, y: 20)
+                                    .rotationEffect(.degrees(-15))
+                            }
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+                        .shadow(color: AppTheme.primary.opacity(0.25), radius: 20, x: 0, y: 10)
                         .padding(.horizontal, 20)
+                        .offset(y: animate ? 0 : 30)
+                        .opacity(animate ? 1 : 0)
 
                         Spacer(minLength: 30)
                     }
                     .padding(.bottom, 20)
                 }
             }
-            .navigationTitle("Admin")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarHidden(true)
+            .sheet(isPresented: $showProfileSheet) {
+                ProfileView()
+            }
         }
         .onAppear {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
@@ -187,12 +206,14 @@ struct StaffManagementView: View {
     @State private var searchText   = ""
     @State private var errorMessage = ""
     @State private var showError    = false
+    @State private var animate = false
 
     var filteredStaff: [HMSUser] {
         if searchText.isEmpty { return staffList }
         return staffList.filter {
             $0.fullName.localizedCaseInsensitiveContains(searchText) ||
-            $0.role.displayName.localizedCaseInsensitiveContains(searchText)
+            $0.role.displayName.localizedCaseInsensitiveContains(searchText) ||
+            ($0.department ?? "").localizedCaseInsensitiveContains(searchText)
         }
     }
 
@@ -203,18 +224,46 @@ struct StaffManagementView: View {
 
                 VStack(spacing: 0) {
                     // Search bar
-                    HStack(spacing: 10) {
+                    HStack(spacing: 12) {
                         Image(systemName: "magnifyingglass")
+                            .font(.system(size: 16))
                             .foregroundColor(AppTheme.textSecondary)
-                        TextField("Search staff...", text: $searchText)
+                        TextField("Search by name, role or department...", text: $searchText)
                             .font(.system(size: 15, design: .rounded))
+
+                        if !searchText.isEmpty {
+                            Button {
+                                searchText = ""
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 18))
+                                    .foregroundColor(AppTheme.textSecondary.opacity(0.5))
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
-                    .padding(12)
-                    .background(Color.white.opacity(0.8))
-                    .cornerRadius(14)
+                    .padding(14)
+                    .background(Color.white)
+                    .cornerRadius(16)
+                    .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 3)
                     .padding(.horizontal, 20)
                     .padding(.top, 12)
-                    .padding(.bottom, 8)
+                    .padding(.bottom, 12)
+
+                    // Staff count header
+                    if !isLoading && !staffList.isEmpty {
+                        HStack {
+                            Text(searchText.isEmpty ? "All Staff" : "Results")
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                .foregroundColor(AppTheme.textPrimary)
+                            Text("(\(filteredStaff.count))")
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundColor(AppTheme.textSecondary)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 8)
+                    }
 
                     if isLoading {
                         Spacer()
@@ -223,35 +272,47 @@ struct StaffManagementView: View {
                         Spacer()
                     } else if filteredStaff.isEmpty {
                         Spacer()
-                        VStack(spacing: 12) {
-                            Image(systemName: "person.3")
-                                .font(.system(size: 48))
-                                .foregroundColor(AppTheme.primaryMid.opacity(0.4))
+                        VStack(spacing: 14) {
+                            Image(systemName: "person.2.slash")
+                                .font(.system(size: 44))
+                                .foregroundColor(AppTheme.primaryMid.opacity(0.3))
                             Text(searchText.isEmpty ? "No staff added yet" : "No results found")
-                                .font(.system(size: 16, design: .rounded))
+                                .font(.system(size: 16, weight: .medium, design: .rounded))
                                 .foregroundColor(AppTheme.textSecondary)
+                            if searchText.isEmpty {
+                                Text("Tap + to add your first staff member")
+                                    .font(.system(size: 13, design: .rounded))
+                                    .foregroundColor(AppTheme.textSecondary.opacity(0.7))
+                            }
                         }
                         Spacer()
                     } else {
-                        List {
-                            ForEach(filteredStaff) { staff in
-                                 StaffRowView(
-                                     staff: staff,
-                                     onUpdate: { fetchStaff() },
-                                     onDeactivate: { deactivate(staff) },
-                                     onReactivate: { reactivate(staff) }
-                                 )
+                        ScrollView(showsIndicators: false) {
+                            LazyVStack(spacing: 10) {
+                                ForEach(Array(filteredStaff.enumerated()), id: \.element.id) { index, staff in
+                                    StaffRowView(
+                                        staff: staff,
+                                        onUpdate: { fetchStaff() },
+                                        onDeactivate: { deactivate(staff) },
+                                        onReactivate: { reactivate(staff) }
+                                    )
+                                    .offset(y: animate ? 0 : 20)
+                                    .opacity(animate ? 1 : 0)
+                                    .animation(
+                                        .spring(response: 0.45, dampingFraction: 0.8)
+                                        .delay(Double(index) * 0.04),
+                                        value: animate
+                                    )
+                                }
                             }
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 30)
                         }
-                        .listStyle(.plain)
-                        .scrollContentBackground(.hidden)
                     }
                 }
             }
             .navigationTitle("Staff Management")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -271,7 +332,14 @@ struct StaffManagementView: View {
             } message: {
                 Text(errorMessage)
             }
-            .task { fetchStaff() }
+            .task {
+                fetchStaff()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                        animate = true
+                    }
+                }
+            }
         }
     }
 
@@ -324,52 +392,75 @@ struct StaffRowView: View {
     let onReactivate: () -> Void
     @State private var showEdit = false
 
+    private var initials: String {
+        let parts = staff.fullName.components(separatedBy: " ")
+        if parts.count >= 2 {
+            return String(parts[0].prefix(1)) + String(parts[1].prefix(1))
+        }
+        return String(staff.fullName.prefix(2)).uppercased()
+    }
+
+    private var roleColor: Color {
+        switch staff.role {
+        case .doctor: return AppTheme.primary
+        case .labTechnician: return Color(hex: "#8B5CF6")
+        default: return AppTheme.textSecondary
+        }
+    }
+
     var body: some View {
         Button {
             showEdit = true
         } label: {
             HStack(spacing: 14) {
+                // Initials avatar
                 ZStack {
                     Circle()
-                        .fill(AppTheme.primary.opacity(0.12))
-                        .frame(width: 48, height: 48)
-                    Image(systemName: staff.role.sfSymbol)
-                        .font(.system(size: 22))
-                        .foregroundColor(AppTheme.primary)
+                        .fill(
+                            LinearGradient(
+                                colors: [roleColor.opacity(0.2), roleColor.opacity(0.1)],
+                                startPoint: .topLeading, endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 50, height: 50)
+                    Text(initials)
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .foregroundColor(roleColor)
                 }
 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(staff.fullName)
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundColor(AppTheme.textPrimary)
-                    Text(staff.role.displayName)
-                        .font(.system(size: 13, design: .rounded))
-                        .foregroundColor(AppTheme.textSecondary)
-                    if let dept = staff.department {
-                        Text(dept)
-                            .font(.system(size: 12, design: .rounded))
-                            .foregroundColor(AppTheme.primaryMid)
+
+                    HStack(spacing: 6) {
+                        // Role badge
+                        Text(staff.role.displayName)
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundColor(roleColor)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(roleColor.opacity(0.1))
+                            .cornerRadius(8)
+
+                        if let dept = staff.department, dept != "Not Set" {
+                            Text(dept)
+                                .font(.system(size: 12, design: .rounded))
+                                .foregroundColor(AppTheme.textSecondary)
+                        }
                     }
                 }
                 
                 Spacer()
 
-                if staff.isActive {
-                    Text("Active")
+                // Status indicator
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(staff.isActive ? Color.green : Color.gray)
+                        .frame(width: 8, height: 8)
+                    Text(staff.isActive ? "Active" : "Inactive")
                         .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .foregroundColor(AppTheme.primary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(AppTheme.primary.opacity(0.1))
-                        .cornerRadius(20)
-                } else {
-                    Text("Inactive")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .foregroundColor(AppTheme.textSecondary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(20)
+                        .foregroundColor(staff.isActive ? Color.green : AppTheme.textSecondary)
                 }
 
                 Image(systemName: "chevron.right")
@@ -377,13 +468,11 @@ struct StaffRowView: View {
                     .foregroundColor(AppTheme.textSecondary.opacity(0.4))
             }
             .padding(16)
-            .background(Color.white.opacity(0.8))
+            .background(Color.white)
             .cornerRadius(16)
-            .shadow(color: AppTheme.primary.opacity(0.06), radius: 6, x: 0, y: 3)
+            .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 4)
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 4)
         .sheet(isPresented: $showEdit) {
             EditStaffView(
                 staff: staff,

@@ -44,7 +44,7 @@ struct PatientProfileView: View {
                             startPoint: .top,
                             endPoint: .bottom
                         )
-                        .frame(height: 220)
+                        .frame(height: 160)
                         .ignoresSafeArea(edges: .top)
 
                         // Navigation Buttons
@@ -127,7 +127,7 @@ struct PatientProfileView: View {
                                 }
 
                             }
-                            .offset(y: 55)
+                            .offset(y: 40)
                         }
                     }
 
@@ -142,7 +142,7 @@ struct PatientProfileView: View {
                             .foregroundColor(AppTheme.textPrimary)
 
                     }
-                    .padding(.top, 65)
+                    .padding(.top, 50)
 
                     // STATS BAR
                     HStack {

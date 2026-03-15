@@ -19,6 +19,7 @@ struct EditStaffView: View {
     @State private var showSuccess    = false
     @State private var showDeactivateConfirm = false
     @State private var showReactivateConfirm = false
+    @State private var animate = false
 
     // Time Slot Selection (doctors only)
     @State private var morningSelected    = false
@@ -82,202 +83,261 @@ struct EditStaffView: View {
         return slots.isEmpty ? nil : slots
     }
 
+    private var initials: String {
+        let parts = staff.fullName.components(separatedBy: " ")
+        if parts.count >= 2 {
+            return String(parts[0].prefix(1)) + String(parts[1].prefix(1))
+        }
+        return String(staff.fullName.prefix(2)).uppercased()
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
-                HMSBackground()
+                AppTheme.background.ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
-                        
-                        // Premium Header
-                        VStack(spacing: 16) {
-                            ZStack {
-                                Circle()
-                                    .fill(AppTheme.primary.opacity(0.12))
-                                    .frame(width: 80, height: 80)
-                                Image(systemName: staff.role.sfSymbol)
-                                    .font(.system(size: 36))
-                                    .foregroundColor(AppTheme.primary)
-                                    .shadow(color: AppTheme.primary.opacity(0.2), radius: 4)
-                            }
-                            
-                            VStack(spacing: 4) {
-                                Text(staff.fullName)
-                                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                                    .foregroundColor(AppTheme.textPrimary)
-                                
-                                HStack(spacing: 6) {
-                                    Image(systemName: "envelope.fill")
-                                        .font(.system(size: 12))
-                                    Text(staff.email)
-                                        .font(.system(size: 14, design: .rounded))
+
+                        // HERO HEADER
+                        ZStack(alignment: .bottom) {
+                            LinearGradient(
+                                colors: [AppTheme.primaryLight.opacity(0.8), AppTheme.background],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                            .frame(height: 140)
+                            .ignoresSafeArea(edges: .top)
+
+                            VStack(spacing: 10) {
+                                ZStack {
+                                    Circle()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [AppTheme.primary, AppTheme.primaryMid],
+                                                startPoint: .topLeading, endPoint: .bottomTrailing
+                                            )
+                                        )
+                                        .frame(width: 80, height: 80)
+                                        .shadow(color: AppTheme.primary.opacity(0.25), radius: 10, x: 0, y: 5)
+                                    Text(initials)
+                                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                                        .foregroundColor(.white)
                                 }
-                                .foregroundColor(AppTheme.textSecondary)
-                                
-                                Text(staff.role.displayName)
-                                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 4)
-                                    .background(AppTheme.primaryMid)
-                                    .cornerRadius(20)
+
+                                VStack(spacing: 4) {
+                                    Text(staff.fullName)
+                                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                                        .foregroundColor(AppTheme.textPrimary)
+
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "envelope.fill")
+                                            .font(.system(size: 11))
+                                        Text(staff.email)
+                                            .font(.system(size: 13, design: .rounded))
+                                    }
+                                    .foregroundColor(AppTheme.textSecondary)
+
+                                    HStack(spacing: 8) {
+                                        Text(staff.role.displayName)
+                                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 4)
+                                            .background(AppTheme.primaryMid)
+                                            .cornerRadius(20)
+
+                                        HStack(spacing: 4) {
+                                            Circle()
+                                                .fill(staff.isActive ? Color.green : Color.gray)
+                                                .frame(width: 7, height: 7)
+                                            Text(staff.isActive ? "Active" : "Inactive")
+                                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                                .foregroundColor(staff.isActive ? Color.green : AppTheme.textSecondary)
+                                        }
+                                    }
                                     .padding(.top, 4)
+                                }
+                            }
+                            .offset(y: 40)
+                        }
+                        .padding(.bottom, 40)
+                        .offset(y: animate ? 0 : -20)
+                        .opacity(animate ? 1 : 0)
+
+                        // PERSONAL DETAILS CARD
+                        VStack(alignment: .leading, spacing: 14) {
+                            sectionLabel("Personal Details", icon: "person.text.rectangle.fill")
+
+                            editableField("Full Name", icon: "person.fill", text: $fullName)
+                            editableField("Phone Number", icon: "phone.fill", text: $phoneNumber, keyboard: .phonePad)
+                        }
+                        .padding(20)
+                        .background(Color.white)
+                        .cornerRadius(20)
+                        .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
+                        .padding(.horizontal, 20)
+                        .offset(y: animate ? 0 : 25)
+                        .opacity(animate ? 1 : 0)
+
+                        // PROFESSIONAL DETAILS CARD
+                        VStack(alignment: .leading, spacing: 14) {
+                            sectionLabel("Professional Details", icon: "briefcase.fill")
+
+                            editableField("Employee ID", icon: "creditcard.fill", text: $employeeID)
+                            editableField("Department", icon: "building.2.fill", text: $department)
+
+                            if staff.role == .doctor {
+                                editableField("Specialization", icon: "stethoscope", text: $specialization)
                             }
                         }
-                        .padding(.top, 20)
+                        .padding(20)
+                        .background(Color.white)
+                        .cornerRadius(20)
+                        .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
+                        .padding(.horizontal, 20)
+                        .offset(y: animate ? 0 : 30)
+                        .opacity(animate ? 1 : 0)
 
-                        // Form Card
-                        VStack(spacing: 18) {
-                            // Section: Identity
+                        // TIME SLOTS CARD (doctors only)
+                        if staff.role == .doctor {
                             VStack(alignment: .leading, spacing: 14) {
-                                Text("Personal Details")
-                                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                                    .foregroundColor(AppTheme.primary)
-                                
-                                // Full Name
-                                hmsLabelAndField("Full Name", icon: "person.fill", text: $fullName)
-                                
-                                // Phone Number
-                                hmsLabelAndField("Phone Number", icon: "phone.fill", text: $phoneNumber)
-                            }
+                                sectionLabel("Availability", icon: "clock.fill")
 
-                            Divider().opacity(0.15)
-                            
-                            // Section: Professional
-                            VStack(alignment: .leading, spacing: 14) {
-                                Text("Professional Details")
-                                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                                    .foregroundColor(AppTheme.primary)
-                                
-                                // Employee ID
-                                hmsLabelAndField("Employee ID", icon: "creditcard.fill", text: $employeeID)
-                                
-                                // Department
-                                hmsLabelAndField("Department", icon: "building.2.fill", text: $department)
-
-                                // Specialization (doctors only)
-                                if staff.role == .doctor {
-                                    hmsLabelAndField("Specialization", icon: "stethoscope", text: $specialization)
-                                }
-                            }
-
-                            // Time Slot Section (doctors only)
-                            if staff.role == .doctor {
-                                Divider().opacity(0.15)
                                 timeSlotSection
                             }
+                            .padding(20)
+                            .background(Color.white)
+                            .cornerRadius(20)
+                            .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
+                            .padding(.horizontal, 20)
+                            .offset(y: animate ? 0 : 35)
+                            .opacity(animate ? 1 : 0)
+                        }
 
-                            // Save Button
-                            Button {
-                                Task { await updateStaff() }
-                            } label: {
+                        // SAVE BUTTON
+                        Button {
+                            Task { await updateStaff() }
+                        } label: {
+                            HStack(spacing: 10) {
                                 if isLoading {
                                     ProgressView().tint(.white).scaleEffect(0.8)
                                 } else {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "checkmark.circle.fill")
-                                        Text("Save Changes")
-                                    }
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 18))
+                                    Text("Save Changes")
+                                        .font(.system(size: 16, weight: .bold, design: .rounded))
                                 }
                             }
-                            .buttonStyle(PrimaryButtonStyle())
-                            .disabled(isLoading || !formValid)
-                            .padding(.top, 10)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 54)
+                            .background(
+                                formValid
+                                ? LinearGradient(colors: [AppTheme.primary, AppTheme.primaryMid], startPoint: .leading, endPoint: .trailing)
+                                : LinearGradient(colors: [Color.gray.opacity(0.4), Color.gray.opacity(0.4)], startPoint: .leading, endPoint: .trailing)
+                            )
+                            .cornerRadius(16)
+                            .shadow(color: formValid ? AppTheme.primary.opacity(0.25) : .clear, radius: 10, x: 0, y: 5)
+                        }
+                        .disabled(isLoading || !formValid)
+                        .padding(.horizontal, 20)
+                        .offset(y: animate ? 0 : 40)
+                        .opacity(animate ? 1 : 0)
 
-                            // Deactivate Button
-                            if let onDeactivate = onDeactivate, staff.isActive {
-                                Divider().opacity(0.15).padding(.vertical, 4)
-
-                                Button {
-                                    showDeactivateConfirm = true
-                                } label: {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "person.fill.xmark")
-                                        Text("Deactivate Staff")
-                                    }
-                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 14)
-                                    .background(
-                                        LinearGradient(
-                                            colors: [Color.red.opacity(0.85), Color.red],
-                                            startPoint: .leading, endPoint: .trailing
-                                        )
-                                    )
-                                    .cornerRadius(14)
+                        // DEACTIVATE / REACTIVATE BUTTON
+                        if let onDeactivate = onDeactivate, staff.isActive {
+                            Button {
+                                showDeactivateConfirm = true
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "person.fill.xmark")
+                                        .font(.system(size: 16))
+                                    Text("Deactivate Staff")
+                                        .font(.system(size: 15, weight: .bold, design: .rounded))
                                 }
-                                .buttonStyle(.plain)
-                                .confirmationDialog(
-                                    "Deactivate \(staff.fullName)?",
-                                    isPresented: $showDeactivateConfirm,
-                                    titleVisibility: .visible
-                                ) {
-                                    Button("Deactivate", role: .destructive) {
-                                        onDeactivate()
-                                        dismiss()
-                                    }
-                                    Button("Cancel", role: .cancel) {}
-                                } message: {
-                                    Text("This will deactivate \(staff.fullName). They won't be able to log in until reactivated.")
-                                }
+                                .foregroundColor(Color.red.opacity(0.8))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(Color.white)
+                                .cornerRadius(16)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(Color.red.opacity(0.3), lineWidth: 1)
+                                )
+                                .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
                             }
-
-                            // Reactivate Button
-                            if let onReactivate = onReactivate, !staff.isActive {
-                                Divider().opacity(0.15).padding(.vertical, 4)
-
-                                Button {
-                                    showReactivateConfirm = true
-                                } label: {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "person.fill.checkmark")
-                                        Text("Reactivate Staff")
-                                    }
-                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 14)
-                                    .background(
-                                        LinearGradient(
-                                            colors: [AppTheme.success.opacity(0.85), AppTheme.success],
-                                            startPoint: .leading, endPoint: .trailing
-                                        )
-                                    )
-                                    .cornerRadius(14)
+                            .buttonStyle(.plain)
+                            .padding(.horizontal, 20)
+                            .confirmationDialog(
+                                "Deactivate \(staff.fullName)?",
+                                isPresented: $showDeactivateConfirm,
+                                titleVisibility: .visible
+                            ) {
+                                Button("Deactivate", role: .destructive) {
+                                    onDeactivate()
+                                    dismiss()
                                 }
-                                .buttonStyle(.plain)
-                                .confirmationDialog(
-                                    "Reactivate \(staff.fullName)?",
-                                    isPresented: $showReactivateConfirm,
-                                    titleVisibility: .visible
-                                ) {
-                                    Button("Reactivate", role: .none) {
-                                        onReactivate()
-                                        dismiss()
-                                    }
-                                    Button("Cancel", role: .cancel) {}
-                                } message: {
-                                    Text("This will restore login access and functionality for \(staff.fullName).")
-                                }
+                                Button("Cancel", role: .cancel) {}
+                            } message: {
+                                Text("This will deactivate \(staff.fullName). They won't be able to log in until reactivated.")
                             }
                         }
-                        .padding(24)
-                        .glassCard()
-                        .padding(.horizontal, 20)
+
+                        if let onReactivate = onReactivate, !staff.isActive {
+                            Button {
+                                showReactivateConfirm = true
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "person.fill.checkmark")
+                                        .font(.system(size: 16))
+                                    Text("Reactivate Staff")
+                                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                                }
+                                .foregroundColor(Color.green)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(Color.white)
+                                .cornerRadius(16)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(Color.green.opacity(0.3), lineWidth: 1)
+                                )
+                                .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.horizontal, 20)
+                            .confirmationDialog(
+                                "Reactivate \(staff.fullName)?",
+                                isPresented: $showReactivateConfirm,
+                                titleVisibility: .visible
+                            ) {
+                                Button("Reactivate", role: .none) {
+                                    onReactivate()
+                                    dismiss()
+                                }
+                                Button("Cancel", role: .cancel) {}
+                            } message: {
+                                Text("This will restore login access and functionality for \(staff.fullName).")
+                            }
+                        }
+
+                        Spacer(minLength: 30)
                     }
-                    .padding(.bottom, 30)
+                    .padding(.bottom, 20)
                 }
             }
-            .navigationTitle("Edit Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { dismiss() } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(AppTheme.textSecondary)
-                            .font(.system(size: 22))
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(AppTheme.textPrimary)
+                            .frame(width: 36, height: 36)
+                            .background(Color.white)
+                            .clipShape(Circle())
+                            .shadow(color: Color.black.opacity(0.06), radius: 4, x: 0, y: 2)
                     }
                 }
             }
@@ -294,16 +354,58 @@ struct EditStaffView: View {
             } message: {
                 Text("Staff details updated successfully.")
             }
+            .onAppear {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
+                    animate = true
+                }
+            }
+        }
+    }
+
+    // MARK: - Section Label
+    private func sectionLabel(_ title: String, icon: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(AppTheme.primary)
+            Text(title)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundColor(AppTheme.textPrimary)
+        }
+    }
+
+    // MARK: - Editable Field
+    private func editableField(_ label: String, icon: String, text: Binding<String>, keyboard: UIKeyboardType = .default) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundColor(AppTheme.textSecondary)
+                .padding(.leading, 2)
+
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 15))
+                    .foregroundColor(AppTheme.primary.opacity(0.7))
+                    .frame(width: 20)
+
+                TextField(label, text: text)
+                    .font(.system(size: 15, design: .rounded))
+                    .keyboardType(keyboard)
+                    .autocapitalization(.words)
+            }
+            .padding(14)
+            .background(AppTheme.background)
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.gray.opacity(0.15), lineWidth: 1)
+            )
         }
     }
 
     // MARK: - Time Slot Section
     private var timeSlotSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Default Time Slots")
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundColor(AppTheme.primary)
-
             Text("Select when this doctor is available by default")
                 .font(.system(size: 12, design: .rounded))
                 .foregroundColor(AppTheme.textSecondary)
@@ -357,9 +459,9 @@ struct EditStaffView: View {
                     .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.vertical, 10)
                 .background(AppTheme.primaryLight)
-                .cornerRadius(10)
+                .cornerRadius(12)
             }
 
             // Add Custom button
@@ -388,30 +490,6 @@ struct EditStaffView: View {
                     customSlots.append((start: start, end: end))
                 }
             }
-        }
-        .padding(14)
-        .background(Color.white.opacity(0.6))
-        .cornerRadius(14)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(AppTheme.primary.opacity(0.15), lineWidth: 1)
-        )
-    }
-
-    // Custom Label + Field Combo
-    private func hmsLabelAndField(_ label: String, icon: String, text: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(label)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundColor(AppTheme.textSecondary)
-                .padding(.leading, 2)
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .foregroundColor(AppTheme.primary).frame(width: 20)
-                TextField(label, text: text)
-                    .autocapitalization(.words)
-            }
-            .hmsTextFieldStyle()
         }
     }
 

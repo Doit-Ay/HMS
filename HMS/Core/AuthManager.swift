@@ -347,6 +347,9 @@ class AuthManager {
             doctorUpdates["department"]     = department
             doctorUpdates["specialization"] = specialization
             doctorUpdates["employeeID"]     = employeeID
+            if let slots = defaultSlots {
+                doctorUpdates["defaultSlots"] = slots
+            }
             try await db.collection("doctors").document(uid).setData(doctorUpdates, merge: true)
             
         case .labTechnician:
@@ -508,12 +511,24 @@ class AuthManager {
 
     // MARK: - Fetch All Doctors
     func fetchDoctors() async throws -> [HMSUser] {
-        let snapshot = try await db.collection("users")
-            .whereField("role", isEqualTo: "doctor")
+        let snapshot = try await db.collection("doctors")
             .whereField("isActive", isEqualTo: true)
             .getDocuments()
-        return snapshot.documents.compactMap {
-            try? Firestore.Decoder().decode(HMSUser.self, from: $0.data())
+        return snapshot.documents.compactMap { doc -> HMSUser? in
+            let d = doc.data()
+            guard let email = d["email"] as? String,
+                  let fullName = d["fullName"] as? String else { return nil }
+            var user = HMSUser(id: doc.documentID, email: email, fullName: fullName, role: .doctor)
+            user.phoneNumber = d["phoneNumber"] as? String
+            user.dateOfBirth = d["dateOfBirth"] as? String
+            user.gender = d["gender"] as? String
+            user.profileImageURL = d["profileImageURL"] as? String
+            user.department = d["department"] as? String
+            user.specialization = d["specialization"] as? String
+            user.employeeID = d["employeeID"] as? String
+            user.defaultSlots = d["defaultSlots"] as? [String]
+            user.isActive = d["isActive"] as? Bool ?? true
+            return user
         }
     }
 

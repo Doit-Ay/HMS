@@ -20,8 +20,11 @@ struct LivePatientNameView: View {
             .task {
                 do {
                     let profile = try await DoctorPatientRepository.shared.fetchPatientProfile(patientId: patientId)
-                    await MainActor.run {
-                        self.liveName = profile.fullName
+                    let fetchedName = profile.fullName
+                    if !fetchedName.isEmpty && fetchedName != "Unknown" {
+                        await MainActor.run {
+                            self.liveName = fetchedName
+                        }
                     }
                 } catch {
                     // Fail silently and use fallback
@@ -47,8 +50,11 @@ struct LivePatientAvatarInitial: View {
             .task {
                 do {
                     let profile = try await DoctorPatientRepository.shared.fetchPatientProfile(patientId: patientId)
-                    await MainActor.run {
-                        self.liveName = profile.fullName
+                    let fetchedName = profile.fullName
+                    if !fetchedName.isEmpty && fetchedName != "Unknown" {
+                        await MainActor.run {
+                            self.liveName = fetchedName
+                        }
                     }
                 } catch {
                     // Fail silently and use fallback

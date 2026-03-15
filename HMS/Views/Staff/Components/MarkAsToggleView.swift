@@ -24,8 +24,8 @@ struct MarkAsToggleView: View {
                 )
                 
                 AvailabilityOptionCard(
-                    title: "Half Day",
-                    subtitle: "Partial",
+                    title: "Custom",
+                    subtitle: "Set hours",
                     icon: "circle.lefthalf.filled",
                     color: Color.orange,
                     isSelected: selection == .halfDay,

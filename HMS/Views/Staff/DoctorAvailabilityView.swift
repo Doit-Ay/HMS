@@ -20,6 +20,7 @@ struct DoctorAvailabilityView: View {
     
     // Bottom Panel State
     @State private var markAsSelection: DayAvailabilityState = .available
+    @State private var originalSelection: DayAvailabilityState = .available
     @State private var startTime: Date = Date()
     @State private var endTime: Date = Date().addingTimeInterval(3600)
     
@@ -46,6 +47,12 @@ struct DoctorAvailabilityView: View {
         return f.string(from: visibleMonth)
     }
     
+    /// Save button only visible when something actually changed
+    private var hasChanges: Bool {
+        guard selectedDate != nil else { return false }
+        return markAsSelection != originalSelection
+    }
+    
     var body: some View {
         ZStack(alignment: .bottom) {
             AppTheme.background.ignoresSafeArea()
@@ -67,8 +74,8 @@ struct DoctorAvailabilityView: View {
                     
                     Spacer()
                     
-                    // Save button — glass effect
-                    if selectedDate != nil {
+                    // Save button — only visible when a change is made
+                    if hasChanges {
                         Button(action: handleSaveRequest) {
                             if isSaving {
                                 ProgressView()
@@ -132,8 +139,9 @@ struct DoctorAvailabilityView: View {
                         .onChange(of: selectedDate) { newDate in
                             if let date = newDate {
                                 let startOfDay = Calendar.current.startOfDay(for: date)
-                                // Sync the toggle with whatever state this date intrinsically holds
-                                markAsSelection = availabilityMap[startOfDay] ?? .available
+                                let saved = availabilityMap[startOfDay] ?? .available
+                                markAsSelection = saved
+                                originalSelection = saved
                             }
                         }
                         
@@ -350,6 +358,8 @@ struct DoctorAvailabilityView: View {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     showToast = true
                 }
+                // Sync original so Save button hides
+                originalSelection = markAsSelection
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                     withAnimation { showToast = false }
                 }

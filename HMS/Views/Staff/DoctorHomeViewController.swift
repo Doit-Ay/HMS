@@ -12,6 +12,7 @@ struct DoctorHomeViewController: View {
     @State private var todayAppointments: [Appointment] = []
     @State private var monthAppointments: [Appointment] = []
     @State private var isLoadingAppointments = false
+    @State private var scrollToHour: Int? = nil
     
     // Greeting logic
     private var greeting: String {
@@ -35,7 +36,7 @@ struct DoctorHomeViewController: View {
             }
             
             // Use different colors for variety based on hash
-            let colors = [AppTheme.primaryLight, Color.orange.opacity(0.15), Color.blue.opacity(0.1), Color.purple.opacity(0.1)]
+            let colors = [AppTheme.primaryLight, Color.orange.opacity(0.35), Color.blue.opacity(0.25), Color.purple.opacity(0.25)]
             let colorIdx = abs(appt.id.hashValue) % colors.count
             
             return AppointmentBlock(
@@ -83,27 +84,27 @@ struct DoctorHomeViewController: View {
             
             VStack(spacing: 0) {
                 HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(greeting)
-                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
                             .foregroundColor(AppTheme.textSecondary)
+
                         Text(doctorName)
-                            .font(.system(size: 24, weight: .heavy, design: .rounded))
+                            .font(.system(size: 28, weight: .bold, design: .rounded))
                             .foregroundColor(AppTheme.textPrimary)
                     }
                     
                     Spacer()
                     
                     Button(action: { showProfile = true }) {
-                        ZStack {
-                            Circle()
-                                .fill(AppTheme.primaryLight)
-                                .frame(width: 44, height: 44)
-                            Text(String(doctorName.replacingOccurrences(of: "Dr. ", with: "").prefix(1)))
-                                .font(.system(size: 18, weight: .bold, design: .rounded))
-                                .foregroundColor(AppTheme.primaryDark)
-                        }
+                        Image(systemName: "person.crop.circle.fill")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 50, height: 50)
+                            .foregroundColor(AppTheme.primaryDark)
+                            .background(Circle().fill(AppTheme.primaryLight))
                     }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 16)
@@ -134,7 +135,16 @@ struct DoctorHomeViewController: View {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 12) {
                                 ForEach(todayAppointments) { appt in
-                                    BookedAppointmentCard(appointment: appt)
+                                    Button {
+                                        // Parse hour from startTime ("HH:mm" format)
+                                        let parts = appt.startTime.split(separator: ":").compactMap { Int($0) }
+                                        if let hour = parts.first {
+                                            scrollToHour = hour
+                                        }
+                                    } label: {
+                                        BookedAppointmentCard(appointment: appt)
+                                    }
+                                    .buttonStyle(.plain)
                                 }
                             }
                             .padding(.horizontal, 24)
@@ -161,9 +171,11 @@ struct DoctorHomeViewController: View {
                     
                     AppointmentTimelineView(
                         appointments: timelineData,
+                        selectedDate: selectedDate,
                         onAppointmentTap: { appt in
                             selectedAppointment = appt
-                        }
+                        },
+                        scrollToHour: $scrollToHour
                     )
                     // Trigger redraw when date changes to recalculate the view
                     .id(selectedDate)
@@ -182,6 +194,7 @@ struct DoctorHomeViewController: View {
         .onChange(of: selectedDate) { _ in
             loadTodayAppointments()
         }
+
         .sheet(item: $selectedAppointment) { appt in
             if #available(iOS 16.0, *) {
                 AppointmentDetailSheet(appointment: appt)
@@ -217,8 +230,8 @@ struct DoctorHomeViewController: View {
                 let (today, month) = try await (todayFetch, monthFetch)
                 
                 withAnimation { 
-                    self.todayAppointments = today 
-                    self.monthAppointments = month
+                    self.todayAppointments = today.filter { $0.status != "cancelled" }
+                    self.monthAppointments = month.filter { $0.status != "cancelled" }
                 }
             } catch {
                 print("⚠️ Error loading appointments: \(error)")

@@ -3,6 +3,7 @@ import FirebaseFirestore
 
 // MARK: - Patient Appointments View
 struct PatientAppointmentsView: View {
+    var cameFromBooking: Bool = false
     @ObservedObject var session = UserSession.shared
     @State private var appointments: [Appointment] = []
     @State private var isLoading = true
@@ -47,7 +48,8 @@ struct PatientAppointmentsView: View {
                     destination: BookAppointmentView(
                         doctor: doctor,
                         rescheduleAppointmentId: appt.id,
-                        rescheduleOldSlotId: appt.slotId
+                        rescheduleOldSlotId: appt.slotId,
+                        rescheduleDate: appt.date
                     ),
                     isActive: Binding(
                         get: { rescheduleDoctor != nil },
@@ -132,6 +134,29 @@ struct PatientAppointmentsView: View {
         }
         .navigationTitle("My Appointments")
         .navigationBarTitleDisplayMode(.large)
+        .navigationBarBackButtonHidden(cameFromBooking)
+        .toolbar {
+            if cameFromBooking {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        // Pop all the way back to home
+                        // Dismiss this view + the BookAppointmentView below it
+                        dismiss()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            // The BookAppointmentView will also dismiss, returning to home
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 16, weight: .semibold))
+                            Text("Home")
+                                .font(.system(size: 17))
+                        }
+                        .foregroundColor(AppTheme.primary)
+                    }
+                }
+            }
+        }
         .alert("Cancel Appointment?", isPresented: $showCancelAlert, presenting: appointmentToCancel) { appt in
             Button("Keep It", role: .cancel) {}
             Button("Cancel Appointment", role: .destructive) {
@@ -255,20 +280,30 @@ struct AppointmentDetailCard: View {
     let onCancel: () -> Void
     let onReschedule: () -> Void
 
+    /// For past appointments that still have "scheduled" status, show "missed"
+    private var displayStatus: String {
+        if !isUpcoming && appointment.status == "scheduled" {
+            return "missed"
+        }
+        return appointment.status
+    }
+
     private var statusColor: Color {
-        switch appointment.status {
+        switch displayStatus {
         case "scheduled": return AppTheme.primary
         case "completed": return .green
         case "cancelled": return .red
+        case "missed": return .orange
         default: return AppTheme.textSecondary
         }
     }
 
     private var statusIcon: String {
-        switch appointment.status {
+        switch displayStatus {
         case "scheduled": return "clock.fill"
         case "completed": return "checkmark.circle.fill"
         case "cancelled": return "xmark.circle.fill"
+        case "missed": return "exclamationmark.circle.fill"
         default: return "questionmark.circle.fill"
         }
     }
@@ -302,7 +337,7 @@ struct AppointmentDetailCard: View {
                 HStack(spacing: 4) {
                     Image(systemName: statusIcon)
                         .font(.system(size: 11))
-                    Text(appointment.status.capitalized)
+                    Text(displayStatus.capitalized)
                         .font(.system(size: 12, weight: .bold, design: .rounded))
                 }
                 .foregroundColor(statusColor)

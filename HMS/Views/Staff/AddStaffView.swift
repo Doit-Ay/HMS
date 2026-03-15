@@ -15,6 +15,7 @@ struct AddStaffView: View {
     @State private var errorMessage   = ""
     @State private var showError      = false
     @State private var showSuccess    = false
+    @State private var animate        = false
 
     // Time Slot Selection (doctors only)
     @State private var morningSelected    = false
@@ -46,36 +47,64 @@ struct AddStaffView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                HMSBackground()
+                AppTheme.background.ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 20) {
+                    VStack(spacing: 24) {
 
-                        // Role Picker
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Select Role")
-                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        // HEADER
+                        VStack(spacing: 8) {
+                            ZStack {
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [AppTheme.primary, AppTheme.primaryMid],
+                                            startPoint: .topLeading, endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .frame(width: 70, height: 70)
+                                Image(systemName: "person.badge.plus")
+                                    .font(.system(size: 30, weight: .medium))
+                                    .foregroundColor(.white)
+                            }
+
+                            Text("Add New Staff")
+                                .font(.system(size: 22, weight: .bold, design: .rounded))
+                                .foregroundColor(AppTheme.textPrimary)
+
+                            Text("Fill in the details to register a new staff member")
+                                .font(.system(size: 13, design: .rounded))
                                 .foregroundColor(AppTheme.textSecondary)
-                                .padding(.horizontal, 4)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(.top, 8)
+                        .offset(y: animate ? 0 : -20)
+                        .opacity(animate ? 1 : 0)
 
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 10) {
-                                    ForEach(staffRoles, id: \.self) { role in
-                                        RoleChip(role: role, isSelected: selectedRole == role) {
+                        // ROLE SELECTION SECTION
+                        VStack(alignment: .leading, spacing: 12) {
+                            sectionLabel("Role", icon: "person.2.fill")
+
+                            HStack(spacing: 12) {
+                                ForEach(staffRoles, id: \.self) { role in
+                                    RoleChip(role: role, isSelected: selectedRole == role) {
+                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                                             selectedRole = role
                                         }
                                     }
                                 }
-                                .padding(.horizontal, 2)
                             }
                         }
                         .padding(.horizontal, 20)
+                        .offset(y: animate ? 0 : 20)
+                        .opacity(animate ? 1 : 0)
 
-                        // Info Banner — explain the email flow
+                        // INFO BANNER
                         HStack(spacing: 12) {
                             Image(systemName: "envelope.badge.shield.half.filled.fill")
-                                .font(.system(size: 22))
+                                .font(.system(size: 20))
                                 .foregroundColor(AppTheme.primary)
+
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("Passwordless Setup")
                                     .font(.system(size: 13, weight: .bold, design: .rounded))
@@ -88,102 +117,114 @@ struct AddStaffView: View {
                         }
                         .padding(14)
                         .background(AppTheme.primaryLight)
-                        .cornerRadius(14)
+                        .cornerRadius(16)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 14)
-                                .stroke(AppTheme.primary.opacity(0.25), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(AppTheme.primary.opacity(0.2), lineWidth: 1)
                         )
                         .padding(.horizontal, 20)
+                        .offset(y: animate ? 0 : 20)
+                        .opacity(animate ? 1 : 0)
 
-                        // Form Card
-                        VStack(spacing: 14) {
-                            // Full Name
-                            HStack(spacing: 12) {
-                                Image(systemName: "person.fill")
-                                    .foregroundColor(AppTheme.primary).frame(width: 20)
-                                TextField("Full Name", text: $fullName)
-                                    .autocapitalization(.words)
-                            }
-                            .hmsTextFieldStyle()
+                        // PERSONAL DETAILS SECTION
+                        VStack(alignment: .leading, spacing: 14) {
+                            sectionLabel("Personal Details", icon: "person.text.rectangle.fill")
 
-                            // Email
-                            HStack(spacing: 12) {
-                                Image(systemName: "envelope.fill")
-                                    .foregroundColor(AppTheme.primary).frame(width: 20)
-                                TextField("Staff Email Address", text: $email)
-                                    .keyboardType(.emailAddress)
-                                    .autocapitalization(.none)
-                                    .disableAutocorrection(true)
-                            }
-                            .hmsTextFieldStyle()
+                            formField(icon: "person.fill", placeholder: "Full Name *", text: $fullName, capitalization: .words)
+                            formField(icon: "creditcard.fill", placeholder: "Employee ID (optional)", text: $employeeID, capitalization: .allCharacters)
 
-                            // Employee ID
-                            HStack(spacing: 12) {
-                                Image(systemName: "creditcard.fill")
-                                    .foregroundColor(AppTheme.primary).frame(width: 20)
-                                TextField("Employee ID (optional)", text: $employeeID)
-                                    .autocapitalization(.allCharacters)
-                            }
-                            .hmsTextFieldStyle()
-
-                            // Department
-                            HStack(spacing: 12) {
-                                Image(systemName: "building.2.fill")
-                                    .foregroundColor(AppTheme.primary).frame(width: 20)
-                                TextField("Department (optional)", text: $department)
-                                    .autocapitalization(.words)
-                            }
-                            .hmsTextFieldStyle()
-
-                            // Specialization (doctors only)
                             if selectedRole == .doctor {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "stethoscope")
-                                        .foregroundColor(AppTheme.primary).frame(width: 20)
-                                    TextField("Specialization", text: $specialization)
-                                        .autocapitalization(.words)
-                                }
-                                .hmsTextFieldStyle()
-                                .transition(.opacity.combined(with: .move(edge: .top)))
-                            }
-
-                            // Time Slot Selection (doctors only)
-                            if selectedRole == .doctor {
-                                timeSlotSection
+                                formField(icon: "stethoscope", placeholder: "Specialization", text: $specialization, capitalization: .words)
                                     .transition(.opacity.combined(with: .move(edge: .top)))
                             }
 
-                            // Add Button
-                            Button {
-                                Task { await addStaff() }
-                            } label: {
-                                HStack(spacing: 8) {
-                                    if isLoading {
-                                        ProgressView().tint(.white).scaleEffect(0.8)
-                                    } else {
-                                        Image(systemName: "person.badge.plus.fill")
-                                        Text("Add \(selectedRole.displayName) & Send Email")
-                                    }
-                                }
-                            }
-                            .buttonStyle(PrimaryButtonStyle())
-                            .disabled(isLoading || !formValid)
+                            formField(icon: "building.2.fill", placeholder: "Department (optional)", text: $department, capitalization: .words)
                         }
                         .padding(20)
-                        .glassCard()
+                        .background(Color.white)
+                        .cornerRadius(20)
+                        .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
                         .padding(.horizontal, 20)
                         .animation(.easeInOut(duration: 0.2), value: selectedRole)
+                        .offset(y: animate ? 0 : 25)
+                        .opacity(animate ? 1 : 0)
+
+                        // CONTACT DETAILS SECTION
+                        VStack(alignment: .leading, spacing: 14) {
+                            sectionLabel("Contact", icon: "envelope.fill")
+
+                            formField(icon: "envelope.fill", placeholder: "Email Address *", text: $email, keyboardType: .emailAddress, capitalization: .none)
+                        }
+                        .padding(20)
+                        .background(Color.white)
+                        .cornerRadius(20)
+                        .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
+                        .padding(.horizontal, 20)
+                        .offset(y: animate ? 0 : 30)
+                        .opacity(animate ? 1 : 0)
+
+                        // TIME SLOTS SECTION (doctors only)
+                        if selectedRole == .doctor {
+                            VStack(alignment: .leading, spacing: 14) {
+                                sectionLabel("Availability", icon: "clock.fill")
+
+                                timeSlotSection
+                            }
+                            .padding(20)
+                            .background(Color.white)
+                            .cornerRadius(20)
+                            .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
+                            .padding(.horizontal, 20)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                            .offset(y: animate ? 0 : 35)
+                            .opacity(animate ? 1 : 0)
+                        }
+
+                        // ADD BUTTON
+                        Button {
+                            Task { await addStaff() }
+                        } label: {
+                            HStack(spacing: 10) {
+                                if isLoading {
+                                    ProgressView().tint(.white).scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "person.badge.plus.fill")
+                                        .font(.system(size: 18))
+                                    Text("Add \(selectedRole.displayName) & Send Email")
+                                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                                }
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 54)
+                            .background(
+                                formValid
+                                ? LinearGradient(colors: [AppTheme.primary, AppTheme.primaryMid], startPoint: .leading, endPoint: .trailing)
+                                : LinearGradient(colors: [Color.gray.opacity(0.4), Color.gray.opacity(0.4)], startPoint: .leading, endPoint: .trailing)
+                            )
+                            .cornerRadius(16)
+                            .shadow(color: formValid ? AppTheme.primary.opacity(0.25) : .clear, radius: 10, x: 0, y: 5)
+                        }
+                        .disabled(isLoading || !formValid)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 30)
+                        .offset(y: animate ? 0 : 40)
+                        .opacity(animate ? 1 : 0)
                     }
                     .padding(.vertical, 20)
                 }
             }
-            .navigationTitle("Add Staff Member")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { dismiss() } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(AppTheme.textSecondary).font(.system(size: 22))
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(AppTheme.textPrimary)
+                            .frame(width: 36, height: 36)
+                            .background(Color.white)
+                            .clipShape(Circle())
+                            .shadow(color: Color.black.opacity(0.06), radius: 4, x: 0, y: 2)
                     }
                 }
             }
@@ -201,16 +242,52 @@ struct AddStaffView: View {
             } message: {
                 Text("Account created for \(fullName).\n\nA password setup email has been sent to \(email). They must set their password before logging in.")
             }
+            .onAppear {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
+                    animate = true
+                }
+            }
         }
+    }
+
+    // MARK: - Section Label
+    private func sectionLabel(_ title: String, icon: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(AppTheme.primary)
+            Text(title)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundColor(AppTheme.textPrimary)
+        }
+    }
+
+    // MARK: - Form Field
+    private func formField(icon: String, placeholder: String, text: Binding<String>, keyboardType: UIKeyboardType = .default, capitalization: UITextAutocapitalizationType = .words) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 15))
+                .foregroundColor(AppTheme.primary.opacity(0.7))
+                .frame(width: 20)
+
+            TextField(placeholder, text: text)
+                .font(.system(size: 15, design: .rounded))
+                .keyboardType(keyboardType)
+                .autocapitalization(capitalization)
+                .disableAutocorrection(keyboardType == .emailAddress)
+        }
+        .padding(14)
+        .background(AppTheme.background)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.gray.opacity(0.15), lineWidth: 1)
+        )
     }
 
     // MARK: - Time Slot Section
     private var timeSlotSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Default Time Slots")
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundColor(AppTheme.primary)
-
             Text("Select when this doctor is available by default")
                 .font(.system(size: 12, design: .rounded))
                 .foregroundColor(AppTheme.textSecondary)
@@ -264,9 +341,9 @@ struct AddStaffView: View {
                     .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.vertical, 10)
                 .background(AppTheme.primaryLight)
-                .cornerRadius(10)
+                .cornerRadius(12)
             }
 
             // Add Custom button
@@ -296,13 +373,6 @@ struct AddStaffView: View {
                 }
             }
         }
-        .padding(14)
-        .background(Color.white.opacity(0.6))
-        .cornerRadius(14)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(AppTheme.primary.opacity(0.15), lineWidth: 1)
-        )
     }
 
     private func addStaff() async {
@@ -354,7 +424,7 @@ struct SlotPresetChip: View {
             .background(
                 isSelected
                 ? LinearGradient(colors: [AppTheme.primary, AppTheme.primaryMid], startPoint: .topLeading, endPoint: .bottomTrailing)
-                : LinearGradient(colors: [Color.white.opacity(0.8), Color.white.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                : LinearGradient(colors: [AppTheme.background, AppTheme.background], startPoint: .topLeading, endPoint: .bottomTrailing)
             )
             .cornerRadius(14)
             .overlay(
@@ -364,6 +434,7 @@ struct SlotPresetChip: View {
             .shadow(color: isSelected ? AppTheme.primary.opacity(0.2) : .clear, radius: 4, x: 0, y: 2)
         }
         .buttonStyle(.plain)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
     }
 }
 
@@ -401,7 +472,9 @@ struct CustomSlotPickerSheet: View {
                     }
                 }
                 .padding(20)
-                .glassCard()
+                .background(Color.white)
+                .cornerRadius(20)
+                .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
                 .padding(.horizontal, 20)
 
                 Button {
@@ -444,27 +517,29 @@ struct RoleChip: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Image(systemName: role.sfSymbol)
-                    .font(.system(size: 13))
+                    .font(.system(size: 14))
                 Text(role.displayName)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
             }
             .foregroundColor(isSelected ? .white : AppTheme.primary)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
             .background(
                 isSelected
                 ? LinearGradient(colors: [AppTheme.primary, AppTheme.primaryMid], startPoint: .leading, endPoint: .trailing)
-                : LinearGradient(colors: [AppTheme.primaryLight, AppTheme.primaryLight], startPoint: .leading, endPoint: .trailing)
+                : LinearGradient(colors: [Color.white, Color.white], startPoint: .leading, endPoint: .trailing)
             )
-            .cornerRadius(20)
+            .cornerRadius(14)
             .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(AppTheme.primary.opacity(isSelected ? 0 : 0.3), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(isSelected ? Color.clear : AppTheme.primary.opacity(0.3), lineWidth: 1)
             )
+            .shadow(color: isSelected ? AppTheme.primary.opacity(0.2) : Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
         }
         .buttonStyle(.plain)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
     }
 }
 

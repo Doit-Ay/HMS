@@ -8,6 +8,14 @@ struct AppointmentDetailSheet: View {
     @State private var patient: PatientProfile?
     @State private var isLoading = true
     
+    /// Best available patient name — prefers live-fetched name, falls back to appointment record
+    private var displayName: String {
+        if let name = patient?.fullName, !name.isEmpty, name != "Unknown" {
+            return name
+        }
+        return appointment.patientName.isEmpty ? "Patient" : appointment.patientName
+    }
+    
     // Computed helpers
     private var ageString: String {
         // First check the direct age field (saved as Int by PatientProfileView)
@@ -68,12 +76,12 @@ struct AppointmentDetailSheet: View {
                         Circle()
                             .fill(appointment.color.opacity(0.4))
                             .frame(width: 80, height: 80)
-                        Text(String(appointment.patientName.prefix(1)))
+                        Text(String(displayName.prefix(1)))
                             .font(.system(size: 32, weight: .bold, design: .rounded))
                             .foregroundColor(AppTheme.textPrimary)
                     }
                     
-                    Text(patient?.fullName ?? appointment.patientName)
+                    Text(displayName)
                         .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundColor(AppTheme.textPrimary)
                 }
