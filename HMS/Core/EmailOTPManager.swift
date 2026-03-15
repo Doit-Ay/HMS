@@ -41,21 +41,48 @@ class EmailOTPManager {
         let mailData: [String: Any] = [
             "to": email.lowercased(),
             "message": [
-                "subject": "HMS - Your Verification Code",
+                "subject": "CureIt - Your Verification Code",
                 "html": """
-                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
-                    <div style="text-align: center; margin-bottom: 24px;">
-                        <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #05AA97, #66BEB3); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;">
-                            <span style="font-size: 28px;">🏥</span>
-                        </div>
+                <!DOCTYPE html>
+                <html>
+                <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+                </head>
+                <body style="margin: 0; padding: 0; background-color: #F5F8FA;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #F5F8FA;">
+                <tr><td align="center" style="padding: 24px 16px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 420px; background: #FFFFFF; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06);">
+
+                <!-- Header -->
+                <tr><td style="background: linear-gradient(135deg, #05AA97, #4ECDC4); padding: 28px 24px; text-align: center;">
+                    <h1 style="color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 26px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">CureIt</h1>
+                    <p style="color: rgba(255,255,255,0.85); font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 12px; margin: 4px 0 0 0;">Your Health, Our Priority</p>
+                </td></tr>
+
+                <!-- Body -->
+                <tr><td style="padding: 32px 24px 24px;">
+                    <h2 style="text-align: center; color: #1A2B3C; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 20px; font-weight: 700; margin: 0 0 8px 0;">Verify Your Email</h2>
+                    <p style="text-align: center; color: #6B7B8D; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; line-height: 1.5; margin: 0 0 28px 0;">Use the code below to complete your sign-in to CureIt.</p>
+
+                    <!-- OTP Code Box -->
+                    <div style="background: #F0FAFA; border: 2px solid #05AA97; border-radius: 16px; padding: 20px 16px; text-align: center; margin: 0 0 24px 0;">
+                        <span style="font-family: -apple-system, BlinkMacSystemFont, 'Courier New', monospace; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #1A2B3C;">\(code)</span>
                     </div>
-                    <h2 style="text-align: center; color: #1A2B3C; margin-bottom: 8px;">Verify Your Email</h2>
-                    <p style="text-align: center; color: #6B7B8D; margin-bottom: 32px;">Use the code below to complete your sign-in to HMS.</p>
-                    <div style="background: #F0FAFA; border: 2px solid #05AA97; border-radius: 16px; padding: 24px; text-align: center; margin-bottom: 24px;">
-                        <span style="font-size: 36px; font-weight: bold; letter-spacing: 12px; color: #1A2B3C;">\(code)</span>
-                    </div>
-                    <p style="text-align: center; color: #6B7B8D; font-size: 14px;">This code expires in 5 minutes.<br>If you didn't request this, you can safely ignore this email.</p>
-                </div>
+
+                    <p style="text-align: center; color: #9BABB8; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px; line-height: 1.6; margin: 0;">This code expires in <strong style="color: #6B7B8D;">5 minutes</strong>.<br>If you didn't request this, you can safely ignore this email.</p>
+                </td></tr>
+
+                <!-- Footer -->
+                <tr><td style="padding: 16px 24px 24px; text-align: center; border-top: 1px solid #F0F2F5;">
+                    <p style="color: #B0BEC5; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 11px; margin: 0;">© CureIt Health Services</p>
+                </td></tr>
+
+                </table>
+                </td></tr>
+                </table>
+                </body>
+                </html>
                 """
             ] as [String: Any]
         ]

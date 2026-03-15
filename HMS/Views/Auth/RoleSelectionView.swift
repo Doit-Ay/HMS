@@ -32,7 +32,7 @@ struct RoleSelectionView: View {
                         }
                         .padding(.top, 60)
 
-                        Text("Welcome to HMS")
+                        Text("Welcome to CureIt")
                             .font(.system(size: 30, weight: .bold, design: .rounded))
                             .foregroundColor(AppTheme.textPrimary)
 
@@ -71,7 +71,7 @@ struct RoleSelectionView: View {
                     Spacer()
 
                     // Footer
-                    Text("Powered by HMS • Secure & Trusted")
+                    Text("Powered by CureIt • Secure & Trusted")
                         .font(.system(size: 13, weight: .medium, design: .rounded))
                         .foregroundColor(AppTheme.textSecondary.opacity(0.7))
                         .padding(.bottom, 30)

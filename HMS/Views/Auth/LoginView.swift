@@ -51,12 +51,17 @@ struct LoginView: View {
     // MARK: - Header
     private var headerSection: some View {
         VStack(spacing: 10) {
-            HMSLogo(size: 80)
+            Image("CureIt_logo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 100, height: 100)
+                .clipShape(RoundedRectangle(cornerRadius: 24))
+                .shadow(color: AppTheme.primary.opacity(0.25), radius: 12, x: 0, y: 6)
             .padding(.top, 20)
             .scaleEffect(animate ? 1 : 0.5)
             .opacity(animate ? 1 : 0)
 
-            Text("Welcome to HMS")
+            Text("Welcome to CureIt")
                 .font(.system(size: 28, weight: .bold, design: .rounded))
                 .foregroundColor(AppTheme.textPrimary)
 
@@ -149,16 +154,18 @@ struct LoginView: View {
             Button {
                 Task { await googleSignIn() }
             } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "globe")
-                        .font(.system(size: 20))
-                        .foregroundColor(AppTheme.primary)
-                    Text("Continue with Google")
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .foregroundColor(AppTheme.textPrimary)
+                ZStack {
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 52, height: 52)
+                        .shadow(color: Color.black.opacity(0.08), radius: 6, x: 0, y: 3)
+                    Image("google")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 24, height: 24)
                 }
             }
-            .buttonStyle(SecondaryButtonStyle())
+            .buttonStyle(.plain)
         }
         .padding(24)
         .glassCard()

@@ -149,7 +149,7 @@ struct PatientLoginView: View {
 
                     // Register
                     VStack(spacing: 8) {
-                        Text("New to HMS?")
+                        Text("New to CureIt?")
                             .font(.system(size: 14, design: .rounded))
                             .foregroundColor(AppTheme.textSecondary)
 

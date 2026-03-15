@@ -47,7 +47,7 @@ struct PatientRegistrationView: View {
                             .font(.system(size: 28, weight: .bold, design: .rounded))
                             .foregroundColor(AppTheme.textPrimary)
 
-                        Text("Join HMS as a patient")
+                        Text("Join CureIt as a patient")
                             .font(.system(size: 14, design: .rounded))
                             .foregroundColor(AppTheme.textSecondary)
                     }
