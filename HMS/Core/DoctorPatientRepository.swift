@@ -107,4 +107,26 @@ class DoctorPatientRepository {
         
         return querySnapshot.documents.compactMap { try? $0.data(as: Appointment.self) }
     }
+
+    // MARK: - Consultation Notes
+    
+    /// Saves a consultation note to Firestore
+    func saveConsultationNote(_ note: ConsultationNote) async throws {
+        let data = try Firestore.Encoder().encode(note)
+        try await db.collection("consultation_notes").document(note.id).setData(data)
+    }
+    
+    /// Fetches a consultation note for a specific appointment
+    func fetchConsultationNote(appointmentId: String) async throws -> ConsultationNote? {
+        let snapshot = try await db.collection("consultation_notes")
+            .whereField("appointmentId", isEqualTo: appointmentId)
+            .limit(to: 1)
+            .getDocuments()
+            
+        guard let document = snapshot.documents.first else {
+            return nil
+        }
+        
+        return try document.data(as: ConsultationNote.self)
+    }
 }

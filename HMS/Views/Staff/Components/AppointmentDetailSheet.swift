@@ -7,6 +7,10 @@ struct AppointmentDetailSheet: View {
     // Dynamic patient data from Firestore
     @State private var patient: PatientProfile?
     @State private var isLoading = true
+    @State private var showConsultationNotes = false
+    @State private var appointmentStatus: String = "scheduled"
+    @State private var isUpdatingStatus = false
+    @State private var firestoreAppointment: Appointment?
     
     /// Best available patient name — prefers live-fetched name, falls back to appointment record
     private var displayName: String {
@@ -84,6 +88,18 @@ struct AppointmentDetailSheet: View {
                     Text(displayName)
                         .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundColor(AppTheme.textPrimary)
+                    
+                    // Status badge
+                    Text(appointmentStatus.capitalized)
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundColor(appointmentStatus == "completed" ? .green : .orange)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 5)
+                        .background(
+                            (appointmentStatus == "completed" ? Color.green : Color.orange)
+                                .opacity(0.1)
+                        )
+                        .cornerRadius(8)
                 }
                 
                 // Info Pills Row — DYNAMIC from patients table
@@ -123,10 +139,20 @@ struct AppointmentDetailSheet: View {
                 
                 Spacer()
                 
-                // Action Buttons
+                // Action Buttons — context-sensitive
                 VStack(spacing: 12) {
-                    Button(action: { dismiss() }) {
-                        Text("Start Consultation")
+                    if appointmentStatus == "scheduled" {
+                        // Before consultation: show "Start Consultation" which marks it as completed
+                        Button(action: markConsultationDone) {
+                            HStack {
+                                if isUpdatingStatus {
+                                    ProgressView()
+                                        .tint(.white)
+                                } else {
+                                    Image(systemName: "checkmark.circle.fill")
+                                    Text("Mark Consultation Done")
+                                }
+                            }
                             .font(.system(size: 16, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
@@ -134,25 +160,50 @@ struct AppointmentDetailSheet: View {
                             .background(AppTheme.primary)
                             .cornerRadius(16)
                             .shadow(color: AppTheme.primary.opacity(0.3), radius: 8, x: 0, y: 4)
+                        }
+                        .disabled(isUpdatingStatus)
                     }
                     
-                    Button(action: { dismiss() }) {
-                        Text("Write Prescription")
+                    if appointmentStatus == "completed" {
+                        // After consultation: show "Write Prescription"
+                        Button(action: { showConsultationNotes = true }) {
+                            HStack {
+                                Image(systemName: "pencil.and.list.clipboard")
+                                Text("Write Prescription")
+                            }
                             .font(.system(size: 16, weight: .bold, design: .rounded))
-                            .foregroundColor(AppTheme.primary)
+                            .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(AppTheme.primaryLight)
+                            .background(AppTheme.primary)
                             .cornerRadius(16)
+                            .shadow(color: AppTheme.primary.opacity(0.3), radius: 8, x: 0, y: 4)
+                        }
                     }
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 32)
             }
         }
+        .sheet(isPresented: $showConsultationNotes) {
+            if let currentUser = UserSession.shared.currentUser,
+               let appt = firestoreAppointment {
+                ConsultationNotesView(
+                    appointmentId: appt.id,
+                    doctorId: currentUser.id,
+                    doctorName: appt.doctorName,
+                    patientId: appt.patientId,
+                    patientName: displayName,
+                    appointmentDate: appt.date,
+                    startTime: appt.startTime,
+                    endTime: appt.endTime
+                )
+            }
+        }
         .background(Color.white.ignoresSafeArea())
         .task {
             await fetchPatientData()
+            await fetchAppointmentStatus()
         }
     }
     
@@ -178,7 +229,39 @@ struct AppointmentDetailSheet: View {
             }
         }
     }
+    
+    // Fetch live appointment status from Firestore
+    private func fetchAppointmentStatus() async {
+        do {
+            if let appt = try await AuthManager.shared.fetchAppointment(appointmentId: appointment.id) {
+                withAnimation {
+                    self.firestoreAppointment = appt
+                    self.appointmentStatus = appt.status
+                }
+            }
+        } catch {
+            print("⚠️ Could not fetch appointment status: \(error.localizedDescription)")
+        }
+    }
+    
+    // Mark consultation as done
+    private func markConsultationDone() {
+        Task {
+            isUpdatingStatus = true
+            do {
+                try await AuthManager.shared.updateAppointmentStatus(appointmentId: appointment.id, status: "completed")
+                withAnimation {
+                    appointmentStatus = "completed"
+                    firestoreAppointment?.status = "completed"
+                }
+            } catch {
+                print("⚠️ Failed to update appointment status: \(error.localizedDescription)")
+            }
+            isUpdatingStatus = false
+        }
+    }
 }
+
 
 struct InfoPill: View {
     let title: String
