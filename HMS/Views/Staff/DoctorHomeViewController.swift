@@ -229,7 +229,7 @@ struct DoctorHomeViewController: View {
                 
                 let (today, month) = try await (todayFetch, monthFetch)
                 
-                withAnimation { 
+                withAnimation {
                     self.todayAppointments = today.filter { $0.status != "cancelled" }
                     self.monthAppointments = month.filter { $0.status != "cancelled" }
                 }
