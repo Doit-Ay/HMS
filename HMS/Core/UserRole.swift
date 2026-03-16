@@ -236,3 +236,17 @@ struct ConsultationNote: Codable, Identifiable {
     var prescription: String
     var createdAt: Date?
 }
+
+// MARK: - Firestore `lab_test_requests` Collection
+// Each document represents a lab test referred by a doctor for a patient.
+struct LabTestRequest: Codable, Identifiable {
+    var id: String
+    var doctorId: String
+    var doctorName: String
+    var patientId: String
+    var patientName: String
+    var testNames: [String]
+    var status: String                  // "pending", "completed", etc.
+    var dateReferred: Date
+}
+

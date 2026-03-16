@@ -129,4 +129,13 @@ class DoctorPatientRepository {
         
         return try document.data(as: ConsultationNote.self)
     }
+
+    // MARK: - Lab Test Requests
+
+    /// Saves a referred lab test request to Firestore
+    func saveLabTestRequest(_ request: LabTestRequest) async throws {
+        let data = try Firestore.Encoder().encode(request)
+        try await db.collection("lab_test_requests").document(request.id).setData(data)
+    }
 }
+

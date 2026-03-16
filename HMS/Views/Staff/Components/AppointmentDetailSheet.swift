@@ -8,6 +8,7 @@ struct AppointmentDetailSheet: View {
     @State private var patient: PatientProfile?
     @State private var isLoading = true
     @State private var showConsultationNotes = false
+    @State private var showReferLabTest = false
     @State private var appointmentStatus: String = "scheduled"
     @State private var isUpdatingStatus = false
     @State private var firestoreAppointment: Appointment?
@@ -179,6 +180,20 @@ struct AppointmentDetailSheet: View {
                             .cornerRadius(16)
                             .shadow(color: AppTheme.primary.opacity(0.3), radius: 8, x: 0, y: 4)
                         }
+                        
+                        // New Refer Lab Test Button
+                        Button(action: { showReferLabTest = true }) {
+                            HStack {
+                                Image(systemName: "flask.fill")
+                                Text("Refer Lab Test")
+                            }
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundColor(AppTheme.primary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(AppTheme.primaryLight)
+                            .cornerRadius(16)
+                        }
                     }
                 }
                 .padding(.horizontal, 24)
@@ -197,6 +212,17 @@ struct AppointmentDetailSheet: View {
                     appointmentDate: appt.date,
                     startTime: appt.startTime,
                     endTime: appt.endTime
+                )
+            }
+        }
+        .sheet(isPresented: $showReferLabTest) {
+            if let currentUser = UserSession.shared.currentUser,
+               let appt = firestoreAppointment {
+                ReferLabTestView(
+                    doctorId: currentUser.id,
+                    doctorName: appt.doctorName,
+                    patientId: appt.patientId,
+                    patientName: displayName
                 )
             }
         }
