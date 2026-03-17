@@ -34,7 +34,6 @@ struct PatientHomeView: View {
     @State private var showProfileSheet = false
 
     var body: some View {
-        NavigationStack {
             ZStack(alignment: .top) {
 
                 AppTheme.background
@@ -125,18 +124,40 @@ struct PatientHomeView: View {
 
                         VStack(alignment: .leading, spacing: 20) {
 
-                            Text("Top Services")
-                                .font(.system(size: 22, weight: .bold, design: .rounded))
-                                .foregroundColor(AppTheme.textPrimary)
-                                .padding(.horizontal, 24)
+//                            Text("Top Services")
+//                                .font(.system(size: 22, weight: .bold, design: .rounded))
+//                                .foregroundColor(AppTheme.textPrimary)
+//                                .padding(.horizontal, 24)
 
-                            HStack(spacing: 16) {
+//                            HStack(spacing: 16) {
+//
+//                                FeatureTile(icon: "doc.text.fill", title: "Records", color: AppTheme.primaryDark)
+//                                FeatureTile(icon: "pills.fill", title: "Lab Tests", color: AppTheme.primaryMid)
+////                                FeatureTile(icon: "waveform.path.ecg", title: "Appointments", color: AppTheme.primary)
+//                            }
+//                            .padding(.horizontal, 20)
+                            VStack(alignment: .leading, spacing: 20) {
+                                Text("Top Services")
+                                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                                    .foregroundColor(AppTheme.textPrimary)
+                                    .padding(.horizontal, 24)
 
-                                FeatureTile(icon: "doc.text.fill", title: "Records", color: AppTheme.primaryDark)
-                                FeatureTile(icon: "pills.fill", title: "Lab Tests", color: AppTheme.primaryMid)
-//                                FeatureTile(icon: "waveform.path.ecg", title: "Appointments", color: AppTheme.primary)
+                                HStack(spacing: 16) {
+                                    // Records Tile with NavigationLink
+                                    NavigationLink {
+                                        PatientRecordsMainView()
+                                    } label: {
+                                        FeatureTile(icon: "doc.text.fill", title: "Records", color: AppTheme.primaryDark)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                    
+                                    // Lab Tests Tile (non-navigating for now)
+                                    FeatureTile(icon: "pills.fill", title: "Lab Tests", color: AppTheme.primaryMid)
+                                }
+                                .padding(.horizontal, 20)
                             }
-                            .padding(.horizontal, 20)
+                            .offset(y: animate ? 0 : 40)
+                            .opacity(animate ? 1 : 0)
                         }
                         .offset(y: animate ? 0 : 40)
                         .opacity(animate ? 1 : 0)
@@ -242,7 +263,6 @@ struct PatientHomeView: View {
             .sheet(isPresented: $showProfileSheet) {
                 PatientProfileView()
             }
-        }
         .onAppear {
             withAnimation(.spring(response: 0.7, dampingFraction: 0.8).delay(0.1)) {
                 animate = true
@@ -489,40 +509,70 @@ struct HeaderProfileView: View {
 }
 
 // MARK: - Feature Tile
-struct FeatureTile: View {
+//struct FeatureTile: View {
+//
+//    let icon: String
+//    let title: String
+//    let color: Color
+//
+//    var body: some View {
+//
+//        Button {} label: {
+//
+//            VStack(spacing: 16) {
+//
+//                ZStack {
+//
+//                    Circle()
+//                        .fill(color.opacity(0.15))
+//                        .frame(width: 54, height: 54)
+//
+//                    Image(systemName: icon)
+//                        .font(.system(size: 24, weight: .semibold))
+//                        .foregroundColor(color)
+//                }
+//
+//                Text(title)
+//                    .font(.system(size: 14, weight: .bold, design: .rounded))
+//                    .foregroundColor(AppTheme.textPrimary)
+//            }
+//            .frame(maxWidth: .infinity)
+//            .padding(.vertical, 24)
+//            .background(Color.white)
+//            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+//            .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 15, x: 0, y: 8)
+//        }
+//        .buttonStyle(.plain)
+//    }
+//}
 
+// MARK: - Feature Tile
+struct FeatureTile: View {
     let icon: String
     let title: String
     let color: Color
 
     var body: some View {
+        VStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.15))
+                    .frame(width: 54, height: 54)
 
-        Button {} label: {
-
-            VStack(spacing: 16) {
-
-                ZStack {
-
-                    Circle()
-                        .fill(color.opacity(0.15))
-                        .frame(width: 54, height: 54)
-
-                    Image(systemName: icon)
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundColor(color)
-                }
-
-                Text(title)
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundColor(AppTheme.textPrimary)
+                Image(systemName: icon)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundColor(color)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 24)
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 15, x: 0, y: 8)
+
+            Text(title)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundColor(AppTheme.textPrimary)
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 15, x: 0, y: 8)
     }
 }
 

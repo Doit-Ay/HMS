@@ -286,7 +286,7 @@ struct DoctorProfileCard: View {
                     .lineLimit(2)
 
                 // Specialization
-                if let specialization = doctor.specialization {
+                if let specialization = doctor.department {
 
                     Text(specialization)
                         .font(.system(size: 14))
