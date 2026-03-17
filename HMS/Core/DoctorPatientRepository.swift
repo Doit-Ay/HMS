@@ -191,6 +191,17 @@ class DoctorPatientRepository {
     // Note: MedicalDocument struct is currently local to PatientRecordsMainView.swift. 
     // Creating an alternative generic fetch for Admin views since it's just raw data parsing.
     
+    /// Fetches the patient's medical history documents (SharedMedicalDocument) from the `documents` collection.
+    func fetchPatientMedicalHistory(patientId: String) async throws -> [SharedMedicalDocument] {
+        let snapshot = try await db.collection("documents")
+            .whereField("patientId", isEqualTo: patientId)
+            .whereField("folderType", isEqualTo: "MedicalHistory")
+            .getDocuments()
+        
+        let docs = snapshot.documents.compactMap { try? $0.data(as: SharedMedicalDocument.self) }
+        return docs.sorted { $0.uploadDate > $1.uploadDate }
+    }
+    
     /// Fetches patient documents (MedicalHistory, LabResults) for a given patient
     func fetchPatientDocuments(patientId: String, folderType: String? = nil) async throws -> [[String: Any]] {
         var query: Query = db.collection("documents").whereField("patientId", isEqualTo: patientId)
