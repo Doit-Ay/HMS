@@ -175,6 +175,37 @@ class DoctorPatientRepository {
         let data = try Firestore.Encoder().encode(doc)
         try await db.collection("prescriptions").document(doc.id).setData(data)
     }
+    
+    /// Fetches all prescriptions for a specific patient
+    func fetchPatientPrescriptions(patientId: String) async throws -> [PrescriptionDocument] {
+        let snapshot = try await db.collection("prescriptions")
+            .whereField("patientId", isEqualTo: patientId)
+            .order(by: "date", descending: true)
+            .getDocuments()
+            
+        return snapshot.documents.compactMap { try? $0.data(as: PrescriptionDocument.self) }
+    }
+    
+    // MARK: - Medical Documents
+    
+    // Note: MedicalDocument struct is currently local to PatientRecordsMainView.swift. 
+    // Creating an alternative generic fetch for Admin views since it's just raw data parsing.
+    
+    /// Fetches patient documents (MedicalHistory, LabResults) for a given patient
+    func fetchPatientDocuments(patientId: String, folderType: String? = nil) async throws -> [[String: Any]] {
+        var query: Query = db.collection("documents").whereField("patientId", isEqualTo: patientId)
+        
+        if let folderType = folderType {
+            query = query.whereField("folderType", isEqualTo: folderType)
+        }
+        
+        let snapshot = try await query.getDocuments()
+        return snapshot.documents.map { doc in
+            var data = doc.data()
+            data["documentID"] = doc.documentID
+            return data
+        }
+    }
 }
 
 

@@ -527,6 +527,14 @@ class AuthManager {
         try await database.collection("lab_technicians").document(profile.id).setData(data)
     }
 
+    // MARK: - Fetch All Patients
+    func fetchPatients() async throws -> [HMSUser] {
+        let snapshot = try await db.collection("users")
+            .whereField("role", isEqualTo: UserRole.patient.rawValue)
+            .getDocuments()
+        return snapshot.documents.compactMap { try? Firestore.Decoder().decode(HMSUser.self, from: $0.data()) }
+    }
+
     // MARK: - Fetch All Doctors
     func fetchDoctors() async throws -> [HMSUser] {
         let snapshot = try await db.collection("doctors")
