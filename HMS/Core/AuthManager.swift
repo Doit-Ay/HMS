@@ -58,6 +58,7 @@ class AuthManager {
     func login(email: String, password: String) async throws {
         let result = try await Auth.auth().signIn(withEmail: email, password: password)
         await fetchUserProfile(uid: result.user.uid)
+        await ActivityLogManager.shared.logAction(action: "User Login", details: "Logged in via Email: \(email)")
         // Trigger OTP for fresh login
         UserSession.shared.needsOTPVerification = true
         UserSession.shared.pendingOTPEmail = email
@@ -99,6 +100,7 @@ class AuthManager {
             UserSession.shared.clearSession()
             throw AuthError.wrongRole("This account is not a patient account. Please use Staff login.")
         }
+        await ActivityLogManager.shared.logAction(action: "Patient Login", details: "Patient logged in: \(email)")
         // Trigger OTP for fresh login
         UserSession.shared.needsOTPVerification = true
         UserSession.shared.pendingOTPEmail = email
@@ -115,6 +117,7 @@ class AuthManager {
             UserSession.shared.clearSession()
             throw AuthError.wrongRole("This account is not a staff account. Please use Patient login.")
         }
+        await ActivityLogManager.shared.logAction(action: "Staff Login", details: "Staff logged in: \(email)")
         // Trigger OTP for fresh login
         UserSession.shared.needsOTPVerification = true
         UserSession.shared.pendingOTPEmail = email
@@ -144,6 +147,7 @@ class AuthManager {
         try await savePatientProfile(profile: patientProfile, db: nil)
 
         UserSession.shared.setUser(user, requiresOTP: true)
+        await ActivityLogManager.shared.logAction(action: "Patient Registration", details: "Registered new patient: \(email)")
         // Send OTP for email verification
         await sendOTPForUser(email: email)
     }
@@ -173,6 +177,7 @@ class AuthManager {
         }
         // Trigger OTP for fresh Google sign-in
         let email = googleUser.email ?? UserSession.shared.currentUser?.email ?? ""
+        await ActivityLogManager.shared.logAction(action: "Google Sign-In", details: "Patient logged in via Google: \(email)")
         UserSession.shared.needsOTPVerification = true
         UserSession.shared.pendingOTPEmail = email
         await sendOTPForUser(email: email)
@@ -192,6 +197,7 @@ class AuthManager {
         }
         // Trigger OTP for fresh Google sign-in
         let email = user.email ?? UserSession.shared.currentUser?.email ?? ""
+        await ActivityLogManager.shared.logAction(action: "Google Sign-In", details: "Staff logged in via Google: \(email)")
         UserSession.shared.needsOTPVerification = true
         UserSession.shared.pendingOTPEmail = email
         await sendOTPForUser(email: email)
@@ -225,6 +231,12 @@ class AuthManager {
 
     // MARK: - Sign Out
     func signOut() throws {
+        let currentUser = UserSession.shared.currentUser
+        if let user = currentUser {
+            Task {
+                await ActivityLogManager.shared.logAction(action: "User Logout", details: "User signed out.", userOverride: user)
+            }
+        }
         try Auth.auth().signOut()
         GIDSignIn.sharedInstance.signOut()
         UserSession.shared.clearSession()
@@ -292,6 +304,8 @@ class AuthManager {
 
         // Step 7 — Send password reset email
         try await Auth.auth().sendPasswordReset(withEmail: email)
+        
+        await ActivityLogManager.shared.logAction(action: "Add Staff", details: "Added \(role.displayName) \(fullName) (\(email))")
     }
 
     // Generates a secure random temporary password
@@ -305,11 +319,13 @@ class AuthManager {
     // MARK: - Admin: Deactivate Staff Member
     func deactivateStaff(uid: String) async throws {
         try await db.collection("users").document(uid).updateData(["isActive": false])
+        await ActivityLogManager.shared.logAction(action: "Deactivate Staff", details: "Deactivated staff member UID: \(uid)")
     }
 
     // MARK: - Admin: Reactivate Staff Member
     func reactivateStaff(uid: String) async throws {
         try await db.collection("users").document(uid).updateData(["isActive": true])
+        await ActivityLogManager.shared.logAction(action: "Reactivate Staff", details: "Reactivated staff member UID: \(uid)")
     }
 
     // MARK: - Admin: Update Staff Member
@@ -364,6 +380,8 @@ class AuthManager {
         default:
             break
         }
+        
+        await ActivityLogManager.shared.logAction(action: "Update Staff", details: "Updated profile for staff member UID: \(uid)")
     }
 
     // MARK: - Self-Serve: Update Current Doctor Profile

@@ -16,6 +16,7 @@
 		3FB20DA92F5C6D32008B35EC /* FirebaseStorageCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 3FB20DA82F5C6D32008B35EC /* FirebaseStorageCombine-Community */; };
 		3FB20DAC2F5C6D9A008B35EC /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 3FB20DAB2F5C6D9A008B35EC /* GoogleSignIn */; };
 		3FB20DAE2F5C6D9A008B35EC /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 3FB20DAD2F5C6D9A008B35EC /* GoogleSignInSwift */; };
+		BE82596A2F6909F8009DA969 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = BE8259692F6909F8009DA969 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -39,6 +40,7 @@
 		3FB20D3F2F5BEF56008B35EC /* HMS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HMS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3FB20D4C2F5BEF58008B35EC /* HMSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HMSTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3FB20D562F5BEF58008B35EC /* HMSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HMSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		BE8259692F6909F8009DA969 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -109,6 +111,7 @@
 		3FB20D362F5BEF56008B35EC = {
 			isa = PBXGroup;
 			children = (
+				BE8259692F6909F8009DA969 /* GoogleService-Info.plist */,
 				3FB20D412F5BEF56008B35EC /* HMS */,
 				3FB20D4F2F5BEF58008B35EC /* HMSTests */,
 				3FB20D592F5BEF58008B35EC /* HMSUITests */,
@@ -259,6 +262,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BE82596A2F6909F8009DA969 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
