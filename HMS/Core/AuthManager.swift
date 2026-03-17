@@ -815,6 +815,20 @@ class AuthManager {
         try await db.collection("doctor_slots").document(slot.id).setData(slotData, merge: true)
     }
 
+    /// Update the status of an appointment (e.g. "scheduled" → "completed")
+    func updateAppointmentStatus(appointmentId: String, status: String) async throws {
+        try await db.collection("appointments").document(appointmentId).updateData([
+            "status": status
+        ])
+    }
+
+    /// Fetch a single appointment by ID
+    func fetchAppointment(appointmentId: String) async throws -> Appointment? {
+        let doc = try await db.collection("appointments").document(appointmentId).getDocument()
+        guard let data = doc.data() else { return nil }
+        return try Firestore.Decoder().decode(Appointment.self, from: data)
+    }
+
     /// Fetch appointments for a specific doctor on a given date
     func fetchDoctorAppointments(doctorId: String, date: String) async throws -> [Appointment] {
         let snapshot = try await db.collection("appointments")
