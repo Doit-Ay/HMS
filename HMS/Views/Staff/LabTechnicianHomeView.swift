@@ -1,7 +1,7 @@
 import SwiftUI
 
 // MARK: - Lab Test Request Model
-struct LabTestRequest: Identifiable, Hashable {
+struct LabTestUIRequest: Identifiable, Hashable {
     let id = UUID()
     let patientName: String
     let testName: String
@@ -29,7 +29,7 @@ struct LabTestRequest: Identifiable, Hashable {
 struct LabTechnicianHomeView: View {
     @State private var appearAnimation = false
     @State private var selectedSegment  = 0  // 0 = Upcoming/Incomplete, 1 = Completed
-    @State private var selectedTest: LabTestRequest?
+    @State private var selectedTest: LabTestUIRequest?
 
     // Greeting logic (same as Doctor's dashboard)
     private var greeting: String {
@@ -44,20 +44,20 @@ struct LabTechnicianHomeView: View {
     }
 
     // MARK: - Sample Data
-    private var upcomingTests: [LabTestRequest] {
+    private var upcomingTests: [LabTestUIRequest] {
         [
-            LabTestRequest(patientName: "Oliver Smith",  testName: "Complete Blood Count",  doctorName: "Dr. Saif",   department: "Hematology",     requestedDate: "Today, 11:00 AM", status: .upcoming),
-            LabTestRequest(patientName: "Ava Johnson",   testName: "Lipid Panel",           doctorName: "Dr. Mehra",  department: "Biochemistry",   requestedDate: "Today, 01:30 PM", status: .upcoming),
-            LabTestRequest(patientName: "Liam Williams", testName: "Liver Function Test",   doctorName: "Dr. Kapoor", department: "Biochemistry",   requestedDate: "Today, 03:00 PM", status: .incomplete),
-            LabTestRequest(patientName: "Emma Davis",    testName: "Urine Analysis",        doctorName: "Dr. Sen",    department: "Microbiology",   requestedDate: "Yesterday",       status: .incomplete)
+            LabTestUIRequest(patientName: "Oliver Smith",  testName: "Complete Blood Count",  doctorName: "Dr. Saif",   department: "Hematology",     requestedDate: "Today, 11:00 AM", status: .upcoming),
+            LabTestUIRequest(patientName: "Ava Johnson",   testName: "Lipid Panel",           doctorName: "Dr. Mehra",  department: "Biochemistry",   requestedDate: "Today, 01:30 PM", status: .upcoming),
+            LabTestUIRequest(patientName: "Liam Williams", testName: "Liver Function Test",   doctorName: "Dr. Kapoor", department: "Biochemistry",   requestedDate: "Today, 03:00 PM", status: .incomplete),
+            LabTestUIRequest(patientName: "Emma Davis",    testName: "Urine Analysis",        doctorName: "Dr. Sen",    department: "Microbiology",   requestedDate: "Yesterday",       status: .incomplete)
         ]
     }
 
-    private var completedTests: [LabTestRequest] {
+    private var completedTests: [LabTestUIRequest] {
         [
-            LabTestRequest(patientName: "Noah Garcia",  testName: "Blood Glucose",     doctorName: "Dr. Saif",   department: "Biochemistry",  requestedDate: "Today, 09:00 AM",     status: .completed),
-            LabTestRequest(patientName: "Mia Brown",    testName: "Thyroid Panel",     doctorName: "Dr. Mehra",  department: "Endocrinology", requestedDate: "Yesterday, 02:00 PM", status: .completed),
-            LabTestRequest(patientName: "James Wilson", testName: "HbA1c",             doctorName: "Dr. Kapoor", department: "Biochemistry",  requestedDate: "Yesterday, 04:30 PM", status: .completed)
+            LabTestUIRequest(patientName: "Noah Garcia",  testName: "Blood Glucose",     doctorName: "Dr. Saif",   department: "Biochemistry",  requestedDate: "Today, 09:00 AM",     status: .completed),
+            LabTestUIRequest(patientName: "Mia Brown",    testName: "Thyroid Panel",     doctorName: "Dr. Mehra",  department: "Endocrinology", requestedDate: "Yesterday, 02:00 PM", status: .completed),
+            LabTestUIRequest(patientName: "James Wilson", testName: "HbA1c",             doctorName: "Dr. Kapoor", department: "Biochemistry",  requestedDate: "Yesterday, 04:30 PM", status: .completed)
         ]
     }
 
@@ -172,7 +172,7 @@ struct LabTechnicianHomeView: View {
 
 // MARK: - Lab Test Request Card
 struct LabTestRequestCard: View {
-    let test: LabTestRequest
+    let test: LabTestUIRequest
 
     private var isTappable: Bool {
         test.status == .upcoming || test.status == .incomplete
@@ -245,7 +245,7 @@ struct LabTestRequestCard: View {
 
 // MARK: - Upload Test Detail View (Push destination)
 struct UploadTestDetailView: View {
-    let test: LabTestRequest
+    let test: LabTestUIRequest
     @State private var showUploadConfirmation = false
     @Environment(\.dismiss) private var dismiss
 

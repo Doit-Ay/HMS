@@ -1,0 +1,375 @@
+import SwiftUI
+import FirebaseFirestore
+
+struct PatientHistoryView: View {
+    @Environment(\.dismiss) var dismiss
+    
+    let patientGroup: PatientGroup
+    
+    @State private var appearAnimation = false
+    @State private var selectedAppointment: Appointment?
+    
+    // For fetching real patient demographics
+    @State private var patientProfile: PatientProfile?
+    
+    // Sort logic
+    private var upcomingAppointments: [Appointment] {
+        patientGroup.appointments
+            .filter { $0.status.lowercased() == "scheduled" }
+            .sorted { a1, a2 in
+                if a1.date == a2.date { return a1.startTime < a2.startTime }
+                return a1.date < a2.date
+            }
+    }
+    
+    private var pastAppointments: [Appointment] {
+        patientGroup.appointments
+            .filter { $0.status.lowercased() != "scheduled" }
+            .sorted { a1, a2 in
+                if a1.date == a2.date { return a1.startTime > a2.startTime }
+                return a1.date > a2.date
+            }
+    }
+    
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            AppTheme.background.ignoresSafeArea()
+            
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    // NEW: Premium Hero Section
+                    ZStack {
+                        // Diagonal Teal-to-Mint Gradient
+                        LinearGradient(
+                            colors: [AppTheme.primaryDark, AppTheme.primary, Color(red: 0.4, green: 0.8, blue: 0.75)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        
+                        VStack(spacing: 16) {
+                            Spacer().frame(height: 70) // Top padding for status bar and back button
+                            
+                            // Avatar with White Ring & Badge
+                            ZStack(alignment: .topTrailing) {
+                                ZStack {
+                                    Circle()
+                                        .fill(LinearGradient(colors: [Color.white.opacity(0.3), Color.white.opacity(0.1)], startPoint: .top, endPoint: .bottom))
+                                        .frame(width: 90, height: 90)
+                                    
+                                    LivePatientAvatarInitial(
+                                        patientId: patientGroup.patientId,
+                                        fallbackName: patientGroup.patientName,
+                                        font: .system(size: 36, weight: .bold, design: .rounded),
+                                        weight: .bold,
+                                        color: .white
+                                    )
+                                }
+                                .overlay(
+                                    Circle().stroke(Color.white, lineWidth: 3)
+                                )
+                                .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 5)
+                                
+                                // Total Visits Badge
+                                ZStack {
+                                    Circle()
+                                        .fill(AppTheme.primaryDark)
+                                        .frame(width: 28, height: 28)
+                                        .overlay(Circle().stroke(Color.white, lineWidth: 2))
+                                        .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
+                                    Text("\(patientGroup.visitCount)")
+                                        .font(.system(size: 13, weight: .black, design: .rounded))
+                                        .foregroundColor(.white)
+                                }
+                                .offset(x: 5, y: -5)
+                            }
+                            .scaleEffect(appearAnimation ? 1.0 : 0.8)
+                            .animation(.spring(response: 0.5, dampingFraction: 0.6), value: appearAnimation)
+                            
+                            // Name
+                            LivePatientNameView(
+                                patientId: patientGroup.patientId,
+                                fallbackName: patientGroup.patientName,
+                                font: .system(size: 26, weight: .heavy, design: .rounded),
+                                weight: .heavy,
+                                color: .white,
+                                lineLimit: 1
+                            )
+                            
+                            // Frosted Glass Quick Stats (Blood Grp, Age, Gender)
+                            HStack(spacing: 12) {
+                                QuickStatPill(icon: "drop.fill", title: patientProfile?.bloodGroup ?? "N/A", delay: 0.1)
+                                QuickStatPill(icon: "calendar", title: patientProfile?.age != nil ? "\(patientProfile!.age!) yrs" : "N/A", delay: 0.2)
+                                QuickStatPill(icon: "person.fill", title: patientProfile?.gender ?? "N/A", delay: 0.3)
+                            }
+                            .padding(.top, 4)
+                            
+                            Spacer().frame(height: 20)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    // No corner radius directly, so it merges with the navigation bar background nicely, building a natural fade
+                    .padding(.bottom, 24)
+                    
+                    // NEW: Body Section - Cards Layout
+                    VStack(alignment: .leading, spacing: 32) {
+                        
+                        // Card 1: Upcoming Appointments
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text("Upcoming")
+                                .font(.system(size: 20, weight: .bold, design: .rounded))
+                                .foregroundColor(AppTheme.textPrimary)
+                            
+                            if !upcomingAppointments.isEmpty {
+                                CardBlock(borderColor: AppTheme.primary) {
+                                    VStack(spacing: 0) {
+                                        ForEach(Array(upcomingAppointments.enumerated()), id: \.element.id) { index, appt in
+                                            Button(action: { selectedAppointment = appt }) {
+                                                AppointmentRow(appointment: appt, isUpcoming: true)
+                                            }
+                                            .buttonStyle(.plain)
+                                            
+                                            if index < upcomingAppointments.count - 1 {
+                                                Divider().padding(.leading, 16)
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Empty State
+                                CardBlock(borderColor: Color.gray.opacity(0.3)) {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "calendar.badge.minus")
+                                            .font(.system(size: 24))
+                                            .foregroundColor(Color.gray.opacity(0.5))
+                                        Text("No upcoming appointments")
+                                            .font(.system(size: 15, design: .rounded))
+                                            .foregroundColor(AppTheme.textSecondary)
+                                        Spacer()
+                                    }
+                                    .padding(.vertical, 12)
+                                    .padding(.horizontal, 16)
+                                }
+                            }
+                        }
+                        
+                        // Card 2: Past Visits
+                        if !pastAppointments.isEmpty {
+                            VStack(alignment: .leading, spacing: 14) {
+                                Text("Past Visits")
+                                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                                    .foregroundColor(AppTheme.textPrimary)
+                                
+                                CardBlock(borderColor: Color.gray.opacity(0.4)) {
+                                    VStack(spacing: 0) {
+                                        ForEach(Array(pastAppointments.enumerated()), id: \.element.id) { index, appt in
+                                            Button(action: { selectedAppointment = appt }) {
+                                                AppointmentRow(appointment: appt, isUpcoming: false)
+                                            }
+                                            .buttonStyle(.plain)
+                                            
+                                            if index < pastAppointments.count - 1 {
+                                                Divider().padding(.leading, 16)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 40)
+                    .offset(y: appearAnimation ? 0 : 40)
+                    .opacity(appearAnimation ? 1 : 0)
+                }
+            }
+            .ignoresSafeArea(edges: .top)
+            
+            // Custom Back Button
+            Button(action: {
+                dismiss()
+            }) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(AppTheme.textPrimary)
+                    .frame(width: 44, height: 44)
+                    .background(Color.white)
+                    .clipShape(Circle())
+                    .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+            }
+            .padding(.leading, 20)
+            .padding(.top, 60) // Safe area top offset
+        }
+        .navigationBarHidden(true)
+        .onAppear {
+            if !appearAnimation {
+                // Hero fades first
+                withAnimation(.easeOut(duration: 0.3)) {
+                    appearAnimation = true
+                }
+            }
+            fetchProfile()
+        }
+        .sheet(item: $selectedAppointment) { appt in
+            let block = AppointmentBlock(
+                id: appt.id,
+                patientId: appt.patientId,
+                type: appt.department ?? "Consultation",
+                startTime: Date(),
+                endTime: Date(),
+                patientName: appt.patientName,
+                color: AppTheme.primaryLight,
+                additionalStaffCount: 0
+            )
+            if #available(iOS 16.0, *) {
+                AppointmentDetailSheet(appointment: block)
+                    .presentationDetents([.fraction(0.65), .large])
+                    .presentationDragIndicator(.hidden)
+            } else {
+                AppointmentDetailSheet(appointment: block)
+            }
+        }
+    }
+    
+    // Fetch real demographic data
+    private func fetchProfile() {
+        Task {
+            if let profile = try? await AuthManager.shared.fetchPatientProfile(uid: patientGroup.patientId) {
+                await MainActor.run {
+                    self.patientProfile = profile
+                }
+            }
+        }
+    }
+    
+    // MARK: - Internal Views
+    
+    // Frosted glass hero pill
+    struct QuickStatPill: View {
+        let icon: String
+        let title: String
+        let delay: Double
+        @State private var show = false
+        
+        var body: some View {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 11))
+                Text(title)
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.white.opacity(0.2))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
+            )
+            .opacity(show ? 1 : 0)
+            .offset(x: show ? 0 : -10)
+            .onAppear {
+                withAnimation(.easeOut(duration: 0.4).delay(delay)) {
+                    show = true
+                }
+            }
+        }
+    }
+    
+    // Base white card wrapper
+    struct CardBlock<Content: View>: View {
+        let borderColor: Color
+        let content: () -> Content
+        
+        var body: some View {
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.white)
+                    .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
+                
+                // Color strip
+                if borderColor != .clear {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(borderColor)
+                        .frame(width: 4)
+                        .padding(.vertical, 8)
+                }
+                
+                content()
+            }
+        }
+    }
+    
+    // List item inside a card
+    struct AppointmentRow: View {
+        let appointment: Appointment
+        let isUpcoming: Bool
+        
+        var body: some View {
+            HStack {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .lastTextBaseline, spacing: 8) {
+                        Text(formatDate(appointment.date))
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .foregroundColor(AppTheme.textPrimary)
+                        
+                        Text(appointment.startTime)
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundColor(isUpcoming ? AppTheme.primary : AppTheme.textSecondary)
+                    }
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: "stethoscope")
+                            .font(.system(size: 11))
+                        Text(appointment.department ?? "Consultation")
+                            .font(.system(size: 13, design: .rounded))
+                    }
+                    .foregroundColor(AppTheme.textSecondary)
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(AppTheme.textSecondary.opacity(0.3))
+            }
+            .padding(.vertical, 14)
+            .padding(.trailing, 16)
+            .padding(.leading, 20) // offset from the color strip slightly
+            // press state animation
+            .contentShape(Rectangle())
+        }
+        
+        private func formatDate(_ dateString: String) -> String {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            if let date = formatter.date(from: dateString) {
+                let outFormatter = DateFormatter()
+                outFormatter.dateFormat = "MMM d, yyyy"
+                return outFormatter.string(from: date)
+            }
+            return dateString
+        }
+    }
+    
+    // Detail item in the grid
+    struct DetailChip: View {
+        let title: String
+        let value: String
+        
+        var body: some View {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundColor(AppTheme.textSecondary)
+                Text(value)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundColor(AppTheme.textPrimary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(Color.gray.opacity(0.06))
+            .cornerRadius(10)
+        }
+    }
+}

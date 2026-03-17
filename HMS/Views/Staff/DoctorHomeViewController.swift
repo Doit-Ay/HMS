@@ -136,10 +136,8 @@ struct DoctorHomeViewController: View {
                             HStack(spacing: 12) {
                                 ForEach(todayAppointments) { appt in
                                     Button {
-                                        // Parse hour from startTime ("HH:mm" format)
-                                        let parts = appt.startTime.split(separator: ":").compactMap { Int($0) }
-                                        if let hour = parts.first {
-                                            scrollToHour = hour
+                                        if let blockInfo = timelineData.first(where: { $0.id == appt.id }) {
+                                            selectedAppointment = blockInfo
                                         }
                                     } label: {
                                         BookedAppointmentCard(appointment: appt)
@@ -229,7 +227,7 @@ struct DoctorHomeViewController: View {
                 
                 let (today, month) = try await (todayFetch, monthFetch)
                 
-                withAnimation { 
+                withAnimation {
                     self.todayAppointments = today.filter { $0.status != "cancelled" }
                     self.monthAppointments = month.filter { $0.status != "cancelled" }
                 }

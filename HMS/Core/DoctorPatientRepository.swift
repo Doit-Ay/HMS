@@ -1,10 +1,12 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseStorage
 
 class DoctorPatientRepository {
     static let shared = DoctorPatientRepository()
     private let db = Firestore.firestore()
+    private let storage = Storage.storage()
     
     private init() {}
     
@@ -107,4 +109,72 @@ class DoctorPatientRepository {
         
         return querySnapshot.documents.compactMap { try? $0.data(as: Appointment.self) }
     }
+
+    // MARK: - Consultation Notes
+    
+    /// Saves a consultation note to Firestore
+    func saveConsultationNote(_ note: ConsultationNote) async throws {
+        let data = try Firestore.Encoder().encode(note)
+        try await db.collection("consultation_notes").document(note.id).setData(data)
+    }
+    
+    /// Fetches a consultation note for a specific appointment
+    func fetchConsultationNote(appointmentId: String) async throws -> ConsultationNote? {
+        let snapshot = try await db.collection("consultation_notes")
+            .whereField("appointmentId", isEqualTo: appointmentId)
+            .limit(to: 1)
+            .getDocuments()
+            
+        guard let document = snapshot.documents.first else {
+            return nil
+        }
+        
+        return try document.data(as: ConsultationNote.self)
+    }
+
+    // MARK: - Lab Test Requests
+
+    /// Saves a referred lab test request to Firestore
+    func saveLabTestRequest(_ request: LabTestRequest) async throws {
+        let data = try Firestore.Encoder().encode(request)
+        try await db.collection("lab_test_requests").document(request.id).setData(data)
+    }
+    
+    /// Fetches lab test requests for a patient by a specific doctor
+    func fetchLabTestRequests(patientId: String, doctorId: String) async throws -> [LabTestRequest] {
+        let snapshot = try await db.collection("lab_test_requests")
+            .whereField("patientId", isEqualTo: patientId)
+            .whereField("doctorId", isEqualTo: doctorId)
+            .getDocuments()
+            
+        let requests = snapshot.documents.compactMap { try? $0.data(as: LabTestRequest.self) }
+        return requests.sorted { $0.dateReferred > $1.dateReferred }
+    }
+    
+    // MARK: - Prescriptions (PDF PDFs & Metadata)
+    
+    /// Uploads a generated local PDF file to Firebase Storage
+    /// Returns the permanent download URL
+    func uploadPrescriptionPDF(localURL: URL, appointmentId: String) async throws -> String {
+        let storageRef = storage.reference().child("prescriptions/\(appointmentId)_\(UUID().uuidString).pdf")
+        
+        // Convert to data
+        let pdfData = try Data(contentsOf: localURL)
+        
+        let metadata = StorageMetadata()
+        metadata.contentType = "application/pdf"
+        
+        _ = try await storageRef.putDataAsync(pdfData, metadata: metadata)
+        let downloadURL = try await storageRef.downloadURL()
+        
+        return downloadURL.absoluteString
+    }
+    
+    /// Saves the prescription metadata document to Firestore
+    func savePrescriptionDocument(_ doc: PrescriptionDocument) async throws {
+        let data = try Firestore.Encoder().encode(doc)
+        try await db.collection("prescriptions").document(doc.id).setData(data)
+    }
 }
+
+

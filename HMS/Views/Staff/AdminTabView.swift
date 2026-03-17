@@ -18,6 +18,10 @@ struct AdminTabView: View {
             AppointmentStatsView()
                 .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
                 .tag(2)
+                
+            SystemActivityLogsView()
+                .tabItem { Label("Logs", systemImage: "list.bullet.rectangle") }
+                .tag(3)
         }
         .tint(AppTheme.primary)
     }
