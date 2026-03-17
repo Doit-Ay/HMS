@@ -1,4 +1,5 @@
 import Foundation
+import FirebaseFirestore
 
 // MARK: - User Role
 enum UserRole: String, Codable, CaseIterable {
@@ -263,5 +264,22 @@ struct PrescriptionDocument: Codable, Identifiable {
     var startTime: String               // Slot time
     var pdfUrl: String                  // Download URL from Firebase Storage
     var createdAt: Date
+}
+
+// MARK: - Firestore `documents` Collection
+// Shared document reference representing a patient's uploaded file (Medical History, Lab Results, etc.).
+struct SharedMedicalDocument: Codable, Identifiable {
+    @DocumentID var id: String?
+    var name: String
+    var fileName: String
+    var fileURL: String
+    var fileSize: Int64?       // Optional — not always stored by the upload flow
+    var fileType: String
+    var folderType: String
+    var patientId: String
+    var uploadedBy: String
+    var uploadedByName: String
+    var uploadDate: Date
+    var notes: String?
 }
 

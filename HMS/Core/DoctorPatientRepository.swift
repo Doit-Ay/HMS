@@ -175,6 +175,15 @@ class DoctorPatientRepository {
         let data = try Firestore.Encoder().encode(doc)
         try await db.collection("prescriptions").document(doc.id).setData(data)
     }
+    
+    /// Fetches all documents uploaded by/for a patient via the `documents` Firestore collection.
+    func fetchPatientMedicalHistory(patientId: String) async throws -> [SharedMedicalDocument] {
+         let snapshot = try await db.collection("documents")
+             .whereField("patientId", isEqualTo: patientId)
+             .getDocuments()
+         
+         var docs = snapshot.documents.compactMap { try? $0.data(as: SharedMedicalDocument.self) }
+         docs.sort { $0.uploadDate > $1.uploadDate }
+         return docs
+    }
 }
-
-
