@@ -250,3 +250,18 @@ struct LabTestRequest: Codable, Identifiable {
     var dateReferred: Date
 }
 
+// MARK: - Firestore `prescriptions` Collection
+// Each document represents a generated PDF prescription uploaded to Firebase Storage.
+struct PrescriptionDocument: Codable, Identifiable {
+    var id: String                      // UUID
+    var appointmentId: String
+    var doctorId: String
+    var doctorName: String
+    var patientId: String
+    var patientName: String
+    var date: String                    // "yyyy-MM-dd"
+    var startTime: String               // Slot time
+    var pdfUrl: String                  // Download URL from Firebase Storage
+    var createdAt: Date
+}
+

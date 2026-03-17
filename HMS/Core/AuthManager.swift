@@ -839,6 +839,16 @@ class AuthManager {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }.sorted { $0.startTime < $1.startTime }
     }
+    
+    /// Fetch all appointments for a specific doctor
+    func fetchAllDoctorAppointments(doctorId: String) async throws -> [Appointment] {
+        let snapshot = try await db.collection("appointments")
+            .whereField("doctorId", isEqualTo: doctorId)
+            .getDocuments()
+        return snapshot.documents.compactMap {
+            try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
+        }
+    }
 
     /// Fetch appointments for a specific doctor in a given month (format: "yyyy-MM")
     func fetchDoctorAppointments(doctorId: String, month: String) async throws -> [Appointment] {

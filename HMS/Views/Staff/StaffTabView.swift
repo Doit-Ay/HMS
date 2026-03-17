@@ -16,9 +16,15 @@ struct StaffTabView: View {
                         .tabItem { Label("Dashboard", systemImage: "house.fill") }
                         .tag(0)
                     
+                    NavigationStack {
+                        MyPatientsView()
+                    }
+                    .tabItem { Label("My Patients", systemImage: "person.2.fill") }
+                    .tag(1)
+                    
                     DoctorAvailabilityView()
                         .tabItem { Label("Availability", systemImage: "calendar.badge.clock") }
-                        .tag(1)
+                        .tag(2)
                 } else {
                     StaffDashboardView(role: role)
                         .tabItem { Label("Dashboard", systemImage: roleIcon) }
