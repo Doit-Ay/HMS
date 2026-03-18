@@ -1,9 +1,10 @@
+
 import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
 
 // MARK: - Lab Test Request Model
-struct LabTestUIRequest: Identifiable, Hashable {
+struct UILabTestRequest: Identifiable, Hashable {
     let id = UUID()
     let patientName: String
     let testName: String
@@ -28,14 +29,9 @@ struct LabTestUIRequest: Identifiable, Hashable {
 // MARK: - Lab Technician Home View
 struct LabTechnicianHomeView: View {
     @State private var appearAnimation = false
-<<<<<<< HEAD
     @State private var selectedSegment  = 0
-    @State private var selectedTest: LabTestRequest?
+    @State private var selectedTest: UILabTestRequest?
     @State private var showProfileSheet = false
-=======
-    @State private var selectedSegment  = 0  // 0 = Upcoming/Incomplete, 1 = Completed
-    @State private var selectedTest: LabTestUIRequest?
->>>>>>> 32e1f4aecd701dacbb962f471c7a3753aa33cc99
 
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
@@ -48,36 +44,20 @@ struct LabTechnicianHomeView: View {
         UserSession.shared.currentUser?.fullName.split(separator: " ").first.map(String.init) ?? "Technician"
     }
 
-<<<<<<< HEAD
-    private var upcomingTests: [LabTestRequest] {
+    private var upcomingTests: [UILabTestRequest] {
         [
-            LabTestRequest(patientName: "Oliver Smith",  testName: "Complete Blood Count",  doctorName: "Dr. Saif",   department: "Hematology",   requestedDate: "Today, 11:00 AM", status: .pending),
-            LabTestRequest(patientName: "Ava Johnson",   testName: "Lipid Panel",           doctorName: "Dr. Mehra",  department: "Biochemistry", requestedDate: "Today, 01:30 PM", status: .pending),
-            LabTestRequest(patientName: "Liam Williams", testName: "Liver Function Test",   doctorName: "Dr. Kapoor", department: "Biochemistry", requestedDate: "Today, 03:00 PM", status: .pending),
-            LabTestRequest(patientName: "Emma Davis",    testName: "Urine Analysis",        doctorName: "Dr. Sen",    department: "Microbiology", requestedDate: "Yesterday",       status: .pending)
-=======
-    // MARK: - Sample Data
-    private var upcomingTests: [LabTestUIRequest] {
-        [
-            LabTestUIRequest(patientName: "Oliver Smith",  testName: "Complete Blood Count",  doctorName: "Dr. Saif",   department: "Hematology",     requestedDate: "Today, 11:00 AM", status: .upcoming),
-            LabTestUIRequest(patientName: "Ava Johnson",   testName: "Lipid Panel",           doctorName: "Dr. Mehra",  department: "Biochemistry",   requestedDate: "Today, 01:30 PM", status: .upcoming),
-            LabTestUIRequest(patientName: "Liam Williams", testName: "Liver Function Test",   doctorName: "Dr. Kapoor", department: "Biochemistry",   requestedDate: "Today, 03:00 PM", status: .incomplete),
-            LabTestUIRequest(patientName: "Emma Davis",    testName: "Urine Analysis",        doctorName: "Dr. Sen",    department: "Microbiology",   requestedDate: "Yesterday",       status: .incomplete)
->>>>>>> 32e1f4aecd701dacbb962f471c7a3753aa33cc99
+            UILabTestRequest(patientName: "Oliver Smith",  testName: "Complete Blood Count",  doctorName: "Dr. Saif",   department: "Hematology",   requestedDate: "Today, 11:00 AM", status: .pending),
+            UILabTestRequest(patientName: "Ava Johnson",   testName: "Lipid Panel",           doctorName: "Dr. Mehra",  department: "Biochemistry", requestedDate: "Today, 01:30 PM", status: .pending),
+            UILabTestRequest(patientName: "Liam Williams", testName: "Liver Function Test",   doctorName: "Dr. Kapoor", department: "Biochemistry", requestedDate: "Today, 03:00 PM", status: .pending),
+            UILabTestRequest(patientName: "Emma Davis",    testName: "Urine Analysis",        doctorName: "Dr. Sen",    department: "Microbiology", requestedDate: "Yesterday",       status: .pending)
         ]
     }
 
-    private var completedTests: [LabTestUIRequest] {
+    private var completedTests: [UILabTestRequest] {
         [
-<<<<<<< HEAD
-            LabTestRequest(patientName: "Noah Garcia",  testName: "Blood Glucose", doctorName: "Dr. Saif",   department: "Biochemistry",  requestedDate: "Today, 09:00 AM",     status: .completed),
-            LabTestRequest(patientName: "Mia Brown",    testName: "Thyroid Panel", doctorName: "Dr. Mehra",  department: "Endocrinology", requestedDate: "Yesterday, 02:00 PM", status: .completed),
-            LabTestRequest(patientName: "James Wilson", testName: "HbA1c",         doctorName: "Dr. Kapoor", department: "Biochemistry",  requestedDate: "Yesterday, 04:30 PM", status: .completed)
-=======
-            LabTestUIRequest(patientName: "Noah Garcia",  testName: "Blood Glucose",     doctorName: "Dr. Saif",   department: "Biochemistry",  requestedDate: "Today, 09:00 AM",     status: .completed),
-            LabTestUIRequest(patientName: "Mia Brown",    testName: "Thyroid Panel",     doctorName: "Dr. Mehra",  department: "Endocrinology", requestedDate: "Yesterday, 02:00 PM", status: .completed),
-            LabTestUIRequest(patientName: "James Wilson", testName: "HbA1c",             doctorName: "Dr. Kapoor", department: "Biochemistry",  requestedDate: "Yesterday, 04:30 PM", status: .completed)
->>>>>>> 32e1f4aecd701dacbb962f471c7a3753aa33cc99
+            UILabTestRequest(patientName: "Noah Garcia",  testName: "Blood Glucose", doctorName: "Dr. Saif",   department: "Biochemistry",  requestedDate: "Today, 09:00 AM",     status: .completed),
+            UILabTestRequest(patientName: "Mia Brown",    testName: "Thyroid Panel", doctorName: "Dr. Mehra",  department: "Endocrinology", requestedDate: "Yesterday, 02:00 PM", status: .completed),
+            UILabTestRequest(patientName: "James Wilson", testName: "HbA1c",         doctorName: "Dr. Kapoor", department: "Biochemistry",  requestedDate: "Yesterday, 04:30 PM", status: .completed)
         ]
     }
 
@@ -185,7 +165,7 @@ struct LabTechnicianHomeView: View {
 
 // MARK: - Lab Test Request Card
 struct LabTestRequestCard: View {
-    let test: LabTestUIRequest
+    let test: UILabTestRequest
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
@@ -320,8 +300,7 @@ struct GlassUploadSheet: View {
 
 // MARK: - Upload Test Detail View
 struct UploadTestDetailView: View {
-<<<<<<< HEAD
-    let test: LabTestRequest
+    let test: UILabTestRequest
 
     @State private var showSourceSheet    = false
     @State private var showCamera         = false
@@ -331,10 +310,6 @@ struct UploadTestDetailView: View {
     @State private var uploadedImage: UIImage?
     @State private var uploadedFileName: String?
 
-=======
-    let test: LabTestUIRequest
-    @State private var showUploadConfirmation = false
->>>>>>> 32e1f4aecd701dacbb962f471c7a3753aa33cc99
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
