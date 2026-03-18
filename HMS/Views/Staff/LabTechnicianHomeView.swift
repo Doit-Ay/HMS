@@ -529,11 +529,8 @@ struct LabRequestDetailView: View {
 
         Task {
             do {
-                // Upload for the first pending test
-                let pendingIndex = liveRequest.tests.firstIndex(where: { !$0.isCompleted }) ?? 0
-                try await LabTechnicianRepository.shared.uploadAndComplete(
+                try await LabTechnicianRepository.shared.uploadAndCompleteAll(
                     requestId: request.id,
-                    testIndex: pendingIndex,
                     image: image
                 )
                 await MainActor.run {
@@ -556,10 +553,8 @@ struct LabRequestDetailView: View {
 
         Task {
             do {
-                let pendingIndex = liveRequest.tests.firstIndex(where: { !$0.isCompleted }) ?? 0
-                try await LabTechnicianRepository.shared.uploadAndComplete(
+                try await LabTechnicianRepository.shared.uploadAndCompleteAll(
                     requestId: request.id,
-                    testIndex: pendingIndex,
                     fileURL: fileURL
                 )
                 await MainActor.run {

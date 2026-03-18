@@ -214,70 +214,58 @@ class LabTechnicianRepository: ObservableObject {
         return downloadURL.absoluteString
     }
     
-    // MARK: - Mark Test Completed
+    // MARK: - Mark All Tests Completed (Single Upload)
     
-    /// Updates a specific test within a lab request with the report URL and marks it as completed.
-    /// If all tests in the request are now completed, the top-level status is also set to "completed".
+    /// Marks ALL tests in a lab request as completed with the same report URL.
+    /// One upload covers the entire request — all tests share the same report file.
     ///
     /// - Parameters:
     ///   - requestId: The Firestore document ID of the `patient_lab_requests` record.
-    ///   - testIndex: The index of the test within the `tests` array.
     ///   - reportURL: The Firebase Storage download URL for the uploaded report.
     ///   - fileName: The display name of the uploaded file.
-    func markTestCompleted(requestId: String, testIndex: Int, reportURL: String, fileName: String) async throws {
+    func markAllTestsCompleted(requestId: String, reportURL: String, fileName: String) async throws {
         try ensureLabTechnician()
         
         let docRef = db.collection("patient_lab_requests").document(requestId)
         let snapshot = try await docRef.getDocument()
         
-        guard var data = snapshot.data(),
+        guard let data = snapshot.data(),
               var tests = data["tests"] as? [[String: Any]] else {
             throw LabTechError.notFound("Lab request not found or has no tests.")
         }
         
-        guard testIndex >= 0 && testIndex < tests.count else {
-            throw LabTechError.notFound("Test index \(testIndex) is out of bounds.")
+        let now = Timestamp(date: Date())
+        
+        // Mark every test with the same report
+        for i in 0..<tests.count {
+            tests[i]["resultURL"] = reportURL
+            tests[i]["resultFileName"] = fileName
+            tests[i]["completedDate"] = now
         }
         
-        // Update the specific test entry
-        tests[testIndex]["resultURL"] = reportURL
-        tests[testIndex]["resultFileName"] = fileName
-        tests[testIndex]["completedDate"] = Timestamp(date: Date())
-        
-        // Check if ALL tests are now completed
-        let allCompleted = tests.allSatisfy { test in
-            if let url = test["resultURL"] as? String, !url.isEmpty {
-                return true
-            }
-            return false
-        }
-        
-        // Build update payload
-        var updates: [String: Any] = [
-            "tests": tests
+        // Update tests + set top-level status to completed
+        let updates: [String: Any] = [
+            "tests": tests,
+            "status": "completed"
         ]
-        
-        if allCompleted {
-            updates["status"] = "completed"
-        }
         
         try await docRef.updateData(updates)
     }
     
-    // MARK: - Upload & Complete (Combined Convenience)
+    // MARK: - Upload & Complete All (Combined Convenience)
     
-    /// Uploads a report image and marks the test as completed in a single call.
-    func uploadAndComplete(requestId: String, testIndex: Int, image: UIImage) async throws {
-        let reportURL = try await uploadReport(requestId: requestId, testIndex: testIndex, image: image)
-        let fileName = "Lab_Report_\(testIndex + 1).jpg"
-        try await markTestCompleted(requestId: requestId, testIndex: testIndex, reportURL: reportURL, fileName: fileName)
+    /// Uploads a report image and marks ALL tests as completed in a single call.
+    func uploadAndCompleteAll(requestId: String, image: UIImage) async throws {
+        let reportURL = try await uploadReport(requestId: requestId, testIndex: 0, image: image)
+        let fileName = "Lab_Report.jpg"
+        try await markAllTestsCompleted(requestId: requestId, reportURL: reportURL, fileName: fileName)
     }
     
-    /// Uploads a report document and marks the test as completed in a single call.
-    func uploadAndComplete(requestId: String, testIndex: Int, fileURL: URL) async throws {
-        let reportURL = try await uploadReport(requestId: requestId, testIndex: testIndex, fileURL: fileURL)
+    /// Uploads a report document and marks ALL tests as completed in a single call.
+    func uploadAndCompleteAll(requestId: String, fileURL: URL) async throws {
+        let reportURL = try await uploadReport(requestId: requestId, testIndex: 0, fileURL: fileURL)
         let fileName = fileURL.lastPathComponent
-        try await markTestCompleted(requestId: requestId, testIndex: testIndex, reportURL: reportURL, fileName: fileName)
+        try await markAllTestsCompleted(requestId: requestId, reportURL: reportURL, fileName: fileName)
     }
     
     // MARK: - Parsing
