@@ -130,7 +130,7 @@ struct PatientLabRequestsView: View {
 }
 
 // MARK: - Models
-struct PatientLabRequest: Identifiable {
+struct PatientLabRequest: Identifiable, Hashable {
     let id: String
     let patientId: String
     let patientName: String
@@ -149,9 +149,18 @@ struct PatientLabRequest: Identifiable {
     var allCompleted: Bool {
         completedTestsCount == totalTestsCount
     }
+
+    // Hashable by document ID only
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    static func == (lhs: PatientLabRequest, rhs: PatientLabRequest) -> Bool {
+        lhs.id == rhs.id
+    }
 }
 
-struct RequestedTest: Identifiable {
+struct RequestedTest: Identifiable, Hashable {
     let id = UUID()
     let name: String
     let price: Int
@@ -162,6 +171,14 @@ struct RequestedTest: Identifiable {
     
     var isCompleted: Bool {
         resultURL != nil && !resultURL!.isEmpty
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    static func == (lhs: RequestedTest, rhs: RequestedTest) -> Bool {
+        lhs.id == rhs.id
     }
 }
 
