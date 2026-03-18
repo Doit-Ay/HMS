@@ -175,6 +175,44 @@ struct PatientHistoryView: View {
                                 }
                             }
                         }
+                        
+                        // Card 3: Medical Records Button
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text("Medical Records")
+                                .font(.system(size: 20, weight: .bold, design: .rounded))
+                                .foregroundColor(AppTheme.textPrimary)
+                            
+                            NavigationLink(destination: DoctorMedicalHistoryView(patientId: patientGroup.patientId, patientName: patientGroup.patientName)) {
+                                CardBlock(borderColor: .clear) {
+                                    HStack(spacing: 16) {
+                                        ZStack {
+                                            Circle()
+                                                .fill(AppTheme.primaryLight.opacity(0.2))
+                                                .frame(width: 44, height: 44)
+                                            Image(systemName: "folder.fill")
+                                                .foregroundColor(AppTheme.primary)
+                                        }
+                                        
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("View Medical History")
+                                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                                .foregroundColor(AppTheme.textPrimary)
+                                            Text("Browse past records and documents")
+                                                .font(.system(size: 13, design: .rounded))
+                                                .foregroundColor(AppTheme.textSecondary)
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        Image(systemName: "chevron.right")
+                                            .foregroundColor(Color.gray.opacity(0.4))
+                                            .font(.system(size: 14, weight: .bold))
+                                    }
+                                    .padding(16)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                     .padding(.horizontal, 24)
                     .padding(.bottom, 40)
