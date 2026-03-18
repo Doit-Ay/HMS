@@ -70,7 +70,16 @@ struct PatientRecordsMainView: View {
 
             RecordsFolderCard(folder: .prescriptions, icon: "pills.fill", title: "Doctor Prescriptions", subtitle: "Prescriptions from your doctors", color: AppTheme.primaryMid)
 
-            RecordsFolderCard(folder: .labResults, icon: "waveform.path.ecg", title: "Lab Test Results", subtitle: "Blood tests and diagnostic reports", color: AppTheme.primaryDark)
+            NavigationLink(destination: PatientLabRequestsView()) {
+                       RecordsFolderCard(
+                           folder: .labResults,
+                           icon: "waveform.path.ecg",
+                           title: "Lab Test Results",
+                           subtitle: "Blood tests and diagnostic reports",
+                           color: AppTheme.primaryDark
+                       )
+                   }
+                   .buttonStyle(.plain)
         }
         .padding(.horizontal, 24)
     }
