@@ -151,8 +151,16 @@ struct PatientHomeView: View {
                                     }
                                     .buttonStyle(PlainButtonStyle())
                                     
+                                    NavigationLink {
+                                        LabTestsView()
+                                    } label: {
+                                        FeatureTile(icon: "pills.fill", title: "Lab Tests", color: AppTheme.primaryMid)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+
+                                    
                                     // Lab Tests Tile (non-navigating for now)
-                                    FeatureTile(icon: "pills.fill", title: "Lab Tests", color: AppTheme.primaryMid)
+                                    
                                 }
                                 .padding(.horizontal, 20)
                             }
