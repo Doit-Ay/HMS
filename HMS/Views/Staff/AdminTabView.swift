@@ -18,6 +18,10 @@ struct AdminTabView: View {
             AppointmentStatsView()
                 .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
                 .tag(2)
+                
+            SystemActivityLogsView()
+                .tabItem { Label("Logs", systemImage: "list.bullet.rectangle") }
+                .tag(3)
         }
         .tint(AppTheme.primary)
     }
@@ -115,6 +119,25 @@ struct AdminDashboardView: View {
                             NavigationLink(destination: ManageSlotsView()) {
                                 HStack {
                                     Text("Manage Slots")
+                                        .font(.system(size: 16, weight: .bold, design: .rounded))
+
+                                    Spacer()
+
+                                    Image(systemName: "arrow.right.circle.fill")
+                                        .font(.system(size: 24))
+                                }
+                                .foregroundColor(AppTheme.primary)
+                                .padding()
+                                .background(Color.white)
+                                .cornerRadius(16)
+                                .padding(.horizontal, 24)
+                                .padding(.bottom, 12)
+                            }
+                            .buttonStyle(.plain)
+                            
+                            NavigationLink(destination: AdminPatientSearchView()) {
+                                HStack {
+                                    Text("Manage Patients")
                                         .font(.system(size: 16, weight: .bold, design: .rounded))
 
                                     Spacer()

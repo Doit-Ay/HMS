@@ -1,4 +1,5 @@
 import Foundation
+import FirebaseFirestore
 
 // MARK: - User Role
 enum UserRole: String, Codable, CaseIterable {
@@ -219,3 +220,66 @@ struct DoctorUnavailability: Codable, Identifiable {
     var endTime: String?               // only for halfDay, "HH:mm"
     var createdAt: Date?
 }
+
+// MARK: - Firestore `consultation_notes` Collection
+// Each document represents a consultation note or prescription written by a doctor for a patient.
+struct ConsultationNote: Codable, Identifiable {
+    var id: String
+    var appointmentId: String
+    var doctorId: String
+    var doctorName: String
+    var patientId: String
+    var patientName: String
+    var date: String                    // "yyyy-MM-dd"
+    var startTime: String               // "HH:mm"
+    var endTime: String                 // "HH:mm"
+    var notes: String
+    var prescription: String
+    var createdAt: Date?
+}
+
+// MARK: - Firestore `lab_test_requests` Collection
+// Each document represents a lab test referred by a doctor for a patient.
+struct LabTestRequest: Codable, Identifiable {
+    var id: String
+    var doctorId: String
+    var doctorName: String
+    var patientId: String
+    var patientName: String
+    var testNames: [String]
+    var status: String                  // "pending", "completed", etc.
+    var dateReferred: Date
+}
+
+// MARK: - Firestore `prescriptions` Collection
+// Each document represents a generated PDF prescription uploaded to Firebase Storage.
+struct PrescriptionDocument: Codable, Identifiable {
+    var id: String                      // UUID
+    var appointmentId: String
+    var doctorId: String
+    var doctorName: String
+    var patientId: String
+    var patientName: String
+    var date: String                    // "yyyy-MM-dd"
+    var startTime: String               // Slot time
+    var pdfUrl: String                  // Download URL from Firebase Storage
+    var createdAt: Date
+}
+
+// MARK: - Firestore `documents` Collection
+// Shared document reference representing a patient's uploaded file (Medical History, Lab Results, etc.).
+struct SharedMedicalDocument: Codable, Identifiable {
+    @DocumentID var id: String?
+    var name: String
+    var fileName: String
+    var fileURL: String
+    var fileSize: Int64?       // Optional — not always stored by the upload flow
+    var fileType: String
+    var folderType: String
+    var patientId: String
+    var uploadedBy: String
+    var uploadedByName: String
+    var uploadDate: Date
+    var notes: String?
+}
+
