@@ -336,6 +336,7 @@ class AuthManager {
         department: String?,
         specialization: String?,
         employeeID: String?,
+        phoneNumber: String? = nil,
         defaultSlots: [String]? = nil
     ) async throws {
         // Step 1 — Update `users` Firestore collection
@@ -345,6 +346,9 @@ class AuthManager {
         updates["department"]     = department
         updates["specialization"] = specialization
         updates["employeeID"]     = employeeID
+        if let phone = phoneNumber, !phone.isEmpty {
+            updates["phoneNumber"] = phone
+        }
         if let slots = defaultSlots {
             updates["defaultSlots"] = slots
         }
@@ -363,6 +367,9 @@ class AuthManager {
             doctorUpdates["department"]     = department
             doctorUpdates["specialization"] = specialization
             doctorUpdates["employeeID"]     = employeeID
+            if let phone = phoneNumber, !phone.isEmpty {
+                doctorUpdates["phoneNumber"] = phone
+            }
             if let slots = defaultSlots {
                 doctorUpdates["defaultSlots"] = slots
             }
@@ -376,6 +383,9 @@ class AuthManager {
             ]
             labTechUpdates["department"] = department
             labTechUpdates["employeeID"] = employeeID
+            if let phone = phoneNumber, !phone.isEmpty {
+                labTechUpdates["phoneNumber"] = phone
+            }
             try await db.collection("lab_technicians").document(uid).setData(labTechUpdates, merge: true)
         default:
             break

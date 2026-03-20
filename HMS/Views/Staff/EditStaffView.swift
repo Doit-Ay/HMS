@@ -503,6 +503,7 @@ struct EditStaffView: View {
                 department: department.isEmpty ? nil : department,
                 specialization: specialization.isEmpty ? nil : specialization,
                 employeeID: employeeID.isEmpty ? nil : employeeID,
+                phoneNumber: phoneNumber.isEmpty ? nil : phoneNumber,
                 defaultSlots: defaultSlotsArray
             )
             showSuccess = true
