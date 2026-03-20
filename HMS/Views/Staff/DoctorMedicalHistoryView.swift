@@ -113,7 +113,7 @@ struct DoctorMedicalHistoryView: View {
     private func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
-        formatter.timeStyle = .none
+        formatter.timeStyle = .short
         return formatter.string(from: date)
     }
 }
@@ -188,7 +188,9 @@ private struct DocumentsListView: View {
                             iconName: fileIcon(doc),
                             iconColor: fileColor(doc),
                             displayName: cleanFileName(doc.name),
-                            uploadedText: "Uploaded: \(formatDate(doc.uploadDate))"
+                            uploadedText: formatDate(doc.uploadDate),
+                            sourceType: doc.folderType,
+                            notes: doc.notes
                         )
                     }
                     .buttonStyle(ScaleButtonStyle())
@@ -204,6 +206,8 @@ private struct HistoryDocumentRow: View {
     let iconColor: Color
     let displayName: String
     let uploadedText: String
+    let sourceType: String
+    let notes: String?
     
     var body: some View {
         HStack(spacing: 16) {
@@ -218,13 +222,35 @@ private struct HistoryDocumentRow: View {
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(displayName)
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundColor(AppTheme.textPrimary)
                     .lineLimit(1)
                 
-                Text(uploadedText)
-                    .font(.system(size: 13, design: .rounded))
+                HStack(spacing: 4) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 10))
+                    Text(uploadedText)
+                        .font(.system(size: 12, design: .rounded))
+                }
+                .foregroundColor(AppTheme.textSecondary)
+                
+                if let notes = notes, !notes.isEmpty {
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 10))
+                        Text(notes)
+                            .font(.system(size: 12, design: .rounded))
+                    }
                     .foregroundColor(AppTheme.textSecondary)
+                }
+                
+                Text(sourceType)
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundColor(iconColor)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(iconColor.opacity(0.1))
+                    .cornerRadius(6)
             }
             
             Spacer()

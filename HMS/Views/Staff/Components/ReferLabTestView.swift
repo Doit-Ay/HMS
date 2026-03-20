@@ -1,6 +1,99 @@
 import SwiftUI
 import FirebaseFirestore
 
+// MARK: - Lab Test Cache Manager
+/// Caches lab tests from the Firebase `labTests` collection locally.
+/// Serves cached data instantly and refreshes in the background.
+final class LabTestCacheManager {
+    
+    static let shared = LabTestCacheManager()
+    
+    private let cacheKey = "cached_lab_tests"
+    private let cacheTimestampKey = "cached_lab_tests_timestamp"
+    private let defaults = UserDefaults.standard
+    
+    private init() {}
+    
+    // MARK: - Public API
+    
+    /// Returns cached lab tests (may be empty on first launch).
+    func loadCachedTests() -> [CachedLabTest] {
+        guard let data = defaults.data(forKey: cacheKey),
+              let tests = try? JSONDecoder().decode([CachedLabTest].self, from: data) else {
+            return []
+        }
+        return tests
+    }
+    
+    /// Fetches lab tests from Firebase, updates cache, returns the tests.
+    func fetchAndCache() async -> [CachedLabTest] {
+        let db = Firestore.firestore()
+        do {
+            let snapshot = try await db.collection("labTests").getDocuments()
+            var tests: [CachedLabTest] = []
+            
+            for doc in snapshot.documents {
+                let data = doc.data()
+                guard let name = data["name"] as? String,
+                      let category = data["category"] as? String else { continue }
+                
+                var price = 0
+                if let p = data["price"] as? Int { price = p }
+                else if let p = data["price"] as? Double { price = Int(p) }
+                
+                tests.append(CachedLabTest(
+                    id: doc.documentID,
+                    name: name,
+                    price: price,
+                    category: category
+                ))
+            }
+            
+            // Save to cache
+            if let encoded = try? JSONEncoder().encode(tests) {
+                defaults.set(encoded, forKey: cacheKey)
+                defaults.set(Date().timeIntervalSince1970, forKey: cacheTimestampKey)
+            }
+            
+            return tests
+        } catch {
+            print("❌ LabTestCacheManager fetch error:", error)
+            return loadCachedTests() // fallback to cache
+        }
+    }
+    
+    /// Groups tests by category and assigns icons.
+    func groupedByCategory(_ tests: [CachedLabTest]) -> [(name: String, icon: String, tests: [CachedLabTest])] {
+        let grouped = Dictionary(grouping: tests, by: { $0.category })
+        
+        let iconMap: [String: String] = [
+            "Blood Test": "drop.fill",
+            "Diabetes Test": "heart.text.square.fill",
+            "Thyroid Test": "waveform.path.ecg",
+            "Heart Health": "heart.fill",
+            "Liver Function": "lungs.fill",
+            "Kidney Function": "cross.vial.fill",
+            "Vitamin Test": "pill.fill",
+            "Iron Test": "bolt.fill",
+            "Urine Test": "flask.fill",
+            "Infection Test": "microbe.fill"
+        ]
+        
+        return grouped
+            .sorted { $0.key < $1.key }
+            .map { (name: $0.key, icon: iconMap[$0.key] ?? "testtube.2", tests: $0.value.sorted { $0.name < $1.name }) }
+    }
+}
+
+/// Lightweight model for cached lab tests.
+struct CachedLabTest: Codable, Identifiable, Hashable {
+    let id: String
+    let name: String
+    let price: Int
+    let category: String
+}
+
+// MARK: - Refer Lab Test View
 struct ReferLabTestView: View {
     @Environment(\.dismiss) var dismiss
     
@@ -10,35 +103,13 @@ struct ReferLabTestView: View {
     let patientId: String
     let patientName: String
     
-    // Categorized common lab tests for better UI organization
-    let testCategories: [(name: String, icon: String, tests: [String])] = [
-        ("Routine Blood", "drop.fill", [
-            "Complete Blood Count (CBC)",
-            "Blood Sugar (Fasting/PP)",
-            "HbA1c"
-        ]),
-        ("Organ Function", "lungs.fill", [
-            "Lipid Profile",
-            "Liver Function Test (LFT)",
-            "Kidney Function Test (KFT)",
-            "Thyroid Profile (T3, T4, TSH)"
-        ]),
-        ("Imaging & Scans", "waveform.path.ecg", [
-            "X-Ray Chest PA View",
-            "ECG",
-            "Ultrasound Whole Abdomen"
-        ]),
-        ("Other Tests", "microbe.fill", [
-            "Urine Routine & Microscopy",
-            "Vitamin D (25-OH)",
-            "Vitamin B12"
-        ])
-    ]
-    
     // State
+    @State private var allTests: [CachedLabTest] = []
+    @State private var groupedCategories: [(name: String, icon: String, tests: [CachedLabTest])] = []
     @State private var selectedTests: Set<String> = []
     @State private var customTest: String = ""
     @State private var isSaving = false
+    @State private var isLoadingTests = true
     @State private var errorMessage: String? = nil
     
     var body: some View {
@@ -51,115 +122,127 @@ struct ReferLabTestView: View {
                     endPoint: .bottom
                 ).ignoresSafeArea()
                 
-                ScrollView {
-                    VStack(spacing: 24) {
-                        // Premium Header card
-                        HStack(spacing: 16) {
-                            ZStack {
-                                Circle()
-                                    .fill(AppTheme.primaryLight.opacity(0.5))
-                                    .frame(width: 56, height: 56)
-                                
-                                Image(systemName: "microscope")
-                                    .font(.system(size: 26, weight: .semibold))
-                                    .foregroundColor(AppTheme.primary)
-                            }
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Refer Lab Tests")
-                                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                                    .foregroundColor(AppTheme.textPrimary)
-                                
-                                HStack(spacing: 4) {
-                                    Text("For:")
-                                        .font(.system(size: 14, design: .rounded))
-                                        .foregroundColor(AppTheme.textSecondary)
-                                    Text(patientName)
-                                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                        .foregroundColor(AppTheme.primaryDark)
-                                }
-                            }
-                            Spacer()
-                        }
-                        .padding()
-                        .background(Color.white)
-                        .cornerRadius(20)
-                        .shadow(color: AppTheme.primary.opacity(0.08), radius: 12, x: 0, y: 6)
-                        .padding(.horizontal)
-                        
-                        // Categories and Tests
-                        VStack(spacing: 20) {
-                            ForEach(testCategories, id: \.name) { category in
-                                VStack(alignment: .leading, spacing: 12) {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: category.icon)
-                                            .foregroundColor(AppTheme.primary)
-                                            .font(.system(size: 14, weight: .semibold))
-                                        Text(category.name)
-                                            .font(.system(size: 16, weight: .bold, design: .rounded))
-                                            .foregroundColor(AppTheme.textPrimary)
-                                    }
-                                    .padding(.horizontal, 4)
+                if isLoadingTests && groupedCategories.isEmpty {
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.3)
+                            .tint(AppTheme.primary)
+                        Text("Loading lab tests…")
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
+                } else {
+                    ScrollView {
+                        VStack(spacing: 24) {
+                            // Premium Header card
+                            HStack(spacing: 16) {
+                                ZStack {
+                                    Circle()
+                                        .fill(AppTheme.primaryLight.opacity(0.5))
+                                        .frame(width: 56, height: 56)
                                     
-                                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                                        ForEach(category.tests, id: \.self) { test in
-                                            TestToggleCard(
-                                                title: test,
-                                                isSelected: selectedTests.contains(test),
-                                                action: { withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { toggleTest(test) } }
-                                            )
+                                    Image(systemName: "microscope")
+                                        .font(.system(size: 26, weight: .semibold))
+                                        .foregroundColor(AppTheme.primary)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Refer Lab Tests")
+                                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                                        .foregroundColor(AppTheme.textPrimary)
+                                    
+                                    HStack(spacing: 4) {
+                                        Text("For:")
+                                            .font(.system(size: 14, design: .rounded))
+                                            .foregroundColor(AppTheme.textSecondary)
+                                        Text(patientName)
+                                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                            .foregroundColor(AppTheme.primaryDark)
+                                    }
+                                }
+                                Spacer()
+                            }
+                            .padding()
+                            .background(Color.white)
+                            .cornerRadius(20)
+                            .shadow(color: AppTheme.primary.opacity(0.08), radius: 12, x: 0, y: 6)
+                            .padding(.horizontal)
+                            
+                            // Categories and Tests
+                            VStack(spacing: 20) {
+                                ForEach(groupedCategories, id: \.name) { category in
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        HStack(spacing: 8) {
+                                            Image(systemName: category.icon)
+                                                .foregroundColor(AppTheme.primary)
+                                                .font(.system(size: 14, weight: .semibold))
+                                            Text(category.name)
+                                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                                .foregroundColor(AppTheme.textPrimary)
+                                        }
+                                        .padding(.horizontal, 4)
+                                        
+                                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                                            ForEach(category.tests) { test in
+                                                TestToggleCard(
+                                                    title: test.name,
+                                                    price: test.price,
+                                                    isSelected: selectedTests.contains(test.name),
+                                                    action: { withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { toggleTest(test.name) } }
+                                                )
+                                            }
                                         }
                                     }
+                                    .padding(.horizontal)
                                 }
-                                .padding(.horizontal)
                             }
-                        }
-                        
-                        // Custom Test Input Area
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "plus.circle.dashed")
-                                    .foregroundColor(AppTheme.primary)
-                                Text("Custom Entry")
-                                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                                    .foregroundColor(AppTheme.textPrimary)
-                            }
-                            .padding(.horizontal, 4)
                             
-                            HStack(spacing: 12) {
-                                TextField("Enter specific test name...", text: $customTest)
-                                    .padding()
-                                    .background(Color.white)
-                                    .cornerRadius(12)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                                    )
-                                    .font(.system(size: 15, design: .rounded))
-                                
-                                Button(action: {
-                                    withAnimation(.spring()) {
-                                        addCustomTest()
-                                    }
-                                }) {
-                                    Image(systemName: "plus")
-                                        .font(.system(size: 18, weight: .bold))
-                                        .foregroundColor(.white)
-                                        .frame(width: 50, height: 50)
-                                        .background(customTest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray.opacity(0.5) : AppTheme.primary)
-                                        .cornerRadius(12)
-                                        .shadow(color: customTest.isEmpty ? Color.clear : AppTheme.primary.opacity(0.3), radius: 5, x: 0, y: 3)
+                            // Custom Test Input Area
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "plus.circle.dashed")
+                                        .foregroundColor(AppTheme.primary)
+                                    Text("Custom Entry")
+                                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                                        .foregroundColor(AppTheme.textPrimary)
                                 }
-                                .disabled(customTest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                                .padding(.horizontal, 4)
+                                
+                                HStack(spacing: 12) {
+                                    TextField("Enter specific test name...", text: $customTest)
+                                        .padding()
+                                        .background(Color.white)
+                                        .cornerRadius(12)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                                        )
+                                        .font(.system(size: 15, design: .rounded))
+                                    
+                                    Button(action: {
+                                        withAnimation(.spring()) {
+                                            addCustomTest()
+                                        }
+                                    }) {
+                                        Image(systemName: "plus")
+                                            .font(.system(size: 18, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .frame(width: 50, height: 50)
+                                            .background(customTest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray.opacity(0.5) : AppTheme.primary)
+                                            .cornerRadius(12)
+                                            .shadow(color: customTest.isEmpty ? Color.clear : AppTheme.primary.opacity(0.3), radius: 5, x: 0, y: 3)
+                                    }
+                                    .disabled(customTest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                                }
                             }
+                            .padding(.horizontal)
+                            .padding(.top, 8)
+                            
+                            // Sticky Bottom Action Area (Empty spacer for scroll padding)
+                            Spacer().frame(height: 140)
                         }
-                        .padding(.horizontal)
-                        .padding(.top, 8)
-                        
-                        // Sticky Bottom Action Area (Empty spacer for scroll padding)
-                        Spacer().frame(height: 140)
+                        .padding(.top, 16)
                     }
-                    .padding(.top, 16)
                 }
                 
                 // Floating Bottom Bar for Selection Summary & Submit
@@ -270,6 +353,41 @@ struct ReferLabTestView: View {
                     }
                 }
             }
+            .task {
+                await loadTests()
+            }
+        }
+    }
+    
+    // MARK: - Load Tests (cache-first + background refresh)
+    private func loadTests() async {
+        let cache = LabTestCacheManager.shared
+        
+        // 1) Try cache first (instant)
+        let cached = cache.loadCachedTests()
+        if !cached.isEmpty {
+            await MainActor.run {
+                self.allTests = cached
+                self.groupedCategories = cache.groupedByCategory(cached)
+                self.isLoadingTests = false
+            }
+            
+            // 2) Background refresh
+            let fresh = await cache.fetchAndCache()
+            if fresh != cached {
+                await MainActor.run {
+                    self.allTests = fresh
+                    self.groupedCategories = cache.groupedByCategory(fresh)
+                }
+            }
+        } else {
+            // 3) No cache — fetch fresh
+            let fresh = await cache.fetchAndCache()
+            await MainActor.run {
+                self.allTests = fresh
+                self.groupedCategories = cache.groupedByCategory(fresh)
+                self.isLoadingTests = false
+            }
         }
     }
     
@@ -325,6 +443,7 @@ struct ReferLabTestView: View {
 
 struct TestToggleCard: View {
     let title: String
+    var price: Int = 0
     let isSelected: Bool
     let action: () -> Void
     
@@ -332,12 +451,20 @@ struct TestToggleCard: View {
         Button(action: action) {
             VStack {
                 HStack(alignment: .top) {
-                    Text(title)
-                        .font(.system(size: 13, weight: isSelected ? .bold : .medium, design: .rounded))
-                        .foregroundColor(isSelected ? AppTheme.primaryDark : AppTheme.textPrimary)
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(3)
-                        .fixedSize(horizontal: false, vertical: true)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title)
+                            .font(.system(size: 13, weight: isSelected ? .bold : .medium, design: .rounded))
+                            .foregroundColor(isSelected ? AppTheme.primaryDark : AppTheme.textPrimary)
+                            .multilineTextAlignment(.leading)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                        
+                        if price > 0 {
+                            Text("₹\(price)")
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                .foregroundColor(isSelected ? AppTheme.primary : AppTheme.textSecondary)
+                        }
+                    }
                     
                     Spacer(minLength: 4)
                     
@@ -378,4 +505,3 @@ struct TestToggleCard: View {
         patientName: "John Doe"
     )
 }
-

@@ -38,54 +38,28 @@ struct MyPatientsView: View {
     @State private var allAppointments: [Appointment] = []
     @State private var isLoading = true
     
-    // Search & Filter State
+    // Search State
     @State private var searchText = ""
-    @State private var selectedFilter: FilterOption = .all
     
     // UI Animation State
     @State private var appearAnimation = false
-    
-    enum FilterOption: String, CaseIterable {
-        case all = "All"
-        case upcoming = "Active"
-        case completed = "Past"
-    }
     
     // Derived Data
     private var patientGroups: [PatientGroup] {
         // Group by ID
         let dict = Dictionary(grouping: allAppointments, by: { $0.patientId })
         var groups = dict.map { (id, appts) in
-            // Take name from the first valid appt
             let name = appts.first?.patientName ?? "Unknown"
             return PatientGroup(patientId: id, patientName: name, appointments: appts)
         }
         
-        // 1. Search filter
+        // Search filter
         if !searchText.isEmpty {
             groups = groups.filter { $0.patientName.localizedCaseInsensitiveContains(searchText) }
         }
         
-        // 2. Tab filter
-        groups = groups.filter { group in
-            switch selectedFilter {
-            case .all: return true
-            case .upcoming: return group.hasUpcoming
-            case .completed: return !group.hasUpcoming
-            }
-        }
-        
-        // 3. Sort
-        return groups.sorted { g1, g2 in
-            if g1.hasUpcoming == g2.hasUpcoming {
-                if g1.hasUpcoming {
-                    return g1.sortDate < g2.sortDate // Nearest first
-                } else {
-                    return g1.sortDate > g2.sortDate // Most recent first
-                }
-            }
-            return g1.hasUpcoming && !g2.hasUpcoming
-        }
+        // Sort by most recent visit
+        return groups.sorted { $0.sortDate > $1.sortDate }
     }
     
     @State private var isSearchFocused = false
@@ -136,39 +110,6 @@ struct MyPatientsView: View {
                         RoundedRectangle(cornerRadius: 30)
                             .stroke(AppTheme.primary.opacity(isSearchFocused ? 0.5 : 0.0), lineWidth: 2)
                     )
-                    .padding(.horizontal, 24)
-                    
-                    // Segmented Filter
-                    HStack(spacing: 12) {
-                        ForEach(FilterOption.allCases, id: \.self) { option in
-                            Button(action: {
-                                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
-                                    selectedFilter = option
-                                }
-                            }) {
-                                Text(option.rawValue)
-                                    .font(.system(size: 14, weight: selectedFilter == option ? .bold : .medium, design: .rounded))
-                                    .foregroundColor(selectedFilter == option ? .white : AppTheme.textSecondary)
-                                    .padding(.vertical, 10)
-                                    .padding(.horizontal, 20)
-                                    .background(
-                                        ZStack {
-                                            if selectedFilter == option {
-                                                Capsule()
-                                                    .fill(AppTheme.primary)
-                                                    .matchedGeometryEffect(id: "filterTab", in: animationNamespace)
-                                            } else {
-                                                Capsule()
-                                                    .fill(Color.gray.opacity(0.08))
-                                            }
-                                        }
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        Spacer()
-                    }
-                    .padding(.horizontal, 24)
                     .padding(.bottom, 8)
                 }
                 .offset(y: appearAnimation ? 0 : -20)
@@ -227,10 +168,7 @@ struct MyPatientsView: View {
                 loadAppointments()
             }
         }
-    }
-    
-    @Namespace private var animationNamespace
-    
+    }    
     // For manual refreshable
     private func reloadAppointmentsAsync() async {
         guard let doctorId = UserSession.shared.currentUser?.id else { return }
@@ -311,35 +249,15 @@ struct PatientGroupCard: View {
             
             Spacer()
             
-            // Right: Status Badge & Chevron
+            // Right: Visit Count & Chevron
             VStack(alignment: .trailing, spacing: 10) {
-                if group.hasUpcoming {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 8, height: 8)
-                        Text("Active")
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundColor(.green)
-                    }
+                Text("\(group.visitCount) visit\(group.visitCount == 1 ? "" : "s")")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundColor(AppTheme.textSecondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(Color.green.opacity(0.15))
+                    .background(Color.gray.opacity(0.1))
                     .cornerRadius(20)
-                } else {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(Color.gray)
-                            .frame(width: 8, height: 8)
-                        Text("Past")
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundColor(.gray)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.gray.opacity(0.15))
-                    .cornerRadius(20)
-                }
                 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .bold))
@@ -351,15 +269,7 @@ struct PatientGroupCard: View {
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color.white)
-                .shadow(color: group.hasUpcoming ? AppTheme.primary.opacity(0.08) : Color.black.opacity(0.03), radius: 12, x: 0, y: 6)
-        )
-        // Add a faint teal bottom edge glow only if active
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(
-                    group.hasUpcoming ? LinearGradient(colors: [.clear, AppTheme.primary.opacity(0.3)], startPoint: .top, endPoint: .bottom) : LinearGradient(colors: [.clear], startPoint: .top, endPoint: .bottom),
-                    lineWidth: 1
-                )
+                .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 6)
         )
     }
     

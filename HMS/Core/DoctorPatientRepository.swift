@@ -132,6 +132,16 @@ class DoctorPatientRepository {
         return try document.data(as: ConsultationNote.self)
     }
 
+    /// Fetches all consultation notes for a specific patient
+    func fetchPatientConsultationNotes(patientId: String) async throws -> [ConsultationNote] {
+        let snapshot = try await db.collection("consultation_notes")
+            .whereField("patientId", isEqualTo: patientId)
+            .getDocuments()
+        
+        let notes = snapshot.documents.compactMap { try? $0.data(as: ConsultationNote.self) }
+        return notes.sorted { ($0.createdAt ?? Date.distantPast) > ($1.createdAt ?? Date.distantPast) }
+    }
+
     // MARK: - Lab Test Requests
 
     /// Saves a referred lab test request to Firestore
@@ -180,10 +190,10 @@ class DoctorPatientRepository {
     func fetchPatientPrescriptions(patientId: String) async throws -> [PrescriptionDocument] {
         let snapshot = try await db.collection("prescriptions")
             .whereField("patientId", isEqualTo: patientId)
-            .order(by: "date", descending: true)
             .getDocuments()
             
-        return snapshot.documents.compactMap { try? $0.data(as: PrescriptionDocument.self) }
+        let docs = snapshot.documents.compactMap { try? $0.data(as: PrescriptionDocument.self) }
+        return docs.sorted { $0.createdAt > $1.createdAt }
     }
     
     // MARK: - Medical Documents
@@ -191,15 +201,49 @@ class DoctorPatientRepository {
     // Note: MedicalDocument struct is currently local to PatientRecordsMainView.swift. 
     // Creating an alternative generic fetch for Admin views since it's just raw data parsing.
     
-    /// Fetches the patient's medical history documents (SharedMedicalDocument) from the `documents` collection.
+    /// Fetches the patient's medical history: uploaded documents + prescription PDFs
     func fetchPatientMedicalHistory(patientId: String) async throws -> [SharedMedicalDocument] {
-        let snapshot = try await db.collection("documents")
+        var allDocs: [SharedMedicalDocument] = []
+        
+        // 1) Fetch uploaded documents from `documents` collection (all folder types)
+        let docSnapshot = try await db.collection("documents")
             .whereField("patientId", isEqualTo: patientId)
-            .whereField("folderType", isEqualTo: "MedicalHistory")
             .getDocuments()
         
-        let docs = snapshot.documents.compactMap { try? $0.data(as: SharedMedicalDocument.self) }
-        return docs.sorted { $0.uploadDate > $1.uploadDate }
+        let uploadedDocs = docSnapshot.documents.compactMap { try? $0.data(as: SharedMedicalDocument.self) }
+        allDocs.append(contentsOf: uploadedDocs)
+        
+        // 2) Fetch prescription PDFs from `prescriptions` collection
+        let rxSnapshot = try await db.collection("prescriptions")
+            .whereField("patientId", isEqualTo: patientId)
+            .getDocuments()
+        
+        for doc in rxSnapshot.documents {
+            let data = doc.data()
+            if let pdfUrl = data["pdfUrl"] as? String,
+               let doctorName = data["doctorName"] as? String,
+               let date = data["date"] as? String {
+                let startTime = data["startTime"] as? String ?? ""
+                let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
+                
+                allDocs.append(SharedMedicalDocument(
+                    id: doc.documentID,
+                    name: "Prescription - Dr. \(doctorName) (\(date))",
+                    fileName: "prescription_\(doc.documentID).pdf",
+                    fileURL: pdfUrl,
+                    fileSize: nil,
+                    fileType: "pdf",
+                    folderType: "Prescription",
+                    patientId: patientId,
+                    uploadedBy: data["doctorId"] as? String ?? "",
+                    uploadedByName: "Dr. \(doctorName)",
+                    uploadDate: createdAt,
+                    notes: startTime.isEmpty ? nil : "Appointment: \(date) at \(startTime)"
+                ))
+            }
+        }
+        
+        return allDocs.sorted { $0.uploadDate > $1.uploadDate }
     }
     
     /// Fetches patient documents (MedicalHistory, LabResults) for a given patient

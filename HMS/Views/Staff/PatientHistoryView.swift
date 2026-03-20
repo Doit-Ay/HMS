@@ -32,22 +32,19 @@ struct PatientHistoryView: View {
     }
     
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            AppTheme.background.ignoresSafeArea()
-            
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 0) {
-                    // NEW: Premium Hero Section
-                    ZStack {
-                        // Diagonal Teal-to-Mint Gradient
-                        LinearGradient(
-                            colors: [AppTheme.primaryDark, AppTheme.primary, Color(red: 0.4, green: 0.8, blue: 0.75)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                        
-                        VStack(spacing: 16) {
-                            Spacer().frame(height: 70) // Top padding for status bar and back button
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 0) {
+                // Premium Hero Section
+                ZStack {
+                    // Diagonal Teal-to-Mint Gradient
+                    LinearGradient(
+                        colors: [AppTheme.primaryDark, AppTheme.primary, Color(red: 0.4, green: 0.8, blue: 0.75)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    
+                    VStack(spacing: 16) {
+                        Spacer().frame(height: 110)
                             
                             // Avatar with White Ring & Badge
                             ZStack(alignment: .topTrailing) {
@@ -107,17 +104,29 @@ struct PatientHistoryView: View {
                         }
                     }
                     .frame(maxWidth: .infinity)
-                    // No corner radius directly, so it merges with the navigation bar background nicely, building a natural fade
+                    .cornerRadius(24)
                     .padding(.bottom, 24)
                     
-                    // NEW: Body Section - Cards Layout
+                    // Body Section - Cards Layout
                     VStack(alignment: .leading, spacing: 32) {
                         
                         // Card 1: Upcoming Appointments
                         VStack(alignment: .leading, spacing: 14) {
-                            Text("Upcoming")
-                                .font(.system(size: 20, weight: .bold, design: .rounded))
-                                .foregroundColor(AppTheme.textPrimary)
+                            HStack {
+                                Text("Upcoming")
+                                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                                    .foregroundColor(AppTheme.textPrimary)
+                                Spacer()
+                                if !upcomingAppointments.isEmpty {
+                                    Text("\(upcomingAppointments.count)")
+                                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                                        .foregroundColor(AppTheme.primary)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 4)
+                                        .background(AppTheme.primary.opacity(0.12))
+                                        .clipShape(Capsule())
+                                }
+                            }
                             
                             if !upcomingAppointments.isEmpty {
                                 CardBlock(borderColor: AppTheme.primary) {
@@ -135,7 +144,6 @@ struct PatientHistoryView: View {
                                     }
                                 }
                             } else {
-                                // Empty State
                                 CardBlock(borderColor: Color.gray.opacity(0.3)) {
                                     HStack(spacing: 12) {
                                         Image(systemName: "calendar.badge.minus")
@@ -155,9 +163,19 @@ struct PatientHistoryView: View {
                         // Card 2: Past Visits
                         if !pastAppointments.isEmpty {
                             VStack(alignment: .leading, spacing: 14) {
-                                Text("Past Visits")
-                                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                                    .foregroundColor(AppTheme.textPrimary)
+                                HStack {
+                                    Text("Past Visits")
+                                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                                        .foregroundColor(AppTheme.textPrimary)
+                                    Spacer()
+                                    Text("\(pastAppointments.count)")
+                                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                                        .foregroundColor(AppTheme.textSecondary)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 4)
+                                        .background(Color.gray.opacity(0.1))
+                                        .clipShape(Capsule())
+                                }
                                 
                                 CardBlock(borderColor: Color.gray.opacity(0.4)) {
                                     VStack(spacing: 0) {
@@ -176,40 +194,44 @@ struct PatientHistoryView: View {
                             }
                         }
                         
-                        // Card 3: Medical Records Button
+                        // Card 3: Medical Records
                         VStack(alignment: .leading, spacing: 14) {
                             Text("Medical Records")
                                 .font(.system(size: 20, weight: .bold, design: .rounded))
                                 .foregroundColor(AppTheme.textPrimary)
                             
                             NavigationLink(destination: DoctorMedicalHistoryView(patientId: patientGroup.patientId, patientName: patientGroup.patientName)) {
-                                CardBlock(borderColor: .clear) {
-                                    HStack(spacing: 16) {
-                                        ZStack {
-                                            Circle()
-                                                .fill(AppTheme.primaryLight.opacity(0.2))
-                                                .frame(width: 44, height: 44)
-                                            Image(systemName: "folder.fill")
-                                                .foregroundColor(AppTheme.primary)
-                                        }
-                                        
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("View Medical History")
-                                                .font(.system(size: 16, weight: .bold, design: .rounded))
-                                                .foregroundColor(AppTheme.textPrimary)
-                                            Text("Browse past records and documents")
-                                                .font(.system(size: 13, design: .rounded))
-                                                .foregroundColor(AppTheme.textSecondary)
-                                        }
-                                        
-                                        Spacer()
-                                        
-                                        Image(systemName: "chevron.right")
-                                            .foregroundColor(Color.gray.opacity(0.4))
-                                            .font(.system(size: 14, weight: .bold))
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 14)
+                                            .fill(
+                                                LinearGradient(colors: [AppTheme.primary.opacity(0.15), AppTheme.primary.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                            )
+                                            .frame(width: 50, height: 50)
+                                        Image(systemName: "doc.text.magnifyingglass")
+                                            .font(.system(size: 20))
+                                            .foregroundColor(AppTheme.primary)
                                     }
-                                    .padding(16)
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("View Medical History")
+                                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                                            .foregroundColor(AppTheme.textPrimary)
+                                        Text("Uploaded records, prescriptions & reports")
+                                            .font(.system(size: 13, design: .rounded))
+                                            .foregroundColor(AppTheme.textSecondary)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Image(systemName: "chevron.right")
+                                        .foregroundColor(Color.gray.opacity(0.4))
+                                        .font(.system(size: 14, weight: .bold))
                                 }
+                                .padding(16)
+                                .background(Color.white)
+                                .cornerRadius(16)
+                                .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
                             }
                             .buttonStyle(.plain)
                         }
@@ -220,24 +242,19 @@ struct PatientHistoryView: View {
                     .opacity(appearAnimation ? 1 : 0)
                 }
             }
-            .ignoresSafeArea(edges: .top)
-            
-            // Custom Back Button
-            Button(action: {
-                dismiss()
-            }) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(AppTheme.textPrimary)
-                    .frame(width: 44, height: 44)
-                    .background(Color.white)
-                    .clipShape(Circle())
-                    .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+        .ignoresSafeArea(edges: .top)
+        .background(AppTheme.background)
+        .navigationBarBackButtonHidden(true)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: { dismiss() }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.white)
+                }
             }
-            .padding(.leading, 20)
-            .padding(.top, 60) // Safe area top offset
         }
-        .navigationBarHidden(true)
         .onAppear {
             if !appearAnimation {
                 // Hero fades first
@@ -343,38 +360,62 @@ struct PatientHistoryView: View {
         let appointment: Appointment
         let isUpcoming: Bool
         
+        private var statusColor: Color {
+            switch appointment.status.lowercased() {
+            case "completed": return AppTheme.success
+            case "cancelled": return AppTheme.error
+            case "in-progress", "in_progress": return AppTheme.warning
+            default: return AppTheme.primary
+            }
+        }
+        
         var body: some View {
-            HStack {
+            HStack(spacing: 14) {
+                // Date block
+                VStack(spacing: 2) {
+                    let parts = appointment.date.split(separator: "-")
+                    if parts.count == 3 {
+                        Text(String(parts[2]))
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .foregroundColor(isUpcoming ? AppTheme.primary : AppTheme.textSecondary)
+                        Text(monthName(String(parts[1])))
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
+                }
+                .frame(width: 44)
+                
                 VStack(alignment: .leading, spacing: 6) {
-                    HStack(alignment: .lastTextBaseline, spacing: 8) {
-                        Text(formatDate(appointment.date))
+                    HStack {
+                        Text(appointment.department ?? "Consultation")
                             .font(.system(size: 15, weight: .bold, design: .rounded))
                             .foregroundColor(AppTheme.textPrimary)
-                        
-                        Text(appointment.startTime)
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
-                            .foregroundColor(isUpcoming ? AppTheme.primary : AppTheme.textSecondary)
+                        Spacer()
+                        Text(appointment.status.capitalized)
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundColor(statusColor)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(statusColor.opacity(0.12))
+                            .cornerRadius(6)
                     }
                     
-                    HStack(spacing: 4) {
-                        Image(systemName: "stethoscope")
+                    HStack(spacing: 6) {
+                        Image(systemName: "clock")
                             .font(.system(size: 11))
-                        Text(appointment.department ?? "Consultation")
-                            .font(.system(size: 13, design: .rounded))
+                        Text("\(appointment.startTime) - \(appointment.endTime)")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
                     }
                     .foregroundColor(AppTheme.textSecondary)
                 }
                 
-                Spacer()
-                
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(AppTheme.textSecondary.opacity(0.3))
             }
             .padding(.vertical, 14)
             .padding(.trailing, 16)
-            .padding(.leading, 20) // offset from the color strip slightly
-            // press state animation
+            .padding(.leading, 20)
             .contentShape(Rectangle())
         }
         
@@ -387,6 +428,16 @@ struct PatientHistoryView: View {
                 return outFormatter.string(from: date)
             }
             return dateString
+        }
+        
+        private func monthName(_ monthNum: String) -> String {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MM"
+            if let date = formatter.date(from: monthNum) {
+                formatter.dateFormat = "MMM"
+                return formatter.string(from: date).uppercased()
+            }
+            return monthNum
         }
     }
     
@@ -408,6 +459,40 @@ struct PatientHistoryView: View {
             .padding(12)
             .background(Color.gray.opacity(0.06))
             .cornerRadius(10)
+        }
+    }
+    
+    // Patient Info Chip for details row
+    struct PatientInfoChip: View {
+        let icon: String
+        let label: String
+        let value: String
+        let color: Color
+        
+        var body: some View {
+            VStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(color.opacity(0.12))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: icon)
+                        .font(.system(size: 14))
+                        .foregroundColor(color)
+                }
+                
+                Text(value)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundColor(AppTheme.textPrimary)
+                
+                Text(label)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundColor(AppTheme.textSecondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(Color.white)
+            .cornerRadius(16)
+            .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
         }
     }
 }

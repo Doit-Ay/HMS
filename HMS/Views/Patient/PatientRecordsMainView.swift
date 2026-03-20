@@ -68,18 +68,71 @@ struct PatientRecordsMainView: View {
 
             RecordsFolderCard(folder: .medicalHistory, icon: "folder.fill", title: "Medical History", subtitle: "Past records & previous reports", color: AppTheme.primary)
 
-            RecordsFolderCard(folder: .prescriptions, icon: "pills.fill", title: "Doctor Prescriptions", subtitle: "Prescriptions from your doctors", color: AppTheme.primaryMid)
+            NavigationLink(destination: PatientPrescriptionsView()) {
+                HStack(spacing: 18) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(AppTheme.primaryMid.opacity(0.15))
+                            .frame(width: 56, height: 56)
+
+                        Image(systemName: "pills.fill")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundColor(AppTheme.primaryMid)
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Doctor Prescriptions")
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .foregroundColor(AppTheme.textPrimary)
+
+                        Text("Prescriptions from your doctors")
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(AppTheme.textSecondary.opacity(0.4))
+                }
+                .padding(18)
+                .background(Color.white)
+                .cornerRadius(22)
+            }
+            .buttonStyle(.plain)
 
             NavigationLink(destination: PatientLabRequestsView()) {
-                       RecordsFolderCard(
-                           folder: .labResults,
-                           icon: "waveform.path.ecg",
-                           title: "Lab Test Results",
-                           subtitle: "Blood tests and diagnostic reports",
-                           color: AppTheme.primaryDark
-                       )
-                   }
-                   .buttonStyle(.plain)
+                HStack(spacing: 18) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(AppTheme.primaryDark.opacity(0.15))
+                            .frame(width: 56, height: 56)
+
+                        Image(systemName: "waveform.path.ecg")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundColor(AppTheme.primaryDark)
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Lab Test Results")
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .foregroundColor(AppTheme.textPrimary)
+
+                        Text("Blood tests and diagnostic reports")
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(AppTheme.textSecondary.opacity(0.4))
+                }
+                .padding(18)
+                .background(Color.white)
+                .cornerRadius(22)
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 24)
     }
@@ -463,37 +516,32 @@ extension FolderDetailView {
 
             print("📤 Upload path:", storageRef.fullPath)
 
-            let uploadTask = storageRef.putFile(from: fileURL)
+            // Read file data into memory to avoid background upload task issues
+            guard fileURL.startAccessingSecurityScopedResource() else {
+                print("❌ Cannot access file")
+                return
+            }
+            defer { fileURL.stopAccessingSecurityScopedResource() }
+            
+            let fileData = try Data(contentsOf: fileURL)
 
             await MainActor.run {
                 isUploading = true
                 uploadProgress = 0
             }
 
-            // Observe progress
-            uploadTask.observe(.progress) { snapshot in
-                if let progress = snapshot.progress {
-                    let percent = Double(progress.completedUnitCount) / Double(progress.totalUnitCount)
-
-                    DispatchQueue.main.async {
-                        uploadProgress = percent
-                    }
-                }
+            // Determine content type
+            let ext = fileURL.pathExtension.lowercased()
+            let metadata = StorageMetadata()
+            switch ext {
+            case "pdf": metadata.contentType = "application/pdf"
+            case "jpg", "jpeg": metadata.contentType = "image/jpeg"
+            case "png": metadata.contentType = "image/png"
+            case "heic": metadata.contentType = "image/heic"
+            default: metadata.contentType = "application/octet-stream"
             }
 
-            // Await completion
-            try await withCheckedThrowingContinuation { continuation in
-
-                uploadTask.observe(.success) { _ in
-                    continuation.resume()
-                }
-
-                uploadTask.observe(.failure) { snapshot in
-                    if let error = snapshot.error {
-                        continuation.resume(throwing: error)
-                    }
-                }
-            }
+            _ = try await storageRef.putDataAsync(fileData, metadata: metadata)
 
             print("✅ Upload success")
 
