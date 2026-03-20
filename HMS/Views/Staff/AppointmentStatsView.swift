@@ -88,37 +88,25 @@ struct AppointmentStatsView: View {
     }
 
     var body: some View {
-        ZStack {
-            HMSBackground()
+        VStack(spacing: 20) {
+            // Today's Overview Hero
+            todayHeroCard
 
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 20) {
+            // Today Status Breakdown
+            todayStatusCards
 
-                    // Today's Overview Hero
-                    todayHeroCard
+            // Month Picker
+            monthPickerSection
 
-                    // Today Status Breakdown
-                    todayStatusCards
+            // Monthly Summary
+            monthlySummaryCard
 
-                    // Month Picker
-                    monthPickerSection
+            // Daily Bar Chart
+            dailyChartSection
 
-                    // Monthly Summary
-                    monthlySummaryCard
-
-                    // Daily Bar Chart
-                    dailyChartSection
-
-                    // Monthly Status Donut
-                    monthlyStatusSection
-
-                    Spacer(minLength: 30)
-                }
-                .padding(.bottom, 20)
-            }
+            // Monthly Status Donut
+            monthlyStatusSection
         }
-        .navigationTitle("Statistics")
-        .navigationBarTitleDisplayMode(.large)
         .alert("Error", isPresented: $showError) {
             Button("OK", role: .cancel) {}
         } message: {

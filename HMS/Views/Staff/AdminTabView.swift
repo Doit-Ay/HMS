@@ -94,38 +94,6 @@ struct AdminDashboardView: View {
                         .offset(y: animate ? 0 : -30)
                         .opacity(animate ? 1 : 0)
 
-                        // Hero Banner
-                        HStack {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Hospital\nManagement")
-                                    .font(.system(size: 32, weight: .heavy, design: .rounded))
-                                    .foregroundColor(.white)
-                                    .lineSpacing(4)
-
-                                Text("Manage staff, appointments, and operations.")
-                                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                                    .foregroundColor(.white.opacity(0.9))
-                            }
-                            Spacer()
-                            Image(systemName: "shield.checkered")
-                                .font(.system(size: 70))
-                                .foregroundColor(.white.opacity(0.15))
-                                .rotationEffect(.degrees(-15))
-                        }
-                        .padding(24)
-                        .background(
-                            LinearGradient(
-                                colors: [AppTheme.primary, AppTheme.primaryMid],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                        .shadow(color: AppTheme.primary.opacity(0.3), radius: 15, x: 0, y: 8)
-                        .padding(.horizontal, 20)
-                        .offset(y: animate ? 0 : 20)
-                        .opacity(animate ? 1 : 0)
-
                         // Action Cards Area
                         VStack(spacing: 16) {
                             HStack {
@@ -135,13 +103,11 @@ struct AdminDashboardView: View {
                                 Spacer()
                             }
                             .padding(.horizontal, 24)
-                            .padding(.top, 8)
 
-                            VStack(spacing: 12) {
+                            HStack(spacing: 16) {
                                 NavigationLink(destination: ManageSlotsView()) {
                                     AdminDashboardActionCard(
                                         title: "Manage Slots",
-                                        subtitle: "Review and update doctors' schedules",
                                         icon: "calendar.badge.clock",
                                         color: AppTheme.primary
                                     )
@@ -151,24 +117,29 @@ struct AdminDashboardView: View {
                                 NavigationLink(destination: AdminPatientSearchView()) {
                                     AdminDashboardActionCard(
                                         title: "Manage Patients",
-                                        subtitle: "Search and manage patient records",
                                         icon: "person.3.sequence.fill",
                                         color: Color(hex: "#8B5CF6")
                                     )
                                 }
                                 .buttonStyle(.plain)
-
-                                NavigationLink(destination: AppointmentStatsView()) {
-                                    AdminDashboardActionCard(
-                                        title: "Statistics",
-                                        subtitle: "View hospital metrics and performance",
-                                        icon: "chart.bar.fill",
-                                        color: AppTheme.success
-                                    )
-                                }
-                                .buttonStyle(.plain)
                             }
                             .padding(.horizontal, 20)
+                        }
+                        .offset(y: animate ? 0 : 20)
+                        .opacity(animate ? 1 : 0)
+
+                        // Embedded Statistics
+                        VStack(spacing: 16) {
+                            HStack {
+                                Text("Statistics Overview")
+                                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                                    .foregroundColor(AppTheme.textPrimary)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 24)
+                            .padding(.top, 8)
+                            
+                            AppointmentStatsView()
                         }
                         .offset(y: animate ? 0 : 30)
                         .opacity(animate ? 1 : 0)
@@ -194,40 +165,33 @@ struct AdminDashboardView: View {
 // MARK: - Admin Dashboard Action Card
 struct AdminDashboardActionCard: View {
     let title: String
-    let subtitle: String
     let icon: String
     let color: Color
 
     var body: some View {
-        HStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(color.opacity(0.12))
-                    .frame(width: 52, height: 52)
+                    .frame(width: 44, height: 44)
                 Image(systemName: icon)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(color)
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
-                    .foregroundColor(AppTheme.textPrimary)
-                Text(subtitle)
-                    .font(.system(size: 13, design: .rounded))
-                    .foregroundColor(AppTheme.textSecondary)
-            }
+            Spacer(minLength: 0)
 
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundColor(AppTheme.textSecondary.opacity(0.3))
+            Text(title)
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundColor(AppTheme.textPrimary)
+                .multilineTextAlignment(.leading)
         }
         .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 110)
         .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
     }
 }
 
