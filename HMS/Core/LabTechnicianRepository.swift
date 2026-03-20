@@ -60,12 +60,12 @@ class LabTechnicianRepository: ObservableObject {
         completedListener = nil
     }
     
-    /// Real-time listener for pending lab requests.
+    /// Real-time listener for pending lab requests (includes both "pending" and "in_progress").
     private func listenToPendingRequests() {
         DispatchQueue.main.async { self.isLoadingPending = true }
         
         pendingListener = db.collection("patient_lab_requests")
-            .whereField("status", isEqualTo: "pending")
+            .whereField("status", in: ["pending", "in_progress"])
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
                 
@@ -136,6 +136,16 @@ class LabTechnicianRepository: ObservableObject {
                     self.completedRequests = parsed
                 }
             }
+    }
+    
+    // MARK: - Approve Request
+    
+    /// Approves a lab request by changing its status from "pending" to "in_progress".
+    func approveRequest(requestId: String) async throws {
+        try ensureLabTechnician()
+        
+        let docRef = db.collection("patient_lab_requests").document(requestId)
+        try await docRef.updateData(["status": "in_progress"])
     }
     
     // MARK: - One-shot Fetchers (for manual refresh)
