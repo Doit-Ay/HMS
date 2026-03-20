@@ -8,20 +8,16 @@ struct AdminTabView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             AdminDashboardView()
-                .tabItem { Label("Dashboard", systemImage: "shield.checkered") }
+                .tabItem { Label("Dashboard", systemImage: "square.grid.2x2.fill") }
                 .tag(0)
 
             StaffManagementView()
                 .tabItem { Label("Staff", systemImage: "person.3.fill") }
                 .tag(1)
-
-            AppointmentStatsView()
-                .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
-                .tag(2)
                 
             SystemActivityLogsView()
                 .tabItem { Label("Logs", systemImage: "list.bullet.rectangle") }
-                .tag(3)
+                .tag(2)
         }
         .tint(AppTheme.primary)
     }
@@ -98,79 +94,53 @@ struct AdminDashboardView: View {
                         .offset(y: animate ? 0 : -30)
                         .opacity(animate ? 1 : 0)
 
-                        // Hero Banner with Manage Slots button inside
-                        VStack(spacing: 0) {
+                        // Action Cards Area
+                        VStack(spacing: 16) {
                             HStack {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Hospital\nManagement")
-                                        .font(.system(size: 28, weight: .heavy, design: .rounded))
-                                        .foregroundColor(.white)
-                                        .lineSpacing(4)
-
-                                    Text("Manage your staff, appointments and hospital operations.")
-                                        .font(.system(size: 15, weight: .medium, design: .rounded))
-                                        .foregroundColor(.white.opacity(0.9))
-                                        .padding(.trailing, 40)
-                                }
+                                Text("Quick Actions")
+                                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                                    .foregroundColor(AppTheme.textPrimary)
                                 Spacer()
                             }
-                            .padding(24)
+                            .padding(.horizontal, 24)
 
-                            NavigationLink(destination: ManageSlotsView()) {
-                                HStack {
-                                    Text("Manage Slots")
-                                        .font(.system(size: 16, weight: .bold, design: .rounded))
-
-                                    Spacer()
-
-                                    Image(systemName: "arrow.right.circle.fill")
-                                        .font(.system(size: 24))
+                            HStack(spacing: 16) {
+                                NavigationLink(destination: ManageSlotsView()) {
+                                    AdminDashboardActionCard(
+                                        title: "Manage Slots",
+                                        icon: "calendar.badge.clock",
+                                        color: AppTheme.primary
+                                    )
                                 }
-                                .foregroundColor(AppTheme.primary)
-                                .padding()
-                                .background(Color.white)
-                                .cornerRadius(16)
-                                .padding(.horizontal, 24)
-                                .padding(.bottom, 12)
-                            }
-                            .buttonStyle(.plain)
-                            
-                            NavigationLink(destination: AdminPatientSearchView()) {
-                                HStack {
-                                    Text("Manage Patients")
-                                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .buttonStyle(.plain)
 
-                                    Spacer()
-
-                                    Image(systemName: "arrow.right.circle.fill")
-                                        .font(.system(size: 24))
+                                NavigationLink(destination: AdminPatientSearchView()) {
+                                    AdminDashboardActionCard(
+                                        title: "Manage Patients",
+                                        icon: "person.3.sequence.fill",
+                                        color: Color(hex: "#8B5CF6")
+                                    )
                                 }
-                                .foregroundColor(AppTheme.primary)
-                                .padding()
-                                .background(Color.white)
-                                .cornerRadius(16)
-                                .padding(.horizontal, 24)
-                                .padding(.bottom, 24)
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
+                            .padding(.horizontal, 20)
                         }
-                        .background(
-                            ZStack {
-                                LinearGradient(
-                                    colors: [AppTheme.primary, AppTheme.primaryMid],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                                Image(systemName: "shield.checkered")
-                                    .font(.system(size: 180))
-                                    .foregroundColor(.white.opacity(0.1))
-                                    .offset(x: 100, y: 20)
-                                    .rotationEffect(.degrees(-15))
+                        .offset(y: animate ? 0 : 20)
+                        .opacity(animate ? 1 : 0)
+
+                        // Embedded Statistics
+                        VStack(spacing: 16) {
+                            HStack {
+                                Text("Statistics Overview")
+                                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                                    .foregroundColor(AppTheme.textPrimary)
+                                Spacer()
                             }
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-                        .shadow(color: AppTheme.primary.opacity(0.25), radius: 20, x: 0, y: 10)
-                        .padding(.horizontal, 20)
+                            .padding(.horizontal, 24)
+                            .padding(.top, 8)
+                            
+                            AppointmentStatsView()
+                        }
                         .offset(y: animate ? 0 : 30)
                         .opacity(animate ? 1 : 0)
 
@@ -192,32 +162,36 @@ struct AdminDashboardView: View {
     }
 }
 
-// MARK: - Admin Stat Card
-struct AdminStatCard: View {
+// MARK: - Admin Dashboard Action Card
+struct AdminDashboardActionCard: View {
     let title: String
     let icon: String
     let color: Color
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
             ZStack {
-                Circle()
-                    .fill(color.opacity(0.15))
-                    .frame(width: 52, height: 52)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(color.opacity(0.12))
+                    .frame(width: 44, height: 44)
                 Image(systemName: icon)
-                    .font(.system(size: 24))
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(color)
             }
+
+            Spacer(minLength: 0)
+
             Text(title)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
                 .foregroundColor(AppTheme.textPrimary)
-                .multilineTextAlignment(.center)
+                .multilineTextAlignment(.leading)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
-        .background(Color.white.opacity(0.85))
-        .cornerRadius(18)
-        .shadow(color: color.opacity(0.1), radius: 8, x: 0, y: 4)
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 110)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
     }
 }
 

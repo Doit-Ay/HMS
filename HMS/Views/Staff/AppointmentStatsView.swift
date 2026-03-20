@@ -88,51 +88,34 @@ struct AppointmentStatsView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                HMSBackground()
+        VStack(spacing: 20) {
+            // Today's Overview Hero
+            todayHeroCard
 
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 20) {
+            // Today Status Breakdown
+            todayStatusCards
 
-                        // Today's Overview Hero
-                        todayHeroCard
+            // Month Picker
+            monthPickerSection
 
-                        // Today Status Breakdown
-                        todayStatusCards
+            // Monthly Summary
+            monthlySummaryCard
 
-                        // Month Picker
-                        monthPickerSection
+            // Daily Bar Chart
+            dailyChartSection
 
-                        // Monthly Summary
-                        monthlySummaryCard
-
-                        // Department-wise Breakdown
-                        departmentBreakdownSection
-
-                        // Daily Bar Chart
-                        dailyChartSection
-
-                        // Monthly Status Donut
-                        monthlyStatusSection
-
-                        Spacer(minLength: 30)
-                    }
-                    .padding(.bottom, 20)
-                }
-            }
-            .navigationTitle("Statistics")
-            .navigationBarTitleDisplayMode(.large)
-            .alert("Error", isPresented: $showError) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(errorMessage)
-            }
-            .task {
-                await loadData()
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
-                    animate = true
-                }
+            // Monthly Status Donut
+            monthlyStatusSection
+        }
+        .alert("Error", isPresented: $showError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage)
+        }
+        .task {
+            await loadData()
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
+                animate = true
             }
         }
     }
@@ -289,39 +272,7 @@ struct AppointmentStatsView: View {
         .padding(.horizontal, 20)
     }
 
-    // MARK: - Department Breakdown
-    private var departmentBreakdownSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Department-wise")
-                .font(.system(size: 18, weight: .bold, design: .rounded))
-                .foregroundColor(AppTheme.textPrimary)
-                .padding(.horizontal, 20)
 
-            if departmentStats.isEmpty {
-                emptyStatsPlaceholder(message: "No slot data for this month")
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(departmentStats.enumerated()), id: \.offset) { index, stat in
-                        DepartmentBarRow(
-                            department: stat.0,
-                            count: stat.1,
-                            maxCount: departmentStats.first?.1 ?? 1,
-                            color: departmentColor(index: index),
-                            animate: animate
-                        )
-
-                        if index < departmentStats.count - 1 {
-                            Divider().padding(.horizontal, 16).opacity(0.3)
-                        }
-                    }
-                }
-                .background(Color.white.opacity(0.85))
-                .cornerRadius(18)
-                .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 3)
-                .padding(.horizontal, 20)
-            }
-        }
-    }
 
     // MARK: - Daily Bar Chart
     private var dailyChartSection: some View {
@@ -515,45 +466,7 @@ struct MiniStatCard: View {
     }
 }
 
-// MARK: - Department Bar Row
-struct DepartmentBarRow: View {
-    let department: String
-    let count: Int
-    let maxCount: Int
-    let color: Color
-    let animate: Bool
 
-    var body: some View {
-        HStack(spacing: 12) {
-            Text(department)
-                .font(.system(size: 13, weight: .medium, design: .rounded))
-                .foregroundColor(AppTheme.textPrimary)
-                .frame(width: 100, alignment: .leading)
-                .lineLimit(1)
-
-            GeometryReader { geo in
-                let fraction = maxCount > 0 ? CGFloat(count) / CGFloat(maxCount) : 0
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(
-                        LinearGradient(
-                            colors: [color, color.opacity(0.6)],
-                            startPoint: .leading, endPoint: .trailing
-                        )
-                    )
-                    .frame(width: animate ? geo.size.width * fraction : 0, height: 20)
-                    .animation(.spring(response: 0.8, dampingFraction: 0.7).delay(0.2), value: animate)
-            }
-            .frame(height: 20)
-
-            Text("\(count)")
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundColor(color)
-                .frame(width: 30, alignment: .trailing)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-    }
-}
 
 // MARK: - Daily Bar View
 struct DailyBarView: View {

@@ -11,7 +11,7 @@ enum UserRole: String, Codable, CaseIterable {
     var displayName: String {
         switch self {
         case .patient:       return "Patient"
-        case .admin:         return "A2dmin"
+        case .admin:         return "Admin"
         case .doctor:        return "Doctor"
         case .labTechnician: return "Lab Technician"
         }

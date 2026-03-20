@@ -28,14 +28,61 @@ struct SystemActivityLogsView: View {
                             }
                             .buttonStyle(.plain)
                         }
+                        
+                        Menu {
+                            Section("Time Period") {
+                                Picker("Time Filter", selection: $viewModel.timeFilter) {
+                                    ForEach(LogTimeFilter.allCases, id: \.self) { filter in
+                                        Text(filter.rawValue).tag(filter)
+                                    }
+                                }
+                            }
+                            
+                            Section("Action Type") {
+                                Picker("Action Filter", selection: $viewModel.actionFilter) {
+                                    ForEach(LogActionFilter.allCases, id: \.self) { filter in
+                                        Text(filter.rawValue).tag(filter)
+                                    }
+                                }
+                            }
+                        } label: {
+                            Image(systemName: viewModel.hasActiveAdvancedFilters ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                                .font(.system(size: 20))
+                                .foregroundColor(viewModel.hasActiveAdvancedFilters ? AppTheme.primary : AppTheme.textSecondary)
+                        }
+                        .padding(.leading, 4)
                     }
                     .padding(14)
                     .background(Color.white)
-                    .cornerRadius(16)
-                    .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 3)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 3)
                     .padding(.horizontal, 20)
-                    .padding(.top, 12)
-                    .padding(.bottom, 12)
+                    .padding(.top, 16)
+                    
+                    // Filter Chips
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(viewModel.availableRoles, id: \.self) { role in
+                                Button {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        viewModel.filterRole = role
+                                    }
+                                } label: {
+                                    Text(role)
+                                        .font(.system(size: 14, weight: viewModel.filterRole == role ? .semibold : .medium, design: .rounded))
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 8)
+                                        .background(viewModel.filterRole == role ? AppTheme.primary : Color.white)
+                                        .foregroundColor(viewModel.filterRole == role ? .white : AppTheme.textSecondary)
+                                        .clipShape(Capsule())
+                                        .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
+                    }
                     
                     if viewModel.isLoading && viewModel.logs.isEmpty {
                         Spacer()
@@ -147,7 +194,7 @@ struct ActivityLogCard: View {
     }
     
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
+        HStack(alignment: .center, spacing: 14) {
             // Icon Background
             ZStack {
                 Circle()
@@ -159,45 +206,37 @@ struct ActivityLogCard: View {
                     .foregroundColor(actionColor)
             }
             
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text(log.action)
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                        .foregroundColor(AppTheme.textPrimary)
-                    
-                    Spacer()
-                    
-                    Text(timeString)
-                        .font(.system(size: 12, design: .rounded))
-                        .foregroundColor(AppTheme.textSecondary)
-                }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(log.action)
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundColor(AppTheme.textPrimary)
                 
-                if let details = log.details, !details.isEmpty {
-                    Text(details)
+                HStack(spacing: 4) {
+                    Text(log.userName)
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundColor(AppTheme.textSecondary)
+                    
+                    // Small dot separator
+                    Circle()
+                        .fill(AppTheme.textSecondary.opacity(0.4))
+                        .frame(width: 3, height: 3)
+                    
+                    Text(log.userRole.displayName)
                         .font(.system(size: 13, design: .rounded))
-                        .foregroundColor(AppTheme.textSecondary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                }
-                
-                HStack(spacing: 6) {
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 10))
-                        .foregroundColor(roleColor)
-                    
-                    Text("\(log.userName) (\(log.userRole.displayName))")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
                         .foregroundColor(roleColor)
                 }
-                .padding(.vertical, 4)
-                .padding(.horizontal, 8)
-                .background(roleColor.opacity(0.08))
-                .cornerRadius(6)
             }
+            
+            Spacer()
+            
+            Text(timeString)
+                .font(.system(size: 12, design: .rounded))
+                .foregroundColor(AppTheme.textSecondary.opacity(0.8))
+                .padding(.trailing, 2)
         }
         .padding(16)
         .background(Color.white)
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
     }
 }
