@@ -8,7 +8,7 @@ struct AdminTabView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             AdminDashboardView()
-                .tabItem { Label("Dashboard", systemImage: "shield.checkered") }
+                .tabItem { Label("Dashboard", systemImage: "square.grid.2x2.fill") }
                 .tag(0)
 
             StaffManagementView()
