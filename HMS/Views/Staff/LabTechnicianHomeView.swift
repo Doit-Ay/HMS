@@ -93,7 +93,7 @@ struct LabTechnicianHomeView: View {
                 Image(systemName: "list.clipboard.fill")
                     .font(.system(size: 15))
                     .foregroundColor(AppTheme.primary)
-                Text("Test Requests")
+                Text(selectedSegment == 0 ? "Test Requests" : "Tests Completed")
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundColor(AppTheme.textPrimary)
                 Spacer()
