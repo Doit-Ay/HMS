@@ -234,6 +234,42 @@ struct PatientHistoryView: View {
                                 .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
                             }
                             .buttonStyle(.plain)
+                            
+                            // Lab Reports folder
+                            NavigationLink(destination: DoctorLabReportsView(patientId: patientGroup.patientId, patientName: patientGroup.patientName)) {
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 14)
+                                            .fill(
+                                                LinearGradient(colors: [Color(red: 0.3, green: 0.6, blue: 0.7).opacity(0.15), Color(red: 0.3, green: 0.6, blue: 0.7).opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                            )
+                                            .frame(width: 50, height: 50)
+                                        Image(systemName: "flask.fill")
+                                            .font(.system(size: 20))
+                                            .foregroundColor(Color(red: 0.3, green: 0.6, blue: 0.7))
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Lab Reports")
+                                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                                            .foregroundColor(AppTheme.textPrimary)
+                                        Text("Completed lab test results & reports")
+                                            .font(.system(size: 13, design: .rounded))
+                                            .foregroundColor(AppTheme.textSecondary)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Image(systemName: "chevron.right")
+                                        .foregroundColor(Color.gray.opacity(0.4))
+                                        .font(.system(size: 14, weight: .bold))
+                                }
+                                .padding(16)
+                                .background(Color.white)
+                                .cornerRadius(16)
+                                .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal, 24)

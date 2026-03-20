@@ -12,6 +12,7 @@ struct AppointmentDetailSheet: View {
     @State private var appointmentStatus: String = "scheduled"
     @State private var isUpdatingStatus = false
     @State private var firestoreAppointment: Appointment?
+    @State private var hasExistingNotes = false
     
     /// Best available patient name — prefers live-fetched name, falls back to appointment record
     private var displayName: String {
@@ -166,11 +167,11 @@ struct AppointmentDetailSheet: View {
                     }
                     
                     if appointmentStatus == "completed" {
-                        // After consultation: show "Write Prescription"
+                        // After consultation: show "Edit" if notes exist, otherwise "Write"
                         Button(action: { showConsultationNotes = true }) {
                             HStack {
-                                Image(systemName: "pencil.and.list.clipboard")
-                                Text("Write Prescription")
+                                Image(systemName: hasExistingNotes ? "pencil.line" : "pencil.and.list.clipboard")
+                                Text(hasExistingNotes ? "Edit Prescription" : "Write Prescription")
                             }
                             .font(.system(size: 16, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
@@ -200,7 +201,9 @@ struct AppointmentDetailSheet: View {
                 .padding(.bottom, 32)
             }
         }
-        .sheet(isPresented: $showConsultationNotes) {
+        .sheet(isPresented: $showConsultationNotes, onDismiss: {
+            Task { await checkExistingNotes() }
+        }) {
             if let currentUser = UserSession.shared.currentUser,
                let appt = firestoreAppointment {
                 ConsultationNotesView(
@@ -230,6 +233,7 @@ struct AppointmentDetailSheet: View {
         .task {
             await fetchPatientData()
             await fetchAppointmentStatus()
+            await checkExistingNotes()
         }
     }
     
@@ -284,6 +288,19 @@ struct AppointmentDetailSheet: View {
                 print("⚠️ Failed to update appointment status: \(error.localizedDescription)")
             }
             isUpdatingStatus = false
+        }
+    }
+    
+    // Check if consultation notes already exist for this appointment
+    private func checkExistingNotes() async {
+        do {
+            if let _ = try await DoctorPatientRepository.shared.fetchConsultationNote(appointmentId: appointment.id) {
+                await MainActor.run {
+                    hasExistingNotes = true
+                }
+            }
+        } catch {
+            print("⚠️ Could not check existing notes: \(error.localizedDescription)")
         }
     }
 }
