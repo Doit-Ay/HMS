@@ -17,6 +17,7 @@ struct DoctorLabReportsView: View {
     @State private var selectedReportURL: URL? = nil
     @State private var selectedReportIsImage = false
     @State private var selectedReportTitle = ""
+    @State private var selectedReportExtension = ""
     @State private var showReportSheet = false
     
     var body: some View {
@@ -80,10 +81,11 @@ struct DoctorLabReportsView: View {
                     ForEach(labRequests) { request in
                         DoctorLabReportCard(
                             request: request,
-                            onViewReport: { url, title, isImage in
+                            onViewReport: { url, title, isImage, fileExtension in
                                 selectedReportURL = url
                                 selectedReportTitle = title
                                 selectedReportIsImage = isImage
+                                selectedReportExtension = fileExtension
                                 showReportSheet = true
                             }
                         )
@@ -101,9 +103,16 @@ struct DoctorLabReportsView: View {
     private var reportSheetContent: some View {
         if let url = selectedReportURL {
             if selectedReportIsImage {
-                InteractiveImageViewer(url: url, title: selectedReportTitle)
+                InteractiveImageViewer(
+                    url: url,
+                    title: selectedReportTitle,
+                    extensionString: selectedReportExtension
+                )
             } else {
-                PDFViewerSheet(pdfURL: url)
+                PDFViewerSheet(
+                    pdfURL: url,
+                    title: selectedReportTitle
+                )
             }
         } else {
             Text("Invalid Report URL")
@@ -135,7 +144,7 @@ struct DoctorLabReportsView: View {
 // MARK: - Lab Report Card (Doctor Side)
 private struct DoctorLabReportCard: View {
     let request: PatientLabRequest
-    let onViewReport: (URL, String, Bool) -> Void
+    let onViewReport: (URL, String, Bool, String) -> Void
     
     private let imageExtensions = ["jpg", "jpeg", "png", "heic", "gif"]
     
@@ -195,7 +204,8 @@ private struct DoctorLabReportCard: View {
                             Button {
                                 let ext = url.pathExtension.lowercased()
                                 let isImage = imageExtensions.contains(ext)
-                                onViewReport(url, test.resultFileName ?? test.name, isImage)
+                                let fileName = test.resultFileName ?? test.name
+                                onViewReport(url, fileName, isImage, ext)
                             } label: {
                                 HStack(spacing: 5) {
                                     Image(systemName: "doc.fill")

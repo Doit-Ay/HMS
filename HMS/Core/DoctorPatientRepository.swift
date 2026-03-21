@@ -317,7 +317,9 @@ class DoctorPatientRepository {
                 patientName: pName,
                 tests: tests,
                 dateRequested: timestamp.dateValue(),
-                status: data["status"] as? String ?? "completed"
+                status: data["status"] as? String ?? "completed",
+                customName: data["customName"] as? String,
+                collectionName: "patient_lab_requests"
             )
         }
         
