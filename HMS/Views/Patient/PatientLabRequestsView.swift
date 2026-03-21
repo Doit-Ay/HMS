@@ -478,6 +478,7 @@ struct CachedFileViewerView: View {
             Button("OK", role: .cancel) { }
         }
         .task { await loadFile() }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     // MARK: - Rename Functionality

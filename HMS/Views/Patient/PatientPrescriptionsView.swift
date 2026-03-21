@@ -80,6 +80,7 @@ struct PatientPrescriptionsView: View {
                 withAnimation { animate = true }
             }
         }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     private func fetchPrescriptions() async {
@@ -270,6 +271,7 @@ struct PatientPrescriptionPDFView: View {
             }
         }
         .task { await loadPDF() }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     private func updateShareURL(from localURL: URL) {

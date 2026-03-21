@@ -166,6 +166,7 @@ struct PatientAppointmentsView: View {
             Text("Are you sure you want to cancel your appointment with \(appt.doctorName) on \(formatDate(appt.date)) at \(appt.startTime)?")
         }
         .task { await fetchAppointments() }
+        .toolbar(.hidden, for: .tabBar)
     }
 
     // MARK: - Fetch

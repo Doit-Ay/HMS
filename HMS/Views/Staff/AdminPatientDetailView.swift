@@ -105,6 +105,7 @@ struct AdminPatientDetailView: View {
                 animate = true
             }
         }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     private func fetchPatientData() async {

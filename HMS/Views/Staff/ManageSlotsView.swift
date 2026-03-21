@@ -74,6 +74,7 @@ struct ManageSlotsView: View {
                 animate = true
             }
         }
+        .toolbar(.hidden, for: .tabBar)
     }
 
     // MARK: - Search Bar

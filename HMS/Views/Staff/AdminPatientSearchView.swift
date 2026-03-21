@@ -97,6 +97,7 @@ struct AdminPatientSearchView: View {
                     }
                 }
             }
+            .toolbar(.hidden, for: .tabBar)
         }
     }
 

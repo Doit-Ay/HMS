@@ -78,6 +78,7 @@ struct AdminPrescriptionsView: View {
                 withAnimation { animate = true }
             }
         }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     private func fetchPrescriptions() async {
@@ -180,5 +181,6 @@ struct ConsultationNoteDetailView: View {
         }
         .navigationTitle("Note Details")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
     }
 }

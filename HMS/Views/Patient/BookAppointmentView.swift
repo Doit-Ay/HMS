@@ -243,6 +243,7 @@ struct BookAppointmentView: View {
             .presentationDragIndicator(.visible)
             .interactiveDismissDisabled()
         }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     // MARK: - Load Unavailability

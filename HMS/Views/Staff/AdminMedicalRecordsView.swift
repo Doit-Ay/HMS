@@ -101,6 +101,7 @@ struct AdminMedicalRecordsView: View {
                 withAnimation { animate = true }
             }
         }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     private func fetchRecords() async {
@@ -159,6 +160,7 @@ struct AdminDocumentViewerView: View {
         }
         .navigationTitle(name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
     }
 }
 

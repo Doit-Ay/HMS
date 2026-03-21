@@ -147,6 +147,7 @@ struct DoctorSearchView: View {
         .onAppear { loadDoctors() }
         .navigationTitle("Book Appointment")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
     }
 
     // MARK: Load Doctors

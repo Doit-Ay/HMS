@@ -330,6 +330,7 @@ struct PatientHistoryView: View {
                 AppointmentDetailSheet(appointment: block)
             }
         }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     // Fetch real demographic data

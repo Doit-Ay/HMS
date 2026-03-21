@@ -135,6 +135,7 @@ struct PatientRecordsMainView: View {
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 24)
+        .toolbar(.hidden, for: .tabBar)
     }
 }
 
@@ -259,6 +260,7 @@ struct FolderDetailView: View {
         .onAppear {
             Task { await loadDocuments() }
         }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     // MARK: Toolbar Content

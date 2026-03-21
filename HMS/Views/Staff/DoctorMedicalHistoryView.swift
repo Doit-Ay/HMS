@@ -9,7 +9,6 @@ struct DoctorMedicalHistoryView: View {
     @State private var documents: [SharedMedicalDocument] = []
     @State private var isLoading: Bool = true
     @State private var errorMessage: String? = nil
-    @State private var selectedDocument: SharedMedicalDocument? = nil
     
     var body: some View {
         ZStack {
@@ -21,9 +20,7 @@ struct DoctorMedicalHistoryView: View {
         .task {
             await fetchDocuments()
         }
-        .sheet(item: $selectedDocument) { doc in
-            sheetContent(for: doc)
-        }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     @ViewBuilder
@@ -42,24 +39,8 @@ struct DoctorMedicalHistoryView: View {
                 fileIcon: fileIcon(for:),
                 fileColor: fileColor(for:),
                 cleanFileName: cleanFileName(_:),
-                formatDate: formatDate(_:),
-                onSelect: { doc in
-                    selectedDocument = doc
-                }
+                formatDate: formatDate(_:)
             )
-        }
-    }
-    
-    @ViewBuilder
-    private func sheetContent(for doc: SharedMedicalDocument) -> some View {
-        if let url = URL(string: doc.fileURL) {
-            if doc.fileType.lowercased() == "pdf" {
-                PDFViewerSheet(pdfURL: url, title: cleanFileName(doc.name))
-            } else {
-                InteractiveImageViewer(url: url, title: cleanFileName(doc.name), extensionString: doc.fileType)
-            }
-        } else {
-            Text("Invalid Document URL")
         }
     }
     
@@ -175,15 +156,15 @@ private struct DocumentsListView: View {
     let fileColor: (SharedMedicalDocument) -> Color
     let cleanFileName: (String) -> String
     let formatDate: (Date) -> String
-    let onSelect: (SharedMedicalDocument) -> Void
     
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 16) {
                 ForEach(documents) { doc in
-                    Button {
-                        onSelect(doc)
-                    } label: {
+                    NavigationLink(destination: CachedFileViewerView(
+                        title: cleanFileName(doc.name),
+                        urlString: doc.fileURL
+                    )) {
                         HistoryDocumentRow(
                             iconName: fileIcon(doc),
                             iconColor: fileColor(doc),

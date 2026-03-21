@@ -112,6 +112,7 @@ struct PatientDetailView: View {
             }
             animateCounters()
         }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     // MARK: - Subcomponents
