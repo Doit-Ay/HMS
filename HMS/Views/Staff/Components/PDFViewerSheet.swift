@@ -4,6 +4,9 @@ import PDFKit
 struct PDFViewerSheet: View {
     @Environment(\.dismiss) var dismiss
     let pdfURL: URL
+    var title: String = "Document"
+    
+    @State private var shareURL: URL? = nil
     
     var body: some View {
         NavigationView {
@@ -19,12 +22,35 @@ struct PDFViewerSheet: View {
                         .foregroundColor(AppTheme.primary)
                     }
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        ShareLink(item: pdfURL) {
-                            Image(systemName: "square.and.arrow.up")
-                                .foregroundColor(AppTheme.primary)
+                        if let sURL = shareURL {
+                            ShareLink(item: sURL) {
+                                Image(systemName: "square.and.arrow.up")
+                                    .foregroundColor(AppTheme.primary)
+                            }
+                        } else {
+                            ShareLink(item: pdfURL) {
+                                Image(systemName: "square.and.arrow.up")
+                                    .foregroundColor(AppTheme.primary.opacity(0.5))
+                            }
                         }
                     }
                 }
+        }
+        .task {
+            do {
+                let (tempURL, _) = try await URLSession.shared.download(from: pdfURL)
+                let safeName = title.replacingOccurrences(of: "/", with: "-")
+                let finalName = safeName.lowercased().hasSuffix(".pdf") ? safeName : "\(safeName).pdf"
+                let newURL = FileManager.default.temporaryDirectory.appendingPathComponent(finalName)
+                
+                if FileManager.default.fileExists(atPath: newURL.path) {
+                    try FileManager.default.removeItem(at: newURL)
+                }
+                try FileManager.default.moveItem(at: tempURL, to: newURL)
+                self.shareURL = newURL
+            } catch {
+                print("❌ Failed to download for share:", error)
+            }
         }
     }
 }

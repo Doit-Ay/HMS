@@ -320,7 +320,9 @@ class LabTechnicianRepository: ObservableObject {
             patientName: patientName,
             tests: tests,
             dateRequested: timestamp.dateValue(),
-            status: data["status"] as? String ?? "pending"
+            status: data["status"] as? String ?? "pending",
+            customName: data["customName"] as? String,
+            collectionName: "patient_lab_requests"
         )
     }
     

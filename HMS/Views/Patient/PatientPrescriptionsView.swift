@@ -49,17 +49,16 @@ struct PatientPrescriptionsView: View {
                 ScrollView(showsIndicators: false) {
                     LazyVStack(spacing: 14) {
                         ForEach(Array(prescriptions.enumerated()), id: \.element.id) { index, doc in
-                            NavigationLink(destination: PatientPrescriptionPDFView(
-                                title: "Prescription - \(doc.date)",
-                                urlString: doc.pdfUrl
-                            )) {
+                            let title = doc.customName ?? "Prescription - \(doc.date)"
+                            NavigationLink(destination: PatientPrescriptionPDFView(prescription: doc)) {
                                 PatientPrescriptionCard(
                                     doctorName: doc.doctorName,
                                     date: doc.date,
                                     time: doc.startTime,
                                     type: "Prescription",
                                     icon: "doc.text.fill",
-                                    color: AppTheme.primary
+                                    color: AppTheme.primary,
+                                    customTitle: doc.customName
                                 )
                             }
                             .buttonStyle(.plain)
@@ -110,6 +109,7 @@ struct PatientPrescriptionCard: View {
     let type: String
     let icon: String
     let color: Color
+    let customTitle: String?
     
     var body: some View {
         HStack(spacing: 14) {
@@ -123,10 +123,20 @@ struct PatientPrescriptionCard: View {
             }
             
             VStack(alignment: .leading, spacing: 6) {
-                Text("Dr. \(doctorName)")
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .foregroundColor(AppTheme.textPrimary)
-                    .lineLimit(1)
+                if let title = customTitle {
+                    Text(title)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundColor(AppTheme.textPrimary)
+                        .lineLimit(1)
+                    Text("Dr. \(doctorName)")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundColor(AppTheme.textSecondary)
+                } else {
+                    Text("Dr. \(doctorName)")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundColor(AppTheme.textPrimary)
+                        .lineLimit(1)
+                }
                 
                 HStack(spacing: 4) {
                     Image(systemName: "calendar")
@@ -170,12 +180,21 @@ struct PatientPrescriptionCard: View {
 
 // MARK: - PDF Viewer for Prescriptions (with caching + loader)
 struct PatientPrescriptionPDFView: View {
-    let title: String
-    let urlString: String
+    @State var prescription: PrescriptionDocument
     
     @State private var pdfDocument: PDFDocument? = nil
+    @State private var localFileURL: URL? = nil
+    @State private var shareURL: URL? = nil
     @State private var isLoading = true
     @State private var loadFailed = false
+    
+    // Rename state
+    @State private var showRenameAlert = false
+    @State private var newName = ""
+    
+    private var displayTitle: String {
+        prescription.customName ?? "Prescription - \(prescription.date)"
+    }
     
     var body: some View {
         ZStack {
@@ -220,13 +239,75 @@ struct PatientPrescriptionPDFView: View {
                 CachedPDFKitView(document: pdfDocument)
             }
         }
-        .navigationTitle(title)
+        .navigationTitle(displayTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button(action: {
+                        newName = displayTitle
+                        showRenameAlert = true
+                    }) {
+                        Label("Rename", systemImage: "pencil")
+                    }
+                    
+                    if let url = shareURL {
+                        ShareLink(item: url) {
+                            Label("Download / Share", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .foregroundColor(AppTheme.primary)
+                }
+            }
+        }
+        .alert("Rename Prescription", isPresented: $showRenameAlert) {
+            TextField("Name", text: $newName)
+            Button("Cancel", role: .cancel) { }
+            Button("Save") {
+                Task { await renamePrescription() }
+            }
+        }
         .task { await loadPDF() }
     }
     
+    private func updateShareURL(from localURL: URL) {
+        let tempDir = FileManager.default.temporaryDirectory
+        let safeName = displayTitle.replacingOccurrences(of: "/", with: "-")
+        let finalName = safeName.lowercased().hasSuffix(".pdf") ? safeName : "\(safeName).pdf"
+        let newURL = tempDir.appendingPathComponent(finalName)
+        
+        do {
+            if FileManager.default.fileExists(atPath: newURL.path) {
+                try FileManager.default.removeItem(at: newURL)
+            }
+            try FileManager.default.copyItem(at: localURL, to: newURL)
+            self.shareURL = newURL
+        } catch {
+            print("❌ Failed to create shareable file:", error)
+            self.shareURL = localURL
+        }
+    }
+    
+    private func renamePrescription() async {
+        guard !newName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        
+        var updatedDoc = prescription
+        updatedDoc.customName = newName.trimmingCharacters(in: .whitespaces)
+        
+        do {
+            try await DoctorPatientRepository.shared.savePrescriptionDocument(updatedDoc)
+            await MainActor.run {
+                self.prescription = updatedDoc
+            }
+        } catch {
+            print("Failed to rename prescription: \(error)")
+        }
+    }
+    
     private func loadPDF() async {
-        guard let remoteURL = URL(string: urlString) else {
+        guard let remoteURL = URL(string: prescription.pdfUrl) else {
             await MainActor.run {
                 loadFailed = true
                 isLoading = false
@@ -246,6 +327,8 @@ struct PatientPrescriptionPDFView: View {
            let doc = PDFDocument(url: cachedURL) {
             await MainActor.run {
                 self.pdfDocument = doc
+                self.localFileURL = cachedURL
+                self.updateShareURL(from: cachedURL)
                 self.isLoading = false
             }
             
@@ -266,6 +349,8 @@ struct PatientPrescriptionPDFView: View {
            let doc = PDFDocument(url: localURL) {
             await MainActor.run {
                 self.pdfDocument = doc
+                self.localFileURL = localURL
+                self.updateShareURL(from: localURL)
                 self.isLoading = false
             }
         } else {

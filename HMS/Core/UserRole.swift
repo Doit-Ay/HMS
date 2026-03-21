@@ -264,6 +264,7 @@ struct PrescriptionDocument: Codable, Identifiable {
     var startTime: String               // Slot time
     var pdfUrl: String                  // Download URL from Firebase Storage
     var createdAt: Date
+    var customName: String?             // User-assigned name
 }
 
 // MARK: - Firestore `documents` Collection

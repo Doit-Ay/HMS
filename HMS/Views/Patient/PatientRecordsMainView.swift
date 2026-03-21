@@ -200,11 +200,6 @@ struct FolderDetailView: View {
 
     @State private var documents: [MedicalDocument] = []
     @State private var isLoading = true
-    @State private var isEditMode = false
-    @State private var selectedDocuments = Set<String>()
-    
-    @State private var showDeleteConfirmation = false
-    @State private var isDeleting = false
 
     @State private var showUploadSheet = false
     @State private var showDocumentPicker = false
@@ -223,31 +218,7 @@ struct FolderDetailView: View {
             AppTheme.background
                 .ignoresSafeArea()
 
-            VStack {
-                if isEditMode && !documents.isEmpty {
-                    // Selection header
-                    selectionHeader
-                }
-                
-                content
-            }
-
-            // Delete Progress Overlay
-            if isDeleting {
-                VStack(spacing: 16) {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .tint(AppTheme.primary)
-                    
-                    Text("Deleting selected files...")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(AppTheme.textSecondary)
-                }
-                .padding(30)
-                .background(Color.white)
-                .cornerRadius(20)
-                .shadow(radius: 15)
-            }
+            content
 
             // Upload Progress Overlay
             if isUploading {
@@ -276,18 +247,6 @@ struct FolderDetailView: View {
             Button("Choose from Gallery") { showImagePicker = true }
             Button("Browse Files") { showDocumentPicker = true }
         }
-        .confirmationDialog(
-            "Delete \(selectedDocuments.count) file\(selectedDocuments.count == 1 ? "" : "s")?",
-            isPresented: $showDeleteConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Delete", role: .destructive) {
-                Task { await deleteSelectedDocuments() }
-            }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("This action cannot be undone.")
-        }
         .sheet(isPresented: $showDocumentPicker) {
             DocumentPicker { handlePickedDocument($0) }
         }
@@ -302,77 +261,17 @@ struct FolderDetailView: View {
         }
     }
     
-    // MARK: Selection Header
-    private var selectionHeader: some View {
-        HStack {
-            Button(action: {
-                if selectedDocuments.count == documents.count {
-                    selectedDocuments.removeAll()
-                } else {
-                    selectedDocuments = Set(documents.map { $0.id })
-                }
-            }) {
-                Text(selectedDocuments.count == documents.count ? "Deselect All" : "Select All")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(AppTheme.primary)
-            }
-            
-            Spacer()
-            
-            Text("\(selectedDocuments.count) selected")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(AppTheme.textSecondary)
-            
-            Spacer()
-            
-            if !selectedDocuments.isEmpty {
-                Button(role: .destructive) {
-                    showDeleteConfirmation = true
-                } label: {
-                    Image(systemName: "trash")
-                        .foregroundColor(.red)
-                }
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .background(Color.white)
-        .cornerRadius(12)
-        .padding(.horizontal, 20)
-        .padding(.top, 8)
-        .transition(.move(edge: .top).combined(with: .opacity))
-    }
-    
     // MARK: Toolbar Content
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
 
-        // LEFT SIDE (Edit / Cancel)
-        ToolbarItem(placement: .navigationBarLeading) {
-            if !documents.isEmpty {
-                Button {
-                    withAnimation(.easeInOut) {
-                        isEditMode.toggle()
-                        if !isEditMode {
-                            selectedDocuments.removeAll()
-                        }
-                    }
-                } label: {
-                    Text(isEditMode ? "Cancel" : "Select")
-                        .font(.system(size: 16, weight: .regular))
-                }
-            }
-        }
-
         // RIGHT SIDE (+ button)
         ToolbarItem(placement: .navigationBarTrailing) {
-            if !isEditMode {
-                Button {
-                    showUploadSheet = true
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 17, weight: .semibold))
-                }
+            Button {
+                showUploadSheet = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 17, weight: .semibold))
             }
         }
     }
@@ -394,18 +293,7 @@ struct FolderDetailView: View {
                 ScrollView {
                     LazyVStack(spacing: 16) {
                         ForEach(documents) { document in
-                            DocumentRow(
-                                document: document,
-                                isEditMode: $isEditMode,
-                                isSelected: selectedDocuments.contains(document.id),
-                                onSelect: {
-                                    if selectedDocuments.contains(document.id) {
-                                        selectedDocuments.remove(document.id)
-                                    } else {
-                                        selectedDocuments.insert(document.id)
-                                    }
-                                }
-                            )
+                            DocumentRow(document: document)
                         }
                     }
                     .padding(20)
@@ -578,48 +466,6 @@ extension FolderDetailView {
         }
     }
     
-    // MARK: Delete Function
-    private func deleteSelectedDocuments() async {
-        guard !selectedDocuments.isEmpty else { return }
-        
-        await MainActor.run {
-            isDeleting = true
-        }
-        
-        let db = Firestore.firestore()
-        let storage = Storage.storage()
-        
-        for documentId in selectedDocuments {
-            if let document = documents.first(where: { $0.id == documentId }) {
-                do {
-                    // Delete from Storage
-                    if !document.fileName.isEmpty {
-                        let storageRef = storage.reference()
-                            .child("patients/\(document.patientId)/\(folder.storagePath)/\(document.fileName)")
-                        
-                        try await storageRef.delete()
-                        print("✅ Deleted from Storage: \(document.fileName)")
-                    }
-                    
-                    // Delete from Firestore
-                    try await db.collection("documents").document(documentId).delete()
-                    print("✅ Deleted from Firestore: \(documentId)")
-                    
-                } catch {
-                    print("❌ Error deleting document \(documentId): \(error)")
-                }
-            }
-        }
-        
-        // Refresh documents
-        await loadDocuments()
-        
-        await MainActor.run {
-            isDeleting = false
-            isEditMode = false
-            selectedDocuments.removeAll()
-        }
-    }
 }
 
 //////////////////////////////////////////////////////////////
@@ -673,6 +519,7 @@ struct EmptyFolderView: View {
     }
 }
 
+
 //////////////////////////////////////////////////////////////
 // MARK: Document Row with Selection
 //////////////////////////////////////////////////////////////
@@ -680,87 +527,48 @@ struct EmptyFolderView: View {
 struct DocumentRow: View {
 
     let document: MedicalDocument
-    @Binding var isEditMode: Bool
-    let isSelected: Bool
-    let onSelect: () -> Void
 
     var body: some View {
 
-        HStack(spacing: 12) {
-            if isEditMode {
-                // Selection circle
-                Button(action: onSelect) {
-                    ZStack {
-                        Circle()
-                            .stroke(isSelected ? AppTheme.primary : Color.gray.opacity(0.3), lineWidth: 2)
-                            .frame(width: 24, height: 24)
-                        
-                        if isSelected {
-                            Circle()
-                                .fill(AppTheme.primary)
-                                .frame(width: 18, height: 18)
-                            
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(.white)
-                        }
-                    }
+        NavigationLink {
+            DocumentViewerView(document: document)
+        } label: {
+            HStack(spacing: 16) {
+                // FILE TYPE ICON
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(fileColor.opacity(0.15))
+                        .frame(width: 55, height: 55)
+
+                    Image(systemName: fileIcon)
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(fileColor)
                 }
-                .buttonStyle(PlainButtonStyle())
-            }
-            
-            // Document content
-            NavigationLink {
-                DocumentViewerView(document: document)
-            } label: {
-                HStack(spacing: 16) {
-                    // FILE TYPE ICON
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(fileColor.opacity(0.15))
-                            .frame(width: 55, height: 55)
 
-                        Image(systemName: fileIcon)
-                            .font(.system(size: 22, weight: .semibold))
-                            .foregroundColor(fileColor)
-                    }
+                // INFO
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(cleanFileName)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(AppTheme.textPrimary)
+                        .lineLimit(1)
 
-                    // INFO
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(cleanFileName)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(AppTheme.textPrimary)
-                            .lineLimit(1)
-
-                        Text(document.uploadDate, style: .date)
-                            .font(.system(size: 12))
-                            .foregroundColor(AppTheme.textSecondary)
-                    }
-
-                    Spacer()
-
-                    if !isEditMode {
-                        Image(systemName: "chevron.right")
-                            .foregroundColor(AppTheme.textSecondary.opacity(0.5))
-                    }
+                    Text(document.uploadDate, style: .date)
+                        .font(.system(size: 12))
+                        .foregroundColor(AppTheme.textSecondary)
                 }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .foregroundColor(AppTheme.textSecondary.opacity(0.5))
             }
-            .buttonStyle(PlainButtonStyle())
-            .opacity(isEditMode ? 0.8 : 1)
         }
-        .padding(.leading, isEditMode ? 8 : 14)
-        .padding(.trailing, 14)
+        .buttonStyle(PlainButtonStyle())
+        .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(isEditMode && isSelected ? AppTheme.primary.opacity(0.05) : Color.white)
-        )
+        .background(Color.white)
         .cornerRadius(16)
         .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 6, x: 0, y: 2)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(isEditMode && isSelected ? AppTheme.primary.opacity(0.3) : Color.clear, lineWidth: 2)
-        )
     }
 
     // MARK: File Type Logic
@@ -802,7 +610,6 @@ struct DocumentRow: View {
         document.name.components(separatedBy: "_").last ?? document.name
     }
 }
-
 //////////////////////////////////////////////////////////////
 // MARK: Pickers
 //////////////////////////////////////////////////////////////
@@ -894,50 +701,294 @@ struct ImagePicker: UIViewControllerRepresentable {
 }
 
 //////////////////////////////////////////////////////////////
-// MARK: Document Viewer
+// MARK: Document Viewer (with caching)
+//////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////
+// MARK: Document Viewer (with caching, download & rename)
+//////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////
+// MARK: Document Viewer (with caching, download & rename)
 //////////////////////////////////////////////////////////////
 
 struct DocumentViewerView: View {
 
     let document: MedicalDocument
 
+    @State private var pdfDocument: PDFDocument? = nil
+    @State private var cachedImage: UIImage? = nil
+    @State private var isLoading = true
+    @State private var loadFailed = false
+    @State private var localFileURL: URL? = nil
+    @State private var shareURL: URL? = nil
+    
+    // Rename state
+    @State private var showRenameAlert = false
+    @State private var newFileName = ""
+    @State private var showConfirmation = false
+    @State private var confirmationMessage = ""
+    
+    @ObservedObject var session = UserSession.shared
+
+    private var isPDF: Bool {
+        document.fileType.lowercased() == "pdf"
+    }
+
     var body: some View {
+        ZStack {
+            AppTheme.background.ignoresSafeArea()
 
-        Group {
-            if document.fileType.lowercased() == "pdf" {
+            if isLoading {
+                VStack(spacing: 18) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                        .tint(AppTheme.primary)
 
-                PDFKitView(url: URL(string: document.fileURL)!)
+                    Text(isPDF ? "Loading Document…" : "Loading Image…")
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+            } else if loadFailed {
+                VStack(spacing: 16) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 40))
+                        .foregroundColor(.orange)
+                    Text("Unable to load file")
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundColor(AppTheme.textSecondary)
 
-            } else {
-
+                    Button {
+                        Task { await loadFile() }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Retry")
+                        }
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(AppTheme.primary)
+                        .cornerRadius(10)
+                    }
+                }
+            } else if let pdfDocument {
+                CachedPDFKitView(document: pdfDocument)
+            } else if let cachedImage {
                 ZStack {
                     Color.black.ignoresSafeArea()
-
-                    AsyncImage(url: URL(string: document.fileURL)) { image in
-                        image
-                            .resizable()
-                            .scaledToFit()
-                    } placeholder: {
-                        ProgressView().tint(.white)
-                    }
+                    Image(uiImage: cachedImage)
+                        .resizable()
+                        .scaledToFit()
                 }
             }
         }
+        .navigationTitle(cleanFileName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button(action: { showRenameAlert = true }) {
+                        Label("Rename", systemImage: "pencil")
+                    }
+                    if let url = shareURL {
+                        ShareLink(item: url) {
+                            Label("Download / Share", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 17, weight: .semibold))
+                }
+            }
+        }
+        .alert("Rename Document", isPresented: $showRenameAlert) {
+            TextField("New name", text: $newFileName)
+                .autocapitalization(.none)
+            Button("Cancel", role: .cancel) { }
+            Button("Save") {
+                renameDocument()
+            }
+        } message: {
+            Text("Enter a new name for this document")
+        }
+        .alert(confirmationMessage, isPresented: $showConfirmation) {
+            Button("OK", role: .cancel) { }
+        }
+        .task { await loadFile() }
     }
-}
 
-struct PatientPDFKitView: UIViewRepresentable {
+    private var cleanFileName: String {
+        document.name.components(separatedBy: "_").last ?? document.name
+    }
+    
+    private func updateShareURL(from localURL: URL) {
+        let tempDir = FileManager.default.temporaryDirectory
+        let safeName = cleanFileName.replacingOccurrences(of: "/", with: "-")
+        let ext = document.fileType.lowercased()
+        let finalName = safeName.lowercased().hasSuffix(".\(ext)") ? safeName : "\(safeName).\(ext)"
+        let newURL = tempDir.appendingPathComponent(finalName)
+        
+        do {
+            if FileManager.default.fileExists(atPath: newURL.path) {
+                try FileManager.default.removeItem(at: newURL)
+            }
+            try FileManager.default.copyItem(at: localURL, to: newURL)
+            self.shareURL = newURL
+        } catch {
+            print("❌ Failed to create shareable file:", error)
+            self.shareURL = localURL
+        }
+    }
+    
+    // MARK: - Rename Functionality
+    
+    private func renameDocument() {
+        guard !newFileName.trimmingCharacters(in: .whitespaces).isEmpty else {
+            confirmationMessage = "Please enter a valid name"
+            showConfirmation = true
+            return
+        }
+        
+        // Keep the original file extension
+        let fileExtension = document.fileType
+        let newNameWithExtension = newFileName.hasSuffix(".\(fileExtension)") ?
+            newFileName : "\(newFileName).\(fileExtension)"
+        
+        Task {
+            do {
+                let db = Firestore.firestore()
+                try await db.collection("documents")
+                    .document(document.id)
+                    .updateData([
+                        "name": newNameWithExtension
+                    ])
+                
+                await MainActor.run {
+                    confirmationMessage = "Document renamed successfully"
+                    showConfirmation = true
+                    // Reset the newFileName field
+                    newFileName = ""
+                }
+            } catch {
+                await MainActor.run {
+                    confirmationMessage = "Failed to rename: \(error.localizedDescription)"
+                    showConfirmation = true
+                }
+            }
+        }
+    }
+    
+    // MARK: - Load with Cache
+    
+    private func loadFile() async {
+        guard let remoteURL = URL(string: document.fileURL) else {
+            await MainActor.run {
+                loadFailed = true
+                isLoading = false
+            }
+            return
+        }
 
-    let url: URL
+        await MainActor.run {
+            isLoading = true
+            loadFailed = false
+        }
 
-    func makeUIView(context: Context) -> PDFView {
-        let pdfView = PDFView()
-        pdfView.autoScales = true
-        return pdfView
+        if isPDF {
+            await loadPDF(remoteURL: remoteURL)
+        } else {
+            await loadImage(remoteURL: remoteURL)
+        }
     }
 
-    func updateUIView(_ pdfView: PDFView, context: Context) {
-        pdfView.document = PDFDocument(url: url)
+    // MARK: PDF Loading (cache-first + background refresh)
+
+    private func loadPDF(remoteURL: URL) async {
+        let cache = PDFCacheManager.shared
+
+        // 1) Try cache first (instant)
+        if let cachedURL = cache.cachedFileURL(for: remoteURL),
+           let doc = PDFDocument(url: cachedURL) {
+            await MainActor.run {
+                self.pdfDocument = doc
+                self.localFileURL = cachedURL
+                self.updateShareURL(from: cachedURL)
+                self.isLoading = false
+            }
+
+            // 2) Background refresh
+            let didUpdate = await cache.refreshIfNeeded(from: remoteURL)
+            if didUpdate,
+               let updatedURL = cache.cachedFileURL(for: remoteURL),
+               let updatedDoc = PDFDocument(url: updatedURL) {
+                await MainActor.run {
+                    self.pdfDocument = updatedDoc
+                }
+            }
+            return
+        }
+
+        // 3) No cache — download fresh
+        if let localURL = await cache.download(from: remoteURL),
+           let doc = PDFDocument(url: localURL) {
+            await MainActor.run {
+                self.pdfDocument = doc
+                self.localFileURL = localURL
+                self.updateShareURL(from: localURL)
+                self.isLoading = false
+            }
+        } else {
+            await MainActor.run {
+                self.loadFailed = true
+                self.isLoading = false
+            }
+        }
+    }
+
+    // MARK: Image Loading (cache-first + background refresh)
+
+    private func loadImage(remoteURL: URL) async {
+        let cache = PDFCacheManager.shared
+
+        // 1) Try cache first (instant)
+        if let cachedURL = cache.cachedImageFileURL(for: remoteURL),
+           let img = UIImage(contentsOfFile: cachedURL.path) {
+            await MainActor.run {
+                self.cachedImage = img
+                self.localFileURL = cachedURL
+                self.updateShareURL(from: cachedURL)
+                self.isLoading = false
+            }
+
+            // 2) Background refresh
+            let didUpdate = await cache.refreshImageIfNeeded(from: remoteURL)
+            if didUpdate,
+               let updatedURL = cache.cachedImageFileURL(for: remoteURL),
+               let updatedImg = UIImage(contentsOfFile: updatedURL.path) {
+                await MainActor.run {
+                    self.cachedImage = updatedImg
+                    self.localFileURL = updatedURL
+                }
+            }
+            return
+        }
+
+        // 3) No cache — download fresh
+        if let localURL = await cache.downloadImage(from: remoteURL),
+           let img = UIImage(contentsOfFile: localURL.path) {
+            await MainActor.run {
+                self.cachedImage = img
+                self.localFileURL = localURL
+                self.updateShareURL(from: localURL)
+                self.isLoading = false
+            }
+        } else {
+            await MainActor.run {
+                self.loadFailed = true
+                self.isLoading = false
+            }
+        }
     }
 }
