@@ -261,6 +261,68 @@ class DoctorPatientRepository {
             return data
         }
     }
+    
+    // MARK: - Completed Lab Reports
+    
+    /// Fetches completed lab reports from `patient_lab_requests` for a specific patient.
+    /// Only returns entries with `status == "completed"` that have at least one test with a `resultURL`.
+    func fetchCompletedLabReports(patientId: String) async throws -> [PatientLabRequest] {
+        let snapshot = try await db.collection("patient_lab_requests")
+            .whereField("patientId", isEqualTo: patientId)
+            .whereField("status", isEqualTo: "completed")
+            .getDocuments()
+        
+        let requests = snapshot.documents.compactMap { doc -> PatientLabRequest? in
+            let data = doc.data()
+            
+            guard let pId = data["patientId"] as? String,
+                  let pName = data["patientName"] as? String,
+                  let testsData = data["tests"] as? [[String: Any]],
+                  let timestamp = data["dateRequested"] as? Timestamp else {
+                return nil
+            }
+            
+            var tests: [RequestedTest] = []
+            for testData in testsData {
+                if let name = testData["name"] as? String {
+                    var price = 0
+                    if let p = testData["price"] as? Int {
+                        price = p
+                    } else if let p = testData["price"] as? Double {
+                        price = Int(p)
+                    }
+                    
+                    let resultURL = testData["resultURL"] as? String
+                    let resultFileName = testData["resultFileName"] as? String
+                    let completedDate = (testData["completedDate"] as? Timestamp)?.dateValue()
+                    
+                    tests.append(RequestedTest(
+                        name: name,
+                        price: price,
+                        requestedByDoctor: testData["requestedByDoctor"] as? String,
+                        resultURL: resultURL,
+                        resultFileName: resultFileName,
+                        completedDate: completedDate
+                    ))
+                }
+            }
+            
+            // Only include requests that have at least one test with a resultURL
+            let hasReport = tests.contains { $0.resultURL != nil && !$0.resultURL!.isEmpty }
+            guard hasReport else { return nil }
+            
+            return PatientLabRequest(
+                id: doc.documentID,
+                patientId: pId,
+                patientName: pName,
+                tests: tests,
+                dateRequested: timestamp.dateValue(),
+                status: data["status"] as? String ?? "completed"
+            )
+        }
+        
+        return requests.sorted { $0.dateRequested > $1.dateRequested }
+    }
 }
 
 
