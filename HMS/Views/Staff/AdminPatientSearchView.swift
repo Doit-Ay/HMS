@@ -23,31 +23,10 @@ struct AdminPatientSearchView: View {
 
                 VStack(spacing: 0) {
                     // Search bar
-                    HStack(spacing: 12) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 16))
-                            .foregroundColor(AppTheme.textSecondary)
-                        TextField("Search patients by name or email...", text: $searchText)
-                            .font(.system(size: 15, design: .rounded))
-
-                        if !searchText.isEmpty {
-                            Button {
-                                searchText = ""
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 18))
-                                    .foregroundColor(AppTheme.textSecondary.opacity(0.5))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(14)
-                    .background(Color.white)
-                    .cornerRadius(16)
-                    .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 3)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
-                    .padding(.bottom, 12)
+                    HMSSearchBar(placeholder: "Search patients by name or email...", text: $searchText)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 12)
+                        .padding(.bottom, 12)
 
                     // Patient count header
                     if !isLoading && !patients.isEmpty {

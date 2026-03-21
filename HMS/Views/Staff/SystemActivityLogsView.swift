@@ -11,24 +11,7 @@ struct SystemActivityLogsView: View {
                 
                 VStack(spacing: 0) {
                     // Search bar
-                    HStack(spacing: 12) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 16))
-                            .foregroundColor(AppTheme.textSecondary)
-                        TextField("Search logs...", text: $viewModel.searchText)
-                            .font(.system(size: 15, design: .rounded))
-                        
-                        if !viewModel.searchText.isEmpty {
-                            Button {
-                                viewModel.searchText = ""
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 18))
-                                    .foregroundColor(AppTheme.textSecondary.opacity(0.5))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        
+                    HMSSearchBar(placeholder: "Search logs...", text: $viewModel.searchText) {
                         Menu {
                             Section("Time Period") {
                                 Picker("Time Filter", selection: $viewModel.timeFilter) {
@@ -50,12 +33,7 @@ struct SystemActivityLogsView: View {
                                 .font(.system(size: 20))
                                 .foregroundColor(viewModel.hasActiveAdvancedFilters ? AppTheme.primary : AppTheme.textSecondary)
                         }
-                        .padding(.leading, 4)
                     }
-                    .padding(14)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 3)
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
                     

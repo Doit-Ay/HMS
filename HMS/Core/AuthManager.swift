@@ -37,12 +37,12 @@ class AuthManager {
     }
 
     // MARK: - Fetch User Profile from Firestore
-    func fetchUserProfile(uid: String) async {
+    func fetchUserProfile(uid: String, requiresOTP: Bool = false) async {
         do {
             let doc = try await db.collection("users").document(uid).getDocument()
             if let data = doc.data(), let user = try? Firestore.Decoder().decode(HMSUser.self, from: data) {
-                // Default: no OTP required (app reopen via auth listener)
-                UserSession.shared.setUser(user, requiresOTP: false)
+                // requiresOTP: true for fresh logins, false for app reopen via auth listener
+                UserSession.shared.setUser(user, requiresOTP: requiresOTP)
             } else {
                 UserSession.shared.setLoading(false)
             }
@@ -57,11 +57,8 @@ class AuthManager {
     /// AppRouter handles routing to the correct dashboard automatically.
     func login(email: String, password: String) async throws {
         let result = try await Auth.auth().signIn(withEmail: email, password: password)
-        await fetchUserProfile(uid: result.user.uid)
+        await fetchUserProfile(uid: result.user.uid, requiresOTP: true)
         await ActivityLogManager.shared.logAction(action: "User Login", details: "Logged in via Email: \(email)")
-        // Trigger OTP for fresh login
-        UserSession.shared.needsOTPVerification = true
-        UserSession.shared.pendingOTPEmail = email
         await sendOTPForUser(email: email)
     }
 
@@ -69,7 +66,7 @@ class AuthManager {
     /// Google sign-in for any user. New Google users are auto-registered as patients.
     /// Existing users are signed in regardless of role — AppRouter routes them.
     func googleSignInUnified(presenting viewController: UIViewController) async throws {
-        let googleUser = try await googleSignIn(presenting: viewController)
+        let googleUser = try await googleSignIn(presenting: viewController, requiresOTP: true)
         if UserSession.shared.userRole == nil {
             // New Google user — create as patient
             let newUser = HMSUser(
@@ -83,17 +80,14 @@ class AuthManager {
             try await savePatientProfile(profile: patientProfile, db: nil)
             UserSession.shared.setUser(newUser, requiresOTP: true)
         }
-        // Trigger OTP for fresh Google sign-in
         let email = googleUser.email ?? UserSession.shared.currentUser?.email ?? ""
-        UserSession.shared.needsOTPVerification = true
-        UserSession.shared.pendingOTPEmail = email
         await sendOTPForUser(email: email)
     }
 
     // MARK: - Patient Email/Password Login
     func patientLogin(email: String, password: String) async throws {
         let result = try await Auth.auth().signIn(withEmail: email, password: password)
-        await fetchUserProfile(uid: result.user.uid)
+        await fetchUserProfile(uid: result.user.uid, requiresOTP: true)
         // Ensure the logged-in user is a patient
         if UserSession.shared.userRole != .patient {
             try Auth.auth().signOut()
@@ -101,16 +95,13 @@ class AuthManager {
             throw AuthError.wrongRole("This account is not a patient account. Please use Staff login.")
         }
         await ActivityLogManager.shared.logAction(action: "Patient Login", details: "Patient logged in: \(email)")
-        // Trigger OTP for fresh login
-        UserSession.shared.needsOTPVerification = true
-        UserSession.shared.pendingOTPEmail = email
         await sendOTPForUser(email: email)
     }
 
     // MARK: - Staff Email/Password Login
     func staffLogin(email: String, password: String) async throws {
         let result = try await Auth.auth().signIn(withEmail: email, password: password)
-        await fetchUserProfile(uid: result.user.uid)
+        await fetchUserProfile(uid: result.user.uid, requiresOTP: true)
         // Ensure the logged-in user is staff
         if UserSession.shared.userRole == .patient {
             try Auth.auth().signOut()
@@ -118,9 +109,6 @@ class AuthManager {
             throw AuthError.wrongRole("This account is not a staff account. Please use Patient login.")
         }
         await ActivityLogManager.shared.logAction(action: "Staff Login", details: "Staff logged in: \(email)")
-        // Trigger OTP for fresh login
-        UserSession.shared.needsOTPVerification = true
-        UserSession.shared.pendingOTPEmail = email
         await sendOTPForUser(email: email)
     }
 
@@ -155,7 +143,7 @@ class AuthManager {
     // MARK: - Google Sign-In (Patient)
     // For new Google users: writes to both `users` and `patients` collections.
     func googleSignInPatient(presenting viewController: UIViewController) async throws {
-        let googleUser = try await googleSignIn(presenting: viewController)
+        let googleUser = try await googleSignIn(presenting: viewController, requiresOTP: true)
         if UserSession.shared.userRole == nil {
             // New Google user — create as patient in both collections
             let newUser = HMSUser(
@@ -175,17 +163,14 @@ class AuthManager {
             UserSession.shared.clearSession()
             throw AuthError.wrongRole("This Google account is registered as staff. Please use Staff login.")
         }
-        // Trigger OTP for fresh Google sign-in
         let email = googleUser.email ?? UserSession.shared.currentUser?.email ?? ""
         await ActivityLogManager.shared.logAction(action: "Google Sign-In", details: "Patient logged in via Google: \(email)")
-        UserSession.shared.needsOTPVerification = true
-        UserSession.shared.pendingOTPEmail = email
         await sendOTPForUser(email: email)
     }
 
     // MARK: - Google Sign-In (Staff)
     func googleSignInStaff(presenting viewController: UIViewController) async throws {
-        let user = try await googleSignIn(presenting: viewController)
+        let user = try await googleSignIn(presenting: viewController, requiresOTP: true)
         if UserSession.shared.userRole == nil {
             try Auth.auth().signOut()
             UserSession.shared.clearSession()
@@ -195,16 +180,13 @@ class AuthManager {
             UserSession.shared.clearSession()
             throw AuthError.wrongRole("This Google account is registered as a patient. Please use Patient login.")
         }
-        // Trigger OTP for fresh Google sign-in
         let email = user.email ?? UserSession.shared.currentUser?.email ?? ""
         await ActivityLogManager.shared.logAction(action: "Google Sign-In", details: "Staff logged in via Google: \(email)")
-        UserSession.shared.needsOTPVerification = true
-        UserSession.shared.pendingOTPEmail = email
         await sendOTPForUser(email: email)
     }
 
     // MARK: - Private Google Sign-In Helper
-    private func googleSignIn(presenting viewController: UIViewController) async throws -> (uid: String, email: String?, displayName: String?) {
+    private func googleSignIn(presenting viewController: UIViewController, requiresOTP: Bool = false) async throws -> (uid: String, email: String?, displayName: String?) {
         guard let clientID = FirebaseApp.app()?.options.clientID else {
             throw AuthError.configuration("Firebase client ID not found.")
         }
@@ -220,7 +202,7 @@ class AuthManager {
             accessToken: result.user.accessToken.tokenString
         )
         let authResult = try await Auth.auth().signIn(with: credential)
-        await fetchUserProfile(uid: authResult.user.uid)
+        await fetchUserProfile(uid: authResult.user.uid, requiresOTP: requiresOTP)
         return (authResult.user.uid, authResult.user.email, authResult.user.displayName)
     }
 

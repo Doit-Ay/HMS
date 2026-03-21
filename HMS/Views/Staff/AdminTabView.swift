@@ -221,31 +221,10 @@ struct StaffManagementView: View {
 
                 VStack(spacing: 0) {
                     // Search bar
-                    HStack(spacing: 12) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 16))
-                            .foregroundColor(AppTheme.textSecondary)
-                        TextField("Search by name, role or department...", text: $searchText)
-                            .font(.system(size: 15, design: .rounded))
-
-                        if !searchText.isEmpty {
-                            Button {
-                                searchText = ""
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 18))
-                                    .foregroundColor(AppTheme.textSecondary.opacity(0.5))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(14)
-                    .background(Color.white)
-                    .cornerRadius(16)
-                    .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 3)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
-                    .padding(.bottom, 12)
+                    HMSSearchBar(placeholder: "Search by name, role or department...", text: $searchText)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 12)
+                        .padding(.bottom, 12)
 
                     // Staff count header
                     if !isLoading && !staffList.isEmpty {

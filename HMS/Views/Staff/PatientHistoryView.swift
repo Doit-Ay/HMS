@@ -34,250 +34,261 @@ struct PatientHistoryView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
-                // Premium Hero Section
+                // MARK: - Hero Header
                 ZStack {
-                    // Diagonal Teal-to-Mint Gradient
+                    // Gradient Background
                     LinearGradient(
                         colors: [AppTheme.primaryDark, AppTheme.primary, Color(red: 0.4, green: 0.8, blue: 0.75)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                     
-                    VStack(spacing: 16) {
-                        Spacer().frame(height: 110)
-                            
-                            // Avatar with White Ring & Badge
-                            ZStack(alignment: .topTrailing) {
-                                ZStack {
-                                    Circle()
-                                        .fill(LinearGradient(colors: [Color.white.opacity(0.3), Color.white.opacity(0.1)], startPoint: .top, endPoint: .bottom))
-                                        .frame(width: 90, height: 90)
-                                    
-                                    LivePatientAvatarInitial(
-                                        patientId: patientGroup.patientId,
-                                        fallbackName: patientGroup.patientName,
-                                        font: .system(size: 36, weight: .bold, design: .rounded),
-                                        weight: .bold,
-                                        color: .white
-                                    )
-                                }
-                                .overlay(
-                                    Circle().stroke(Color.white, lineWidth: 3)
-                                )
-                                .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 5)
+                    // Subtle pattern overlay
+                    Circle()
+                        .fill(Color.white.opacity(0.05))
+                        .frame(width: 200, height: 200)
+                        .offset(x: 120, y: -40)
+                    
+                    Circle()
+                        .fill(Color.white.opacity(0.04))
+                        .frame(width: 140, height: 140)
+                        .offset(x: -130, y: 50)
+                    
+                    VStack(spacing: 14) {
+                        Spacer().frame(height: 100)
+                        
+                        // Avatar with Ring & Badge
+                        ZStack(alignment: .topTrailing) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.white.opacity(0.15))
+                                    .frame(width: 94, height: 94)
                                 
-                                // Total Visits Badge
-                                ZStack {
+                                LivePatientAvatarInitial(
+                                    patientId: patientGroup.patientId,
+                                    fallbackName: patientGroup.patientName,
+                                    font: .system(size: 36, weight: .bold, design: .rounded),
+                                    weight: .bold,
+                                    color: .white
+                                )
+                            }
+                            .overlay(
+                                Circle().stroke(Color.white.opacity(0.6), lineWidth: 2.5)
+                            )
+                            .shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 6)
+                            
+                            // Visit count badge
+                            Text("\(patientGroup.visitCount)")
+                                .font(.system(size: 12, weight: .black, design: .rounded))
+                                .foregroundColor(.white)
+                                .frame(width: 26, height: 26)
+                                .background(
                                     Circle()
                                         .fill(AppTheme.primaryDark)
-                                        .frame(width: 28, height: 28)
                                         .overlay(Circle().stroke(Color.white, lineWidth: 2))
-                                        .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
-                                    Text("\(patientGroup.visitCount)")
-                                        .font(.system(size: 13, weight: .black, design: .rounded))
-                                        .foregroundColor(.white)
+                                )
+                                .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
+                                .offset(x: 4, y: -4)
+                        }
+                        .scaleEffect(appearAnimation ? 1.0 : 0.85)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.65), value: appearAnimation)
+                        
+                        // Patient Name
+                        LivePatientNameView(
+                            patientId: patientGroup.patientId,
+                            fallbackName: patientGroup.patientName,
+                            font: .system(size: 24, weight: .bold, design: .rounded),
+                            weight: .bold,
+                            color: .white,
+                            lineLimit: 1
+                        )
+                        
+                        // Quick Stats
+                        HStack(spacing: 10) {
+                            QuickStatPill(icon: "drop.fill", title: patientProfile?.bloodGroup ?? "N/A", delay: 0.1)
+                            QuickStatPill(icon: "calendar", title: patientProfile?.age != nil ? "\(patientProfile!.age!) yrs" : "N/A", delay: 0.2)
+                            QuickStatPill(icon: "person.fill", title: patientProfile?.gender ?? "N/A", delay: 0.3)
+                        }
+                        .padding(.top, 2)
+                        
+                        Spacer().frame(height: 36)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                
+                // MARK: - Content Body (overlapping hero)
+                VStack(alignment: .leading, spacing: 28) {
+                    
+                    // Upcoming Appointments
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("Upcoming")
+                                .font(.system(size: 20, weight: .bold, design: .rounded))
+                                .foregroundColor(AppTheme.textPrimary)
+                            Spacer()
+                            if !upcomingAppointments.isEmpty {
+                                Text("\(upcomingAppointments.count)")
+                                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                                    .foregroundColor(AppTheme.primary)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(AppTheme.primary.opacity(0.12))
+                                    .clipShape(Capsule())
+                            }
+                        }
+                        
+                        if !upcomingAppointments.isEmpty {
+                            CardBlock(borderColor: AppTheme.primary) {
+                                VStack(spacing: 0) {
+                                    ForEach(Array(upcomingAppointments.enumerated()), id: \.element.id) { index, appt in
+                                        Button(action: { selectedAppointment = appt }) {
+                                            AppointmentRow(appointment: appt, isUpcoming: true)
+                                        }
+                                        .buttonStyle(.plain)
+                                        
+                                        if index < upcomingAppointments.count - 1 {
+                                            Divider().padding(.leading, 16)
+                                        }
+                                    }
                                 }
-                                .offset(x: 5, y: -5)
                             }
-                            .scaleEffect(appearAnimation ? 1.0 : 0.8)
-                            .animation(.spring(response: 0.5, dampingFraction: 0.6), value: appearAnimation)
-                            
-                            // Name
-                            LivePatientNameView(
-                                patientId: patientGroup.patientId,
-                                fallbackName: patientGroup.patientName,
-                                font: .system(size: 26, weight: .heavy, design: .rounded),
-                                weight: .heavy,
-                                color: .white,
-                                lineLimit: 1
-                            )
-                            
-                            // Frosted Glass Quick Stats (Blood Grp, Age, Gender)
-                            HStack(spacing: 12) {
-                                QuickStatPill(icon: "drop.fill", title: patientProfile?.bloodGroup ?? "N/A", delay: 0.1)
-                                QuickStatPill(icon: "calendar", title: patientProfile?.age != nil ? "\(patientProfile!.age!) yrs" : "N/A", delay: 0.2)
-                                QuickStatPill(icon: "person.fill", title: patientProfile?.gender ?? "N/A", delay: 0.3)
+                        } else {
+                            HStack(spacing: 14) {
+                                Image(systemName: "calendar.badge.minus")
+                                    .font(.system(size: 22))
+                                    .foregroundColor(Color.gray.opacity(0.4))
+                                Text("No upcoming appointments")
+                                    .font(.system(size: 15, design: .rounded))
+                                    .foregroundColor(AppTheme.textSecondary)
+                                Spacer()
                             }
-                            .padding(.top, 4)
-                            
-                            Spacer().frame(height: 20)
+                            .padding(16)
+                            .background(Color.white)
+                            .cornerRadius(16)
+                            .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
                         }
                     }
-                    .frame(maxWidth: .infinity)
-                    .cornerRadius(24)
-                    .padding(.bottom, 24)
                     
-                    // Body Section - Cards Layout
-                    VStack(alignment: .leading, spacing: 32) {
-                        
-                        // Card 1: Upcoming Appointments
-                        VStack(alignment: .leading, spacing: 14) {
+                    // Past Visits
+                    if !pastAppointments.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
                             HStack {
-                                Text("Upcoming")
+                                Text("Past Visits")
                                     .font(.system(size: 20, weight: .bold, design: .rounded))
                                     .foregroundColor(AppTheme.textPrimary)
                                 Spacer()
-                                if !upcomingAppointments.isEmpty {
-                                    Text("\(upcomingAppointments.count)")
-                                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                                        .foregroundColor(AppTheme.primary)
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 4)
-                                        .background(AppTheme.primary.opacity(0.12))
-                                        .clipShape(Capsule())
-                                }
+                                Text("\(pastAppointments.count)")
+                                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                                    .foregroundColor(AppTheme.textSecondary)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(Color.gray.opacity(0.1))
+                                    .clipShape(Capsule())
                             }
                             
-                            if !upcomingAppointments.isEmpty {
-                                CardBlock(borderColor: AppTheme.primary) {
-                                    VStack(spacing: 0) {
-                                        ForEach(Array(upcomingAppointments.enumerated()), id: \.element.id) { index, appt in
-                                            Button(action: { selectedAppointment = appt }) {
-                                                AppointmentRow(appointment: appt, isUpcoming: true)
-                                            }
-                                            .buttonStyle(.plain)
-                                            
-                                            if index < upcomingAppointments.count - 1 {
-                                                Divider().padding(.leading, 16)
-                                            }
+                            CardBlock(borderColor: Color.gray.opacity(0.3)) {
+                                VStack(spacing: 0) {
+                                    ForEach(Array(pastAppointments.enumerated()), id: \.element.id) { index, appt in
+                                        Button(action: { selectedAppointment = appt }) {
+                                            AppointmentRow(appointment: appt, isUpcoming: false)
                                         }
-                                    }
-                                }
-                            } else {
-                                CardBlock(borderColor: Color.gray.opacity(0.3)) {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "calendar.badge.minus")
-                                            .font(.system(size: 24))
-                                            .foregroundColor(Color.gray.opacity(0.5))
-                                        Text("No upcoming appointments")
-                                            .font(.system(size: 15, design: .rounded))
-                                            .foregroundColor(AppTheme.textSecondary)
-                                        Spacer()
-                                    }
-                                    .padding(.vertical, 12)
-                                    .padding(.horizontal, 16)
-                                }
-                            }
-                        }
-                        
-                        // Card 2: Past Visits
-                        if !pastAppointments.isEmpty {
-                            VStack(alignment: .leading, spacing: 14) {
-                                HStack {
-                                    Text("Past Visits")
-                                        .font(.system(size: 20, weight: .bold, design: .rounded))
-                                        .foregroundColor(AppTheme.textPrimary)
-                                    Spacer()
-                                    Text("\(pastAppointments.count)")
-                                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                                        .foregroundColor(AppTheme.textSecondary)
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 4)
-                                        .background(Color.gray.opacity(0.1))
-                                        .clipShape(Capsule())
-                                }
-                                
-                                CardBlock(borderColor: Color.gray.opacity(0.4)) {
-                                    VStack(spacing: 0) {
-                                        ForEach(Array(pastAppointments.enumerated()), id: \.element.id) { index, appt in
-                                            Button(action: { selectedAppointment = appt }) {
-                                                AppointmentRow(appointment: appt, isUpcoming: false)
-                                            }
-                                            .buttonStyle(.plain)
-                                            
-                                            if index < pastAppointments.count - 1 {
-                                                Divider().padding(.leading, 16)
-                                            }
+                                        .buttonStyle(.plain)
+                                        
+                                        if index < pastAppointments.count - 1 {
+                                            Divider().padding(.leading, 16)
                                         }
                                     }
                                 }
                             }
-                        }
-                        
-                        // Card 3: Medical Records
-                        VStack(alignment: .leading, spacing: 14) {
-                            Text("Medical Records")
-                                .font(.system(size: 20, weight: .bold, design: .rounded))
-                                .foregroundColor(AppTheme.textPrimary)
-                            
-                            NavigationLink(destination: DoctorMedicalHistoryView(patientId: patientGroup.patientId, patientName: patientGroup.patientName)) {
-                                HStack(spacing: 16) {
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 14)
-                                            .fill(
-                                                LinearGradient(colors: [AppTheme.primary.opacity(0.15), AppTheme.primary.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                                            )
-                                            .frame(width: 50, height: 50)
-                                        Image(systemName: "doc.text.magnifyingglass")
-                                            .font(.system(size: 20))
-                                            .foregroundColor(AppTheme.primary)
-                                    }
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("View Medical History")
-                                            .font(.system(size: 16, weight: .bold, design: .rounded))
-                                            .foregroundColor(AppTheme.textPrimary)
-                                        Text("Uploaded records, prescriptions & reports")
-                                            .font(.system(size: 13, design: .rounded))
-                                            .foregroundColor(AppTheme.textSecondary)
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    Image(systemName: "chevron.right")
-                                        .foregroundColor(Color.gray.opacity(0.4))
-                                        .font(.system(size: 14, weight: .bold))
-                                }
-                                .padding(16)
-                                .background(Color.white)
-                                .cornerRadius(16)
-                                .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
-                            }
-                            .buttonStyle(.plain)
-                            
-                            // Lab Reports folder
-                            NavigationLink(destination: DoctorLabReportsView(patientId: patientGroup.patientId, patientName: patientGroup.patientName)) {
-                                HStack(spacing: 16) {
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 14)
-                                            .fill(
-                                                LinearGradient(colors: [Color(red: 0.3, green: 0.6, blue: 0.7).opacity(0.15), Color(red: 0.3, green: 0.6, blue: 0.7).opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                                            )
-                                            .frame(width: 50, height: 50)
-                                        Image(systemName: "flask.fill")
-                                            .font(.system(size: 20))
-                                            .foregroundColor(Color(red: 0.3, green: 0.6, blue: 0.7))
-                                    }
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Lab Reports")
-                                            .font(.system(size: 16, weight: .bold, design: .rounded))
-                                            .foregroundColor(AppTheme.textPrimary)
-                                        Text("Completed lab test results & reports")
-                                            .font(.system(size: 13, design: .rounded))
-                                            .foregroundColor(AppTheme.textSecondary)
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    Image(systemName: "chevron.right")
-                                        .foregroundColor(Color.gray.opacity(0.4))
-                                        .font(.system(size: 14, weight: .bold))
-                                }
-                                .padding(16)
-                                .background(Color.white)
-                                .cornerRadius(16)
-                                .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
-                            }
-                            .buttonStyle(.plain)
                         }
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 40)
-                    .offset(y: appearAnimation ? 0 : 40)
-                    .opacity(appearAnimation ? 1 : 0)
+                    
+                    // Medical Records
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Medical Records")
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                            .foregroundColor(AppTheme.textPrimary)
+                        
+                        NavigationLink(destination: DoctorMedicalHistoryView(patientId: patientGroup.patientId, patientName: patientGroup.patientName)) {
+                            HStack(spacing: 14) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(AppTheme.primary.opacity(0.1))
+                                        .frame(width: 46, height: 46)
+                                    Image(systemName: "doc.text.magnifyingglass")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(AppTheme.primary)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("View Medical History")
+                                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                        .foregroundColor(AppTheme.textPrimary)
+                                    Text("Uploaded records, prescriptions & reports")
+                                        .font(.system(size: 13, design: .rounded))
+                                        .foregroundColor(AppTheme.textSecondary)
+                                }
+                                
+                                Spacer()
+                                
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(Color.gray.opacity(0.35))
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .padding(14)
+                            .background(Color.white)
+                            .cornerRadius(16)
+                            .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        NavigationLink(destination: DoctorLabReportsView(patientId: patientGroup.patientId, patientName: patientGroup.patientName)) {
+                            HStack(spacing: 14) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color(red: 0.3, green: 0.6, blue: 0.7).opacity(0.1))
+                                        .frame(width: 46, height: 46)
+                                    Image(systemName: "flask.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(Color(red: 0.3, green: 0.6, blue: 0.7))
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Lab Reports")
+                                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                        .foregroundColor(AppTheme.textPrimary)
+                                    Text("Completed lab test results & reports")
+                                        .font(.system(size: 13, design: .rounded))
+                                        .foregroundColor(AppTheme.textSecondary)
+                                }
+                                
+                                Spacer()
+                                
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(Color.gray.opacity(0.35))
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .padding(14)
+                            .background(Color.white)
+                            .cornerRadius(16)
+                            .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 24)
+                .padding(.bottom, 40)
+                .background(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(AppTheme.background)
+                        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: -5)
+                )
+                .offset(y: -24)
+                .offset(y: appearAnimation ? 0 : 40)
+                .opacity(appearAnimation ? 1 : 0)
             }
+        }
         .ignoresSafeArea(edges: .top)
         .background(AppTheme.background)
         .navigationBarBackButtonHidden(true)

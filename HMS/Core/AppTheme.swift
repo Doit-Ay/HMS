@@ -156,3 +156,53 @@ struct HMSBackground: View {
         .ignoresSafeArea()
     }
 }
+
+// MARK: - iOS Native Search Bar
+struct HMSSearchBar<TrailingContent: View>: View {
+    let placeholder: String
+    @Binding var text: String
+    let trailingContent: TrailingContent
+
+    init(
+        placeholder: String,
+        text: Binding<String>,
+        @ViewBuilder trailing: () -> TrailingContent = { EmptyView() }
+    ) {
+        self.placeholder = placeholder
+        self._text = text
+        self.trailingContent = trailing()
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 15))
+                .foregroundColor(Color(UIColor.systemGray))
+
+            TextField(placeholder, text: $text)
+                .font(.system(size: 17))
+                .foregroundColor(.primary)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(Color(UIColor.systemGray2))
+                }
+                .buttonStyle(.plain)
+            }
+
+            trailingContent
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 46)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color.white)
+        )
+    }
+}

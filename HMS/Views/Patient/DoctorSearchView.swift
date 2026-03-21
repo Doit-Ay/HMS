@@ -22,37 +22,16 @@ struct DoctorSearchView: View {
             VStack(spacing: 0) {
 
                 // MARK: Search Bar
-                HStack(spacing: 12) {
-
-                    HStack(spacing: 10) {
-
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(AppTheme.textSecondary)
-
-                        TextField("Search doctors or specialization", text: $searchText)
-                            .onChange(of: searchText) { _ in applyFilters() }
-                    }
-                    .padding()
-                    .background(.white)
-                    .cornerRadius(14)
-                    .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 3)
-
-                    // MARK: Filter Button
+                HMSSearchBar(placeholder: "Search doctors or specialization", text: $searchText) {
                     Button {
-
                         showFilterSheet = true
-
                     } label: {
-
                         Image(systemName: "line.3.horizontal.decrease.circle")
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundColor(AppTheme.primary)
-                            .frame(width: 44, height: 44)
-                            .background(Color.white)
-                            .cornerRadius(12)
-                            .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 3)
                     }
                 }
+                .onChange(of: searchText) { _ in applyFilters() }
                 .padding(.horizontal, 20)
                 .padding(.top, 10)
                 .padding(.bottom, 20)

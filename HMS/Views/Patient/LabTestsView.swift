@@ -43,16 +43,10 @@ struct LabTestsView: View {
             VStack(spacing: 0) {
                 
                 // Search Bar
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(AppTheme.textSecondary)
-                    
-                    TextField(selectedSegment == 0 ? "Search lab tests..." : "Search requested tests...", text: $searchText)
-                        .autocapitalization(.none)
-                }
-                .padding()
-                .background(Color.white)
-                .cornerRadius(14)
+                HMSSearchBar(
+                    placeholder: selectedSegment == 0 ? "Search lab tests..." : "Search requested tests...",
+                    text: $searchText
+                )
                 .padding(.horizontal, 20)
                 .padding(.top, 10)
                 

@@ -62,7 +62,7 @@ struct MyPatientsView: View {
         return groups.sorted { $0.sortDate > $1.sortDate }
     }
     
-    @State private var isSearchFocused = false
+    
     
     var body: some View {
         ZStack {
@@ -81,36 +81,9 @@ struct MyPatientsView: View {
                     .padding(.top, 24)
                     
                     // Search Bar
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(AppTheme.textSecondary.opacity(0.8))
-                        TextField("Search patients...", text: $searchText, onEditingChanged: { focused in
-                            withAnimation(.easeOut(duration: 0.2)) {
-                                isSearchFocused = focused
-                            }
-                        })
-                        .font(.system(size: 16, design: .rounded))
-                        .foregroundColor(AppTheme.textPrimary)
-                        
-                        if !searchText.isEmpty {
-                            Button(action: {
-                                withAnimation { searchText = "" }
-                            }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(AppTheme.textSecondary)
-                            }
-                        }
-                    }
-                    .padding(.vertical, 14)
-                    .padding(.horizontal, 16)
-                    .background(Color.white)
-                    .cornerRadius(30)
-                    .shadow(color: AppTheme.textSecondary.opacity(0.1), radius: 10, x: 0, y: 4)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 30)
-                            .stroke(AppTheme.primary.opacity(isSearchFocused ? 0.5 : 0.0), lineWidth: 2)
-                    )
-                    .padding(.bottom, 8)
+                    HMSSearchBar(placeholder: "Search patients...", text: $searchText)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 8)
                 }
                 .offset(y: appearAnimation ? 0 : -20)
                 .opacity(appearAnimation ? 1 : 0)
