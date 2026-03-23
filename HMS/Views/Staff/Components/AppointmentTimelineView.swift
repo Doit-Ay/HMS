@@ -313,7 +313,7 @@ struct AppointmentCard: View {
             // Avatar circle
             ZStack {
                 Circle()
-                    .fill(Color.white.opacity(0.8))
+                    .fill(AppTheme.cardSurface)
                     .frame(width: 28, height: 28)
                 
                 LivePatientAvatarInitial(

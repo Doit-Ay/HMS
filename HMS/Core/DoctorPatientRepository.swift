@@ -1,10 +1,12 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseStorage
 
 class DoctorPatientRepository {
     static let shared = DoctorPatientRepository()
     private let db = Firestore.firestore()
+    private let storage = Storage.storage()
     
     private init() {}
     
@@ -130,6 +132,16 @@ class DoctorPatientRepository {
         return try document.data(as: ConsultationNote.self)
     }
 
+    /// Fetches all consultation notes for a specific patient
+    func fetchPatientConsultationNotes(patientId: String) async throws -> [ConsultationNote] {
+        let snapshot = try await db.collection("consultation_notes")
+            .whereField("patientId", isEqualTo: patientId)
+            .getDocuments()
+        
+        let notes = snapshot.documents.compactMap { try? $0.data(as: ConsultationNote.self) }
+        return notes.sorted { ($0.createdAt ?? Date.distantPast) > ($1.createdAt ?? Date.distantPast) }
+    }
+
     // MARK: - Lab Test Requests
 
     /// Saves a referred lab test request to Firestore
@@ -137,5 +149,182 @@ class DoctorPatientRepository {
         let data = try Firestore.Encoder().encode(request)
         try await db.collection("lab_test_requests").document(request.id).setData(data)
     }
+    
+    /// Fetches lab test requests for a patient by a specific doctor
+    func fetchLabTestRequests(patientId: String, doctorId: String) async throws -> [LabTestRequest] {
+        let snapshot = try await db.collection("lab_test_requests")
+            .whereField("patientId", isEqualTo: patientId)
+            .whereField("doctorId", isEqualTo: doctorId)
+            .getDocuments()
+            
+        let requests = snapshot.documents.compactMap { try? $0.data(as: LabTestRequest.self) }
+        return requests.sorted { $0.dateReferred > $1.dateReferred }
+    }
+    
+    // MARK: - Prescriptions (PDF PDFs & Metadata)
+    
+    /// Uploads a generated local PDF file to Firebase Storage
+    /// Returns the permanent download URL
+    func uploadPrescriptionPDF(localURL: URL, appointmentId: String) async throws -> String {
+        let storageRef = storage.reference().child("prescriptions/\(appointmentId)_\(UUID().uuidString).pdf")
+        
+        // Convert to data
+        let pdfData = try Data(contentsOf: localURL)
+        
+        let metadata = StorageMetadata()
+        metadata.contentType = "application/pdf"
+        
+        _ = try await storageRef.putDataAsync(pdfData, metadata: metadata)
+        let downloadURL = try await storageRef.downloadURL()
+        
+        return downloadURL.absoluteString
+    }
+    
+    /// Saves the prescription metadata document to Firestore
+    func savePrescriptionDocument(_ doc: PrescriptionDocument) async throws {
+        let data = try Firestore.Encoder().encode(doc)
+        try await db.collection("prescriptions").document(doc.id).setData(data)
+    }
+    
+    /// Fetches all prescriptions for a specific patient
+    func fetchPatientPrescriptions(patientId: String) async throws -> [PrescriptionDocument] {
+        let snapshot = try await db.collection("prescriptions")
+            .whereField("patientId", isEqualTo: patientId)
+            .getDocuments()
+            
+        let docs = snapshot.documents.compactMap { try? $0.data(as: PrescriptionDocument.self) }
+        return docs.sorted { $0.createdAt > $1.createdAt }
+    }
+    
+    // MARK: - Medical Documents
+    
+    // Note: MedicalDocument struct is currently local to PatientRecordsMainView.swift. 
+    // Creating an alternative generic fetch for Admin views since it's just raw data parsing.
+    
+    /// Fetches the patient's medical history: uploaded documents + prescription PDFs
+    func fetchPatientMedicalHistory(patientId: String) async throws -> [SharedMedicalDocument] {
+        var allDocs: [SharedMedicalDocument] = []
+        
+        // 1) Fetch uploaded documents from `documents` collection (all folder types)
+        let docSnapshot = try await db.collection("documents")
+            .whereField("patientId", isEqualTo: patientId)
+            .getDocuments()
+        
+        let uploadedDocs = docSnapshot.documents.compactMap { try? $0.data(as: SharedMedicalDocument.self) }
+        allDocs.append(contentsOf: uploadedDocs)
+        
+        // 2) Fetch prescription PDFs from `prescriptions` collection
+        let rxSnapshot = try await db.collection("prescriptions")
+            .whereField("patientId", isEqualTo: patientId)
+            .getDocuments()
+        
+        for doc in rxSnapshot.documents {
+            let data = doc.data()
+            if let pdfUrl = data["pdfUrl"] as? String,
+               let doctorName = data["doctorName"] as? String,
+               let date = data["date"] as? String {
+                let startTime = data["startTime"] as? String ?? ""
+                let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
+                
+                allDocs.append(SharedMedicalDocument(
+                    id: doc.documentID,
+                    name: "Prescription - Dr. \(doctorName) (\(date))",
+                    fileName: "prescription_\(doc.documentID).pdf",
+                    fileURL: pdfUrl,
+                    fileSize: nil,
+                    fileType: "pdf",
+                    folderType: "Prescription",
+                    patientId: patientId,
+                    uploadedBy: data["doctorId"] as? String ?? "",
+                    uploadedByName: "Dr. \(doctorName)",
+                    uploadDate: createdAt,
+                    notes: startTime.isEmpty ? nil : "Appointment: \(date) at \(startTime)"
+                ))
+            }
+        }
+        
+        return allDocs.sorted { $0.uploadDate > $1.uploadDate }
+    }
+    
+    /// Fetches patient documents (MedicalHistory, LabResults) for a given patient
+    func fetchPatientDocuments(patientId: String, folderType: String? = nil) async throws -> [[String: Any]] {
+        var query: Query = db.collection("documents").whereField("patientId", isEqualTo: patientId)
+        
+        if let folderType = folderType {
+            query = query.whereField("folderType", isEqualTo: folderType)
+        }
+        
+        let snapshot = try await query.getDocuments()
+        return snapshot.documents.map { doc in
+            var data = doc.data()
+            data["documentID"] = doc.documentID
+            return data
+        }
+    }
+    
+    // MARK: - Completed Lab Reports
+    
+    /// Fetches completed lab reports from `patient_lab_requests` for a specific patient.
+    /// Only returns entries with `status == "completed"` that have at least one test with a `resultURL`.
+    func fetchCompletedLabReports(patientId: String) async throws -> [PatientLabRequest] {
+        let snapshot = try await db.collection("patient_lab_requests")
+            .whereField("patientId", isEqualTo: patientId)
+            .whereField("status", isEqualTo: "completed")
+            .getDocuments()
+        
+        let requests = snapshot.documents.compactMap { doc -> PatientLabRequest? in
+            let data = doc.data()
+            
+            guard let pId = data["patientId"] as? String,
+                  let pName = data["patientName"] as? String,
+                  let testsData = data["tests"] as? [[String: Any]],
+                  let timestamp = data["dateRequested"] as? Timestamp else {
+                return nil
+            }
+            
+            var tests: [RequestedTest] = []
+            for testData in testsData {
+                if let name = testData["name"] as? String {
+                    var price = 0
+                    if let p = testData["price"] as? Int {
+                        price = p
+                    } else if let p = testData["price"] as? Double {
+                        price = Int(p)
+                    }
+                    
+                    let resultURL = testData["resultURL"] as? String
+                    let resultFileName = testData["resultFileName"] as? String
+                    let completedDate = (testData["completedDate"] as? Timestamp)?.dateValue()
+                    
+                    tests.append(RequestedTest(
+                        name: name,
+                        price: price,
+                        requestedByDoctor: testData["requestedByDoctor"] as? String,
+                        resultURL: resultURL,
+                        resultFileName: resultFileName,
+                        completedDate: completedDate
+                    ))
+                }
+            }
+            
+            // Only include requests that have at least one test with a resultURL
+            let hasReport = tests.contains { $0.resultURL != nil && !$0.resultURL!.isEmpty }
+            guard hasReport else { return nil }
+            
+            return PatientLabRequest(
+                id: doc.documentID,
+                patientId: pId,
+                patientName: pName,
+                tests: tests,
+                dateRequested: timestamp.dateValue(),
+                status: data["status"] as? String ?? "completed",
+                customName: data["customName"] as? String,
+                collectionName: "patient_lab_requests"
+            )
+        }
+        
+        return requests.sorted { $0.dateRequested > $1.dateRequested }
+    }
 }
+
 

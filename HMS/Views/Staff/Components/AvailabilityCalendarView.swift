@@ -111,7 +111,7 @@ struct AvailabilityCalendarView: View {
             .padding(.horizontal, 16)
         }
         .padding(.vertical, 16)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(24)
         .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
     }

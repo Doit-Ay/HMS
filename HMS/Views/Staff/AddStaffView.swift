@@ -141,7 +141,7 @@ struct AddStaffView: View {
                             formField(icon: "building.2.fill", placeholder: "Department (optional)", text: $department, capitalization: .words)
                         }
                         .padding(20)
-                        .background(Color.white)
+                        .background(AppTheme.cardSurface)
                         .cornerRadius(20)
                         .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
                         .padding(.horizontal, 20)
@@ -156,7 +156,7 @@ struct AddStaffView: View {
                             formField(icon: "envelope.fill", placeholder: "Email Address *", text: $email, keyboardType: .emailAddress, capitalization: .none)
                         }
                         .padding(20)
-                        .background(Color.white)
+                        .background(AppTheme.cardSurface)
                         .cornerRadius(20)
                         .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
                         .padding(.horizontal, 20)
@@ -171,7 +171,7 @@ struct AddStaffView: View {
                                 timeSlotSection
                             }
                             .padding(20)
-                            .background(Color.white)
+                            .background(AppTheme.cardSurface)
                             .cornerRadius(20)
                             .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
                             .padding(.horizontal, 20)
@@ -222,7 +222,7 @@ struct AddStaffView: View {
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(AppTheme.textPrimary)
                             .frame(width: 36, height: 36)
-                            .background(Color.white)
+                            .background(AppTheme.cardSurface)
                             .clipShape(Circle())
                             .shadow(color: Color.black.opacity(0.06), radius: 4, x: 0, y: 2)
                     }
@@ -472,7 +472,7 @@ struct CustomSlotPickerSheet: View {
                     }
                 }
                 .padding(20)
-                .background(Color.white)
+                .background(AppTheme.cardSurface)
                 .cornerRadius(20)
                 .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
                 .padding(.horizontal, 20)
@@ -529,7 +529,7 @@ struct RoleChip: View {
             .background(
                 isSelected
                 ? LinearGradient(colors: [AppTheme.primary, AppTheme.primaryMid], startPoint: .leading, endPoint: .trailing)
-                : LinearGradient(colors: [Color.white, Color.white], startPoint: .leading, endPoint: .trailing)
+                : LinearGradient(colors: [AppTheme.cardSurface, AppTheme.cardSurface], startPoint: .leading, endPoint: .trailing)
             )
             .cornerRadius(14)
             .overlay(

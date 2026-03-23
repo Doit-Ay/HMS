@@ -30,6 +30,10 @@ struct BookAppointmentView: View {
     @State private var errorMessage: String? = nil
     @State private var animate = false
     @State private var showAppointmentsAfterBooking = false
+
+    // Payment State
+    @State private var showPaymentSheet = false
+    @State private var pendingPaymentOptions: RazorpayOptions? = nil
     
     private var isRescheduleMode: Bool { rescheduleAppointmentId != nil }
     
@@ -243,6 +247,30 @@ struct BookAppointmentView: View {
             .presentationDragIndicator(.visible)
             .interactiveDismissDisabled()
         }
+        .toolbar(.hidden, for: .tabBar)
+        // Razorpay payment sheet
+        .razorpaySheet(
+            isPresented: $showPaymentSheet,
+            options: pendingPaymentOptions ?? RazorpayOptions(
+                amountInPaise: 100, // ₹1 = 100 paise
+                description: "Doctor Consultation",
+                prefillName: UserSession.shared.currentUser?.fullName ?? "",
+                prefillEmail: UserSession.shared.currentUser?.email ?? "",
+                prefillContact: ""
+            )
+        ) { result in
+            switch result {
+            case .success:
+                performBooking()
+            case .failure(_, let desc):
+                withAnimation {
+                    errorMessage = desc.contains("cancel") || desc.lowercased().contains("cancel")
+                        ? "Payment was cancelled."
+                        : "Payment failed: \(desc)"
+                }
+                isBooking = false
+            }
+        }
     }
     
     // MARK: - Load Unavailability
@@ -386,15 +414,34 @@ struct BookAppointmentView: View {
     }
     
     // MARK: - Book Appointment
-    
+
+    /// Step 1: Validate inputs and open Razorpay payment sheet
     private func bookSelectedSlot() {
+        guard selectedSlot != nil,
+              selectedDateString != nil,
+              let patient = session.currentUser else { return }
+
+        isBooking = true
+        errorMessage = nil
+
+        // Build payment options (₹1 consultation fee = 100 paise)
+        let options = RazorpayOptions(
+            amountInPaise: 100,
+            description: "Dr. \(doctor.fullName) Consultation",
+            prefillName: patient.fullName,
+            prefillEmail: patient.email,
+            prefillContact: patient.phoneNumber ?? ""
+        )
+        pendingPaymentOptions = options
+        showPaymentSheet = true
+    }
+
+    /// Step 2: Called after successful payment — actually writes to Firestore
+    private func performBooking() {
         guard let slot = selectedSlot,
               let dateStr = selectedDateString,
               let patient = session.currentUser else { return }
-        
-        isBooking = true
-        errorMessage = nil
-        
+
         let appointment = Appointment(
             id: UUID().uuidString,
             slotId: UUID().uuidString,
@@ -409,7 +456,7 @@ struct BookAppointmentView: View {
             status: "scheduled",
             createdAt: Date()
         )
-        
+
         Task {
             do {
                 try await AuthManager.shared.bookAppointment(appointment)
@@ -436,7 +483,7 @@ struct DoctorInfoHeader: View {
     let doctor: HMSUser
     
     /// Temporary dummy fee (until added to Firestore)
-    let consultationFee: Int = 500
+    let consultationFee: Int = 1
 
     var body: some View {
 
@@ -530,7 +577,7 @@ struct DoctorInfoHeader: View {
             Spacer()
         }
         .padding(16)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(20)
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
     }
@@ -579,7 +626,7 @@ struct SlotGridView: View {
                                     startPoint: .topLeading, endPoint: .bottomTrailing
                                 )
                             } else {
-                                Color.white.opacity(0.8)
+                                AppTheme.cardSurface
                             }
                         }
                     )
@@ -658,7 +705,7 @@ struct BookingSuccessSheet: View {
                 DetailRow(icon: "clock.fill", title: "Time", value: time)
             }
             .padding(20)
-            .background(Color.white)
+            .background(AppTheme.cardSurface)
             .cornerRadius(18)
             .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
             .padding(.horizontal, 20)

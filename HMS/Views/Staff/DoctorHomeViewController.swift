@@ -78,9 +78,21 @@ struct DoctorHomeViewController: View {
     }
     
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
+        ZStack(alignment: .top) {
             // Very light background
             AppTheme.background.ignoresSafeArea()
+            
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [AppTheme.primaryLight.opacity(0.8), AppTheme.primaryLight.opacity(0.0)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 400, height: 400)
+                .offset(x: -100, y: -200)
+                .blur(radius: 60)
             
             VStack(spacing: 0) {
                 HStack(alignment: .top) {
@@ -136,10 +148,8 @@ struct DoctorHomeViewController: View {
                             HStack(spacing: 12) {
                                 ForEach(todayAppointments) { appt in
                                     Button {
-                                        // Parse hour from startTime ("HH:mm" format)
-                                        let parts = appt.startTime.split(separator: ":").compactMap { Int($0) }
-                                        if let hour = parts.first {
-                                            scrollToHour = hour
+                                        if let blockInfo = timelineData.first(where: { $0.id == appt.id }) {
+                                            selectedAppointment = blockInfo
                                         }
                                     } label: {
                                         BookedAppointmentCard(appointment: appt)
@@ -164,7 +174,7 @@ struct DoctorHomeViewController: View {
                 
                 // 5. Vertical Timeline
                 ZStack {
-                    Color.white
+                    AppTheme.cardSurface
                         .cornerRadius(32, corners: [.topLeft, .topRight])
                         .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: -5)
                         .ignoresSafeArea()
@@ -309,7 +319,7 @@ struct BookedAppointmentCard: View {
         }
         .padding(14)
         .frame(width: 180)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
     }

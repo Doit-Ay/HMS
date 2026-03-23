@@ -173,7 +173,7 @@ struct EditStaffView: View {
                             editableField("Phone Number", icon: "phone.fill", text: $phoneNumber, keyboard: .phonePad)
                         }
                         .padding(20)
-                        .background(Color.white)
+                        .background(AppTheme.cardSurface)
                         .cornerRadius(20)
                         .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
                         .padding(.horizontal, 20)
@@ -192,7 +192,7 @@ struct EditStaffView: View {
                             }
                         }
                         .padding(20)
-                        .background(Color.white)
+                        .background(AppTheme.cardSurface)
                         .cornerRadius(20)
                         .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
                         .padding(.horizontal, 20)
@@ -207,7 +207,7 @@ struct EditStaffView: View {
                                 timeSlotSection
                             }
                             .padding(20)
-                            .background(Color.white)
+                            .background(AppTheme.cardSurface)
                             .cornerRadius(20)
                             .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
                             .padding(.horizontal, 20)
@@ -259,7 +259,7 @@ struct EditStaffView: View {
                                 .foregroundColor(Color.red.opacity(0.8))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
-                                .background(Color.white)
+                                .background(AppTheme.cardSurface)
                                 .cornerRadius(16)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 16)
@@ -297,7 +297,7 @@ struct EditStaffView: View {
                                 .foregroundColor(Color.green)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
-                                .background(Color.white)
+                                .background(AppTheme.cardSurface)
                                 .cornerRadius(16)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 16)
@@ -335,7 +335,7 @@ struct EditStaffView: View {
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(AppTheme.textPrimary)
                             .frame(width: 36, height: 36)
-                            .background(Color.white)
+                            .background(AppTheme.cardSurface)
                             .clipShape(Circle())
                             .shadow(color: Color.black.opacity(0.06), radius: 4, x: 0, y: 2)
                     }
@@ -503,6 +503,7 @@ struct EditStaffView: View {
                 department: department.isEmpty ? nil : department,
                 specialization: specialization.isEmpty ? nil : specialization,
                 employeeID: employeeID.isEmpty ? nil : employeeID,
+                phoneNumber: phoneNumber.isEmpty ? nil : phoneNumber,
                 defaultSlots: defaultSlotsArray
             )
             showSuccess = true
