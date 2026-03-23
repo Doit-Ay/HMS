@@ -13,6 +13,11 @@ struct CartView: View {
     @Environment(\.dismiss) var dismiss
     @State private var isCheckingOut = false
     @State private var showSuccessAlert = false
+    @State private var paymentError: String? = nil
+
+    // Payment State
+    @State private var showPaymentSheet = false
+    @State private var paymentOptions: RazorpayOptions? = nil
     
     var body: some View {
         NavigationStack {
@@ -114,16 +119,63 @@ struct CartView: View {
             } message: {
                 Text("Your lab test request has been submitted successfully.")
             }
+            // Payment error alert
+            .alert("Payment Failed", isPresented: Binding(
+                get: { paymentError != nil },
+                set: { if !$0 { paymentError = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(paymentError ?? "")
+            }
+            // Razorpay payment sheet
+            .razorpaySheet(
+                isPresented: $showPaymentSheet,
+                options: paymentOptions ?? RazorpayOptions(
+                    amountInPaise: cartManager.totalPrice * 100,
+                    description: "Lab Tests Payment",
+                    prefillName: UserSession.shared.currentUser?.fullName ?? "",
+                    prefillEmail: UserSession.shared.currentUser?.email ?? "",
+                    prefillContact: ""
+                )
+            ) { result in
+                switch result {
+                case .success:
+                    performCheckout()
+                case .failure(_, let desc):
+                    isCheckingOut = false
+                    paymentError = desc.lowercased().contains("cancel")
+                        ? "Payment was cancelled."
+                        : "Payment failed: \(desc)"
+                }
+            }
         }
     }
     
+    // MARK: - Step 1: Open Razorpay Payment Sheet
     private func checkout() {
         guard let patient = UserSession.shared.currentUser else { return }
-        
+
         isCheckingOut = true
-        
+        paymentError = nil
+
+        // Amount in paise: ₹totalPrice * 100
+        paymentOptions = RazorpayOptions(
+            amountInPaise: cartManager.totalPrice * 100,
+            description: "Lab Tests (\(cartManager.totalItems) item\(cartManager.totalItems == 1 ? "" : "s"))",
+            prefillName: patient.fullName,
+            prefillEmail: patient.email,
+            prefillContact: ""
+        )
+        showPaymentSheet = true
+    }
+
+    // MARK: - Step 2: Write to Firestore after successful payment
+    private func performCheckout() {
+        guard let patient = UserSession.shared.currentUser else { return }
+
         let db = Firestore.firestore()
-        
+
         let requestData: [String: Any] = [
             "patientId": patient.id,
             "patientName": patient.fullName,
@@ -138,10 +190,10 @@ struct CartView: View {
             "dateRequested": Timestamp(date: Date()),
             "status": "pending"
         ]
-        
+
         db.collection("patient_lab_requests").addDocument(data: requestData) { error in
             isCheckingOut = false
-            
+
             if let error = error {
                 print("Error creating lab request: \(error)")
             } else {

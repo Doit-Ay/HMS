@@ -106,10 +106,13 @@ struct PatientLabRequestsView: View {
                 
                 guard let pId = data["patientId"] as? String,
                       let pName = data["patientName"] as? String,
-                      let testsData = data["tests"] as? [[String: Any]],
                       let timestamp = data["dateRequested"] as? Timestamp else {
+                    print("⚠️ Missing basic fields for lab request doc: \(doc.documentID)")
                     continue
                 }
+                
+                let testsRaw = data["tests"] as? [Any] ?? []
+                let testsData = testsRaw.compactMap { $0 as? [String: Any] }
                 
                 var tests: [RequestedTest] = []
                 for testData in testsData {
@@ -147,7 +150,7 @@ struct PatientLabRequestsView: View {
                 ))
             }
         } catch {
-            
+            print("⚠️ fetchLabRequests (patient_lab_requests) error: \(error)")
         }
         
         // 2) Fetch from lab_test_requests (created via doctor referral)
@@ -192,7 +195,7 @@ struct PatientLabRequestsView: View {
                 ))
             }
         } catch {
-            
+            print("⚠️ fetchLabRequests (lab_test_requests) error: \(error)")
         }
         
         // 3) Sort and update UI
