@@ -484,7 +484,7 @@ struct TestToggleCard: View {
             }
             .padding(14)
             .frame(height: 75, alignment: .top)
-            .background(isSelected ? AppTheme.primaryLight.opacity(0.2) : Color.white)
+            .background(isSelected ? AppTheme.primaryLight.opacity(0.2) : AppTheme.cardSurface)
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)

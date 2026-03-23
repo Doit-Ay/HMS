@@ -78,9 +78,21 @@ struct DoctorHomeViewController: View {
     }
     
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
+        ZStack(alignment: .top) {
             // Very light background
             AppTheme.background.ignoresSafeArea()
+            
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [AppTheme.primaryLight.opacity(0.8), AppTheme.primaryLight.opacity(0.0)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 400, height: 400)
+                .offset(x: -100, y: -200)
+                .blur(radius: 60)
             
             VStack(spacing: 0) {
                 HStack(alignment: .top) {

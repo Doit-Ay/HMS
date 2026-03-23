@@ -29,8 +29,21 @@ struct LabTechnicianHomeView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
+            ZStack(alignment: .top) {
                 AppTheme.background.ignoresSafeArea()
+                
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [AppTheme.primaryLight.opacity(0.8), AppTheme.primaryLight.opacity(0.0)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 400, height: 400)
+                    .offset(x: -100, y: -200)
+                    .blur(radius: 60)
+
                 VStack(spacing: 0) {
                     headerView
                         .padding(.horizontal, 24)

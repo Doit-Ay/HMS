@@ -36,9 +36,13 @@ struct DoctorProfileView: View {
                     
                     // 1. Hero Section
                     ZStack(alignment: .bottom) {
-                        // Clean background
-                        AppTheme.background
-                            .frame(height: 180)
+                        // Gradient background
+                        LinearGradient(
+                            colors: [AppTheme.primaryLight.opacity(0.8), AppTheme.background],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: 160)
                         
                         // Top Nav Buttons
                         VStack {
@@ -122,7 +126,7 @@ struct DoctorProfileView: View {
                                         .transition(.scale)
                                 }
                             }
-                            .offset(y: 55)
+                            .offset(y: 40)
                         }
                     }
                     .ignoresSafeArea(edges: .top)
@@ -154,7 +158,7 @@ struct DoctorProfileView: View {
                                     .padding(.horizontal, 24)
                             }
                         }
-                        .padding(.top, 65)
+                        .padding(.top, 50)
                     } else {
                         VStack(spacing: 4) {
                             Text(profileSpecialty)
@@ -165,7 +169,7 @@ struct DoctorProfileView: View {
                                 .font(.system(size: 26, weight: .heavy, design: .rounded))
                                 .foregroundColor(AppTheme.textPrimary)
                         }
-                        .padding(.top, 65)
+                        .padding(.top, 50)
                         .offset(y: appearAnimation ? 0 : 20)
                         .opacity(appearAnimation ? 1 : 0)
                         
