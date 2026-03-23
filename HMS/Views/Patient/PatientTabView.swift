@@ -39,8 +39,8 @@ struct PatientHomeView: View {
     @State private var showProfileSheet = false
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
-            NavigationStack {
+        NavigationStack {
+            ZStack(alignment: .bottomTrailing) {
                 ZStack(alignment: .top) {
 
                     AppTheme.background
@@ -202,10 +202,10 @@ struct PatientHomeView: View {
                 .sheet(isPresented: $showProfileSheet) {
                     PatientProfileView()
                 }
+                
+                // Added floating checker directly to PatientHomeView since AppRouter bypasses PatientTabView
+                FloatingSymptomChecker()
             }
-            
-            // Added floating checker directly to PatientHomeView since AppRouter bypasses PatientTabView
-            FloatingSymptomChecker()
         }
         .onAppear {
             withAnimation(.spring(response: 0.7, dampingFraction: 0.8).delay(0.1)) {

@@ -39,7 +39,7 @@ struct FloatingSymptomChecker: View {
                                     Circle()
                                         .fill(Color.white.opacity(0.2))
                                         .frame(width: 36, height: 36)
-                                    Image(systemName: "stethoscope")
+                                    Image(systemName: "heart.text.clipboard.fill")
                                         .font(.system(size: 16, weight: .semibold))
                                         .foregroundColor(.white)
                                 }
@@ -178,9 +178,10 @@ struct FloatingSymptomChecker: View {
                             .frame(width: 58, height: 58)
                             .shadow(color: AppTheme.primary.opacity(0.45), radius: 12, x: 0, y: 6)
 
-                        Image(systemName: "stethoscope")
-                            .font(.system(size: 24, weight: .semibold))
+                        Image(systemName: "heart.text.clipboard.fill")
+                            .font(.system(size: 28, weight: .semibold))
                             .foregroundColor(.white)
+                            .offset(y: -4)
                     }
                 }
                 .padding(.trailing, 20)
@@ -203,7 +204,7 @@ struct ChatBubble: View {
             HStack {
                 if !message.isBot { Spacer(minLength: 50) }
 
-                Text(message.text)
+                Text(.init(message.text))
                     .font(.system(size: 14, weight: .regular, design: .rounded))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
@@ -291,49 +292,52 @@ struct DoctorMiniCard: View {
     let doctor: HMSUser
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Avatar
-            ZStack {
-                Circle()
-                    .fill(AppTheme.primary.opacity(0.12))
-                    .frame(width: 44, height: 44)
-                if let url = doctor.profileImageURL, let imageURL = URL(string: url) {
-                    AsyncImage(url: imageURL) { image in
-                        image.resizable().scaledToFill()
-                    } placeholder: {
+        NavigationLink(destination: BookAppointmentView(doctor: doctor)) {
+            HStack(spacing: 12) {
+                // Avatar
+                ZStack {
+                    Circle()
+                        .fill(AppTheme.primary.opacity(0.12))
+                        .frame(width: 44, height: 44)
+                    if let url = doctor.profileImageURL, let imageURL = URL(string: url) {
+                        AsyncImage(url: imageURL) { image in
+                            image.resizable().scaledToFill()
+                        } placeholder: {
+                            Image(systemName: "person.fill")
+                                .foregroundColor(AppTheme.primary)
+                        }
+                        .frame(width: 44, height: 44)
+                        .clipShape(Circle())
+                    } else {
                         Image(systemName: "person.fill")
                             .foregroundColor(AppTheme.primary)
                     }
-                    .frame(width: 44, height: 44)
-                    .clipShape(Circle())
-                } else {
-                    Image(systemName: "person.fill")
-                        .foregroundColor(AppTheme.primary)
                 }
-            }
 
-            // Name + department
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Dr. \(doctor.fullName)")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundColor(AppTheme.textPrimary)
-                if let dept = doctor.department {
-                    Text(dept)
-                        .font(.system(size: 12, design: .rounded))
-                        .foregroundColor(AppTheme.textSecondary)
+                // Name + department
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Dr. \(doctor.fullName)")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundColor(AppTheme.textPrimary)
+                    if let dept = doctor.department {
+                        Text(dept)
+                            .font(.system(size: 12, design: .rounded))
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
                 }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(AppTheme.primary.opacity(0.6))
             }
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(AppTheme.primary.opacity(0.6))
+            .padding(10)
+            .background(Color(.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
         }
-        .padding(10)
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
+        .buttonStyle(.plain)
     }
 }
 

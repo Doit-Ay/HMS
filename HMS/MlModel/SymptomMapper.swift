@@ -152,6 +152,21 @@ final class SymptomMapper {
             "groin pain": 1
         ]
     ]
+    // MARK: - Safety Net Priority
+    // Used to break ties. Higher number = safer default.
+    private let departmentPriority: [String: Int] = [
+        "General Medicine": 100, // Ultimate catch-all
+        "Paediatrics": 90,       // High priority for kids
+        "Cardiology": 80,        // Heart issues take precedence
+        "Neurology": 70,
+        "Gynaecology": 60,
+        "Orthopedics": 50,
+        "Urology": 50,
+        "ENT": 40,
+        "Ophthalmology": 40,
+        "Psychiatry": 40,
+        "Dermatology": 30
+    ]
 
     var allSymptoms: [String] {
         var uniqueSymptoms = Set<String>()
@@ -185,8 +200,20 @@ final class SymptomMapper {
         }
 
         return scores
-            .map { DepartmentMatch(department: $0.key, confidence: $0.value.score, matchedKeywords: $0.value.keywords) }
-            .sorted { $0.confidence > $1.confidence }
+                    .map { DepartmentMatch(department: $0.key, confidence: $0.value.score, matchedKeywords: $0.value.keywords) }
+                    .sorted { a, b in
+                        // If the keyword scores are exactly tied...
+                        if a.confidence == b.confidence {
+                            let priorityA = departmentPriority[a.department] ?? 0
+                            let priorityB = departmentPriority[b.department] ?? 0
+                            
+                            // ...sort by the safety priority instead
+                            return priorityA > priorityB
+                        }
+                        
+                        // Otherwise, sort normally by the keyword score
+                        return a.confidence > b.confidence
+                    }
     }
 
     /// Returns the single best matching department.
