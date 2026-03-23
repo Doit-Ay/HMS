@@ -218,10 +218,11 @@ struct PatientHomeView: View {
             }
         }
         .task {
-            await fetchUpcomingAppointments()
-        }
+                await fetchUpcomingAppointments()
+            }
     }
     
+    @MainActor
     private func fetchUpcomingAppointments() async {
         guard let userId = session.currentUser?.id else {
             await MainActor.run { isLoadingAppointments = false }
