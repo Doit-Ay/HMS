@@ -43,7 +43,8 @@ struct HMSUser: Codable, Identifiable {
     var gender: String?
     var profileImageURL: String?
     var department: String?
-    var specialization: String?   // doctors only
+    var specialization: String?    // doctors only
+    var consultationFee: Double?   // doctors only
     var employeeID: String?        // staff only
     var bloodGroup: String?        // patients only
     var defaultSlots: [String]?    // doctors only — e.g. ["morning","afternoon","17:00-22:00"]
@@ -110,6 +111,7 @@ struct DoctorProfile: Codable, Identifiable {
     var employeeID: String?
     var licenseNumber: String?
     var qualifications: [String]?
+    var consultationFee: Double?
     var createdAt: Date?
     var isActive: Bool
 
@@ -124,6 +126,7 @@ struct DoctorProfile: Codable, Identifiable {
         self.department     = user.department
         self.specialization = user.specialization
         self.employeeID     = user.employeeID
+        self.consultationFee = user.consultationFee
         self.isActive       = true
         self.createdAt      = Date()
     }

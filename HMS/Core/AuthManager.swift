@@ -235,7 +235,8 @@ class AuthManager {
         department: String?,
         specialization: String?,
         employeeID: String?,
-        defaultSlots: [String]? = nil
+        defaultSlots: [String]? = nil,
+        consultationFee: Double? = nil
     ) async throws {
         // Step 1 — Get a secondary Firebase App to isolate auth from admin session
         let secondaryAppName = "HMSStaffCreation"
@@ -261,6 +262,7 @@ class AuthManager {
         staff.specialization = specialization
         staff.employeeID     = employeeID
         staff.defaultSlots   = defaultSlots
+        staff.consultationFee = consultationFee
         
         try await saveUserToFirestore(user: staff, db: adminDB)
 
@@ -319,7 +321,8 @@ class AuthManager {
         specialization: String?,
         employeeID: String?,
         phoneNumber: String? = nil,
-        defaultSlots: [String]? = nil
+        defaultSlots: [String]? = nil,
+        consultationFee: Double? = nil
     ) async throws {
         // Step 1 — Update `users` Firestore collection
         var updates: [String: Any] = [
@@ -333,6 +336,9 @@ class AuthManager {
         }
         if let slots = defaultSlots {
             updates["defaultSlots"] = slots
+        }
+        if let fee = consultationFee {
+            updates["consultationFee"] = fee
         }
 
         try await db.collection("users").document(uid).updateData(updates)
@@ -354,6 +360,9 @@ class AuthManager {
             }
             if let slots = defaultSlots {
                 doctorUpdates["defaultSlots"] = slots
+            }
+            if let fee = consultationFee {
+                doctorUpdates["consultationFee"] = fee
             }
             try await db.collection("doctors").document(uid).setData(doctorUpdates, merge: true)
             
@@ -411,7 +420,7 @@ class AuthManager {
 
     // MARK: - Sync current doctor profile fields to doctors collection
     func syncDoctorProfileToFirestore(user: HMSUser) async {
-        let fields: [String: Any] = [
+        var fields: [String: Any] = [
             "id":             user.id,
             "email":          user.email,
             "fullName":       user.fullName,
@@ -423,6 +432,9 @@ class AuthManager {
             "specialization": user.specialization ?? "Not Set",
             "employeeID":     user.employeeID     ?? "Not Set"
         ]
+        if let fee = user.consultationFee {
+            fields["consultationFee"] = fee
+        }
         do {
             try await db.collection("doctors").document(user.id).setData(fields, merge: true)
         } catch {

@@ -18,6 +18,10 @@ struct AdminTabView: View {
             SystemActivityLogsView()
                 .tabItem { Label("Logs", systemImage: "list.bullet.rectangle") }
                 .tag(2)
+
+            AdminRevenueDashboardView()
+                .tabItem { Label("Financials", systemImage: "dollarsign.circle.fill") }
+                .tag(3)
         }
         .tint(AppTheme.primary)
     }

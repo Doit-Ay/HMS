@@ -13,13 +13,11 @@ struct PatientTabView: View {
                 }
                 .tag(0)
 
-//            NavigationStack {
-//                ProfileView()
-//            }
-//            .tabItem {
-//                Label("Profile", systemImage: "person.circle.fill")
-//            }
-//            .tag(1)
+            PatientBillingView()
+                .tabItem {
+                    Label("Billing", systemImage: "creditcard.fill")
+                }
+                .tag(1)
         }
         .tint(AppTheme.primary)
     }

@@ -7,6 +7,13 @@ struct BookAppointmentView: View {
     @ObservedObject var session = UserSession.shared
     @Environment(\.dismiss) var dismiss
     
+    var consultationFee: Int {
+        if let fee = doctor.consultationFee {
+            return Int(fee)
+        }
+        return 499
+    }
+    
     /// When set, the view operates in "reschedule" mode — updating an existing appointment
     var rescheduleAppointmentId: String? = nil
     var rescheduleOldSlotId: String? = nil
@@ -252,7 +259,7 @@ struct BookAppointmentView: View {
         .razorpaySheet(
             isPresented: $showPaymentSheet,
             options: pendingPaymentOptions ?? RazorpayOptions(
-                amountInPaise: 100, // ₹1 = 100 paise
+                amountInPaise: consultationFee * 100, // Derived from consulting fee
                 description: "Doctor Consultation",
                 prefillName: UserSession.shared.currentUser?.fullName ?? "",
                 prefillEmail: UserSession.shared.currentUser?.email ?? "",
@@ -424,9 +431,9 @@ struct BookAppointmentView: View {
         isBooking = true
         errorMessage = nil
 
-        // Build payment options (₹1 consultation fee = 100 paise)
+        // Build payment options
         let options = RazorpayOptions(
-            amountInPaise: 100,
+            amountInPaise: consultationFee * 100,
             description: "Dr. \(doctor.fullName) Consultation",
             prefillName: patient.fullName,
             prefillEmail: patient.email,
@@ -482,8 +489,12 @@ struct DoctorInfoHeader: View {
 
     let doctor: HMSUser
     
-    /// Temporary dummy fee (until added to Firestore)
-    let consultationFee: Int = 1
+    var consultationFee: Int {
+        if let fee = doctor.consultationFee {
+            return Int(fee)
+        }
+        return 499
+    }
 
     var body: some View {
 
