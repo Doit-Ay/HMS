@@ -6,6 +6,8 @@ import SwiftUI
 struct FloatingSymptomChecker: View {
     @State private var isExpanded = false
     @StateObject private var vm = SymptomCheckerViewModel()
+    @AppStorage("hasSeenSymptomTooltip") private var hasSeenTooltip = false
+    @State private var animateTooltip = false
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -39,7 +41,7 @@ struct FloatingSymptomChecker: View {
                                     Circle()
                                         .fill(Color.white.opacity(0.2))
                                         .frame(width: 36, height: 36)
-                                    Image(systemName: "heart.text.clipboard.fill")
+                                    Image(systemName: "stethoscope")
                                         .font(.system(size: 16, weight: .semibold))
                                         .foregroundColor(.white)
                                 }
@@ -161,27 +163,58 @@ struct FloatingSymptomChecker: View {
 
             // MARK: Floating Action Button
             if !isExpanded {
-                Button(action: {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
-                        isExpanded = true
-                    }
-                }) {
-                    ZStack {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [AppTheme.primary, AppTheme.primaryMid],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 58, height: 58)
-                            .shadow(color: AppTheme.primary.opacity(0.45), radius: 12, x: 0, y: 6)
-
-                        Image(systemName: "heart.text.clipboard.fill")
-                            .font(.system(size: 28, weight: .semibold))
+                VStack(alignment: .trailing, spacing: 14) {
+                    
+                    // First-Time Tooltip
+                    if !hasSeenTooltip {
+                        Text("Not sure which doctor to see?\nDescribe your symptoms here!")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
                             .foregroundColor(.white)
-                            .offset(y: -4)
+                            .lineSpacing(2)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(AppTheme.primary)
+                            .cornerRadius(12)
+                            .overlay(
+                                TooltipTriangle()
+                                    .fill(AppTheme.primary)
+                                    .frame(width: 16, height: 8)
+                                    .rotationEffect(.degrees(180))
+                                    .offset(y: 8)
+                                    .padding(.trailing, 30),
+                                alignment: .bottomTrailing
+                            )
+                            .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
+                            .onTapGesture {
+                                withAnimation { hasSeenTooltip = true }
+                            }
+                            .offset(y: animateTooltip ? -4 : 4)
+                            .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: animateTooltip)
+                            .onAppear { animateTooltip = true }
+                    }
+                    
+                    Button(action: {
+                        withAnimation { hasSeenTooltip = true }
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                            isExpanded = true
+                        }
+                    }) {
+                        ZStack {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [AppTheme.primary, AppTheme.primaryMid],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 58, height: 58)
+                                .shadow(color: AppTheme.primary.opacity(0.45), radius: 12, x: 0, y: 6)
+
+                            Image(systemName: "stethoscope")
+                                .font(.system(size: 28, weight: .semibold))
+                                .foregroundColor(.white)
+                        }
                     }
                 }
                 .padding(.trailing, 20)
@@ -374,7 +407,23 @@ struct ChatInputBar: View {
     private func send() {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
+        // Haptic feedback
+        let impact = UIImpactFeedbackGenerator(style: .light)
+        impact.impactOccurred()
         onSend(trimmed)
         text = ""
     }
 }
+
+// MARK: - Tooltip Triangle Shape
+struct TooltipTriangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
+}
+
