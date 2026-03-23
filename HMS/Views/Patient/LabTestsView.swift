@@ -213,49 +213,77 @@ struct LabTestsView: View {
         
         let db = Firestore.firestore()
         
-        db.collection("lab_test_requests")
+        // 1) First, fetch all checked-out test names from patient_lab_requests
+        db.collection("patient_lab_requests")
             .whereField("patientId", isEqualTo: patientId)
-            .getDocuments { snapshot, error in
+            .getDocuments { plrSnapshot, plrError in
                 
-                self.isLoading = false  // Change this line
-                
-                if let error = error {
-                    print("Error fetching requested tests: \(error)")
-                    return
-                }
-                
-                guard let documents = snapshot?.documents else {
-                    self.requestedTests = []  // Set empty array
-                    return
-                }
-                
-                var tests: [DoctorLabRequest] = []
-                
-                for doc in documents {
-                    let data = doc.data()
-                    
-                    guard let doctorId = data["doctorId"] as? String,
-                          let doctorName = data["doctorName"] as? String,
-                          let patientId = data["patientId"] as? String,
-                          let patientName = data["patientName"] as? String,
-                          let testNames = data["testNames"] as? [String],
-                          let timestamp = data["dateReferred"] as? Timestamp else {
-                        continue
+                // Build a set of test names that have already been checked out
+                var checkedOutTestNames: Set<String> = []
+                if let plrDocs = plrSnapshot?.documents {
+                    for doc in plrDocs {
+                        let data = doc.data()
+                        if let tests = data["tests"] as? [[String: Any]] {
+                            for test in tests {
+                                if let name = test["name"] as? String {
+                                    checkedOutTestNames.insert(name)
+                                }
+                            }
+                        }
                     }
-                    
-                    let request = DoctorLabRequest(
-                        id: doc.documentID,
-                        doctorId: doctorId,
-                        doctorName: doctorName,
-                        patientId: patientId,
-                        patientName: patientName,
-                        testNames: testNames,
-                        dateReferred: timestamp.dateValue()
-                    )
-                    tests.append(request)
                 }
                 
-                self.requestedTests = tests
+                // 2) Now fetch doctor-referred requests and filter out checked-out ones
+                db.collection("lab_test_requests")
+                    .whereField("patientId", isEqualTo: patientId)
+                    .getDocuments { snapshot, error in
+                        
+                        self.isLoading = false
+                        
+                        if let error = error {
+                            print("Error fetching requested tests: \(error)")
+                            return
+                        }
+                        
+                        guard let documents = snapshot?.documents else {
+                            self.requestedTests = []
+                            return
+                        }
+                        
+                        var tests: [DoctorLabRequest] = []
+                        
+                        for doc in documents {
+                            let data = doc.data()
+                            
+                            guard let doctorId = data["doctorId"] as? String,
+                                  let doctorName = data["doctorName"] as? String,
+                                  let patientId = data["patientId"] as? String,
+                                  let patientName = data["patientName"] as? String,
+                                  let testNames = data["testNames"] as? [String],
+                                  let timestamp = data["dateReferred"] as? Timestamp else {
+                                continue
+                            }
+                            
+                            // Filter out test names that have already been checked out
+                            let remainingTests = testNames.filter { !checkedOutTestNames.contains($0) }
+                            
+                            // Only include this request if it still has unchecked-out tests
+                            guard !remainingTests.isEmpty else { continue }
+                            
+                            let request = DoctorLabRequest(
+                                id: doc.documentID,
+                                doctorId: doctorId,
+                                doctorName: doctorName,
+                                patientId: patientId,
+                                patientName: patientName,
+                                testNames: remainingTests,
+                                dateReferred: timestamp.dateValue()
+                            )
+                            tests.append(request)
+                        }
+                        
+                        self.requestedTests = tests.sorted { $0.dateReferred > $1.dateReferred }
+                    }
             }
     }
 }
