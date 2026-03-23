@@ -59,7 +59,7 @@ struct ProfileView: View {
                                             .font(.system(size: 16, weight: .bold))
                                             .foregroundColor(AppTheme.textPrimary)
                                             .frame(width: 44, height: 44)
-                                            .background(Color.white)
+                                            .background(AppTheme.cardSurface)
                                             .clipShape(Circle())
                                     }
                                 }
@@ -69,7 +69,7 @@ struct ProfileView: View {
                                         .font(.system(size: 16, weight: .bold))
                                         .foregroundColor(AppTheme.textPrimary)
                                         .frame(width: 44, height: 44)
-                                        .background(Color.white)
+                                        .background(AppTheme.cardSurface)
                                         .clipShape(Circle())
                                 }
                             }
@@ -83,7 +83,7 @@ struct ProfileView: View {
                         VStack(spacing: 8) {
                             ZStack(alignment: .bottomTrailing) {
                                 Circle()
-                                    .fill(Color.white)
+                                    .fill(AppTheme.cardSurface)
                                     .frame(width: 110, height: 110)
                                     .shadow(radius: 10)
                                     .overlay(
@@ -137,7 +137,7 @@ struct ProfileView: View {
                                 .foregroundColor(Color.red.opacity(0.8))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
-                                .background(Color.white)
+                                .background(AppTheme.cardSurface)
                                 .cornerRadius(16)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 16)

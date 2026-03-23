@@ -189,7 +189,7 @@ struct AdminDashboardActionCard: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: 110)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
     }
@@ -444,7 +444,7 @@ struct StaffRowView: View {
                     .foregroundColor(AppTheme.textSecondary.opacity(0.4))
             }
             .padding(16)
-            .background(Color.white)
+            .background(AppTheme.cardSurface)
             .cornerRadius(16)
             .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 4)
         }

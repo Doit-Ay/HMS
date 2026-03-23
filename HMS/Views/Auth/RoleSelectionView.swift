@@ -136,7 +136,7 @@ struct RoleCard: View {
             .background(
                 ZStack {
                     RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.white.opacity(0.75))
+                        .fill(AppTheme.cardSurface)
                     RoundedRectangle(cornerRadius: 20)
                         .stroke(color.opacity(0.2), lineWidth: 1.5)
                 }

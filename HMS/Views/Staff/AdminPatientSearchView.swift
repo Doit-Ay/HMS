@@ -166,7 +166,7 @@ struct PatientRowView: View {
                 .foregroundColor(AppTheme.textSecondary.opacity(0.4))
         }
         .padding(16)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 4)
     }

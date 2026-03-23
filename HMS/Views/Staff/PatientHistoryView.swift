@@ -38,21 +38,12 @@ struct PatientHistoryView: View {
                 ZStack {
                     // Gradient Background
                     LinearGradient(
-                        colors: [AppTheme.primaryDark, AppTheme.primary, Color(red: 0.4, green: 0.8, blue: 0.75)],
+                        colors: [AppTheme.dashboardCardGradientStart, AppTheme.dashboardCardGradientEnd],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                     
-                    // Subtle pattern overlay
-                    Circle()
-                        .fill(Color.white.opacity(0.05))
-                        .frame(width: 200, height: 200)
-                        .offset(x: 120, y: -40)
-                    
-                    Circle()
-                        .fill(Color.white.opacity(0.04))
-                        .frame(width: 140, height: 140)
-                        .offset(x: -130, y: 50)
+                    // Decorative circles removed format
                     
                     VStack(spacing: 14) {
                         Spacer().frame(height: 100)
@@ -61,7 +52,13 @@ struct PatientHistoryView: View {
                         ZStack(alignment: .topTrailing) {
                             ZStack {
                                 Circle()
-                                    .fill(Color.white.opacity(0.15))
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [AppTheme.dashboardCardGradientStart, AppTheme.dashboardCardGradientEnd],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
                                     .frame(width: 94, height: 94)
                                 
                                 LivePatientAvatarInitial(
@@ -73,7 +70,7 @@ struct PatientHistoryView: View {
                                 )
                             }
                             .overlay(
-                                Circle().stroke(Color.white.opacity(0.6), lineWidth: 2.5)
+                                Circle().stroke(AppTheme.cardSurface, lineWidth: 2.5)
                             )
                             .shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 6)
                             
@@ -85,7 +82,7 @@ struct PatientHistoryView: View {
                                 .background(
                                     Circle()
                                         .fill(AppTheme.primaryDark)
-                                        .overlay(Circle().stroke(Color.white, lineWidth: 2))
+                                        .overlay(Circle().stroke(AppTheme.cardSurface, lineWidth: 2))
                                 )
                                 .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
                                 .offset(x: 4, y: -4)
@@ -163,7 +160,7 @@ struct PatientHistoryView: View {
                                 Spacer()
                             }
                             .padding(16)
-                            .background(Color.white)
+                            .background(AppTheme.cardSurface)
                             .cornerRadius(16)
                             .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
                         }
@@ -236,7 +233,7 @@ struct PatientHistoryView: View {
                                     .font(.system(size: 13, weight: .semibold))
                             }
                             .padding(14)
-                            .background(Color.white)
+                            .background(AppTheme.cardSurface)
                             .cornerRadius(16)
                             .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
                         }
@@ -269,7 +266,7 @@ struct PatientHistoryView: View {
                                     .font(.system(size: 13, weight: .semibold))
                             }
                             .padding(14)
-                            .background(Color.white)
+                            .background(AppTheme.cardSurface)
                             .cornerRadius(16)
                             .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
                         }
@@ -336,7 +333,7 @@ struct PatientHistoryView: View {
     // Fetch real demographic data
     private func fetchProfile() {
         Task {
-            if let profile = try? await AuthManager.shared.fetchPatientProfile(uid: patientGroup.patientId) {
+            if let profile = try? await DoctorPatientRepository.shared.fetchPatientProfile(patientId: patientGroup.patientId) {
                 await MainActor.run {
                     self.patientProfile = profile
                 }
@@ -363,7 +360,7 @@ struct PatientHistoryView: View {
             .foregroundColor(.white)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Color.white.opacity(0.2))
+            .background(Color.white.opacity(0.15))
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
@@ -387,7 +384,7 @@ struct PatientHistoryView: View {
         var body: some View {
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white)
+                    .fill(AppTheme.cardSurface)
                     .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
                 
                 // Color strip
@@ -538,7 +535,7 @@ struct PatientHistoryView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(Color.white)
+            .background(AppTheme.cardSurface)
             .cornerRadius(16)
             .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
         }

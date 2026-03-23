@@ -194,7 +194,7 @@ private struct DoctorLabReportCard: View {
             }
         }
         .padding(16)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(18)
         .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 4)
     }

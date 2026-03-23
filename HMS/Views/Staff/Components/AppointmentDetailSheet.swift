@@ -238,7 +238,7 @@ struct AppointmentDetailSheet: View {
                 )
             }
         }
-        .background(Color.white.ignoresSafeArea())
+        .background(AppTheme.sheetBackground.ignoresSafeArea())
         .task {
             await fetchPatientData()
             await fetchAppointmentStatus()

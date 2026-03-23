@@ -241,7 +241,7 @@ private struct HistoryDocumentRow: View {
                 .foregroundColor(Color.gray.opacity(0.3))
         }
         .padding(16)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
     }

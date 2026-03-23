@@ -290,7 +290,7 @@ struct DoctorProfileCard: View {
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(Color.white)
+                .fill(AppTheme.cardSurface)
         )
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
     }

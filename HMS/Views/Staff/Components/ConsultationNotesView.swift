@@ -53,7 +53,7 @@ struct ConsultationNotesView: View {
                                     .foregroundColor(AppTheme.primary)
                             }
                             .padding()
-                            .background(Color.white)
+                            .background(AppTheme.cardSurface)
                             .cornerRadius(16)
                             .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
                             
@@ -66,7 +66,7 @@ struct ConsultationNotesView: View {
                                 TextEditor(text: $notes)
                                     .frame(minHeight: 150)
                                     .padding(8)
-                                    .background(Color.white)
+                                    .background(AppTheme.cardSurface)
                                     .cornerRadius(12)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 12)
@@ -84,7 +84,7 @@ struct ConsultationNotesView: View {
                                 TextEditor(text: $prescription)
                                     .frame(minHeight: 150)
                                     .padding(8)
-                                    .background(Color.white)
+                                    .background(AppTheme.cardSurface)
                                     .cornerRadius(12)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 12)

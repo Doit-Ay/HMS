@@ -89,7 +89,7 @@ struct DoctorAvailabilityView: View {
                                     .padding(.vertical, 8)
                                     .background(
                                         ZStack {
-                                            Color.white.opacity(0.35)
+                                            AppTheme.cardSurface
                                             AppTheme.primary.opacity(0.08)
                                         }
                                     )

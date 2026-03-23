@@ -417,7 +417,7 @@ struct AppointmentDetailCard: View {
                 .padding(.vertical, 14)
             }
         }
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(20)
         .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 12, x: 0, y: 5)
     }

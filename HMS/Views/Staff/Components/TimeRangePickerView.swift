@@ -78,7 +78,7 @@ struct TimePillPicker: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 14)
-                .background(Color.white)
+                .background(AppTheme.cardSurface)
                 .cornerRadius(28)
                 .overlay(
                     RoundedRectangle(cornerRadius: 28)

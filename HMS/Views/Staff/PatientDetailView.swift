@@ -132,7 +132,7 @@ struct PatientDetailView: View {
                 // Profile Photo with ring
                 ZStack {
                     Circle()
-                        .fill(Color.white)
+                        .fill(AppTheme.cardSurface)
                         .frame(width: 108, height: 108)
                         .shadow(color: AppTheme.primary.opacity(0.2), radius: 12, x: 0, y: 6)
                     
@@ -182,7 +182,7 @@ struct PatientDetailView: View {
         .foregroundColor(AppTheme.primaryDark)
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
-        .background(Color.white.opacity(0.9))
+        .background(AppTheme.cardSurface)
         .clipShape(Capsule())
         .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
     }
@@ -381,7 +381,7 @@ struct StatCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 18)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(18)
         .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 5)
     }
@@ -412,7 +412,7 @@ struct InfoCardContainer<Content: View>: View {
             content
         }
         .padding(20)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
     }
@@ -529,7 +529,7 @@ struct AppointmentHistoryRow: View {
             }
         }
         .padding(16)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 3)
     }

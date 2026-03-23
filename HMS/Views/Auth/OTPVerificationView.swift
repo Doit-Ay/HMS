@@ -303,7 +303,7 @@ struct OTPDigitField: View {
                 RoundedRectangle(cornerRadius: 14)
                     .fill(isFocused
                           ? AppTheme.primaryLight
-                          : Color.white.opacity(0.8))
+                          : AppTheme.cardSurface)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14)

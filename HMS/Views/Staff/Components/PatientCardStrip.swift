@@ -81,7 +81,7 @@ struct PatientCardStrip: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
-                        .background(Color.white)
+                        .background(AppTheme.cardSurface)
                         .cornerRadius(16)
                         // Active state styling
                         .overlay(

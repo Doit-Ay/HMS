@@ -241,7 +241,7 @@ struct PatientGroupCard: View {
         .padding(.horizontal, 20)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white)
+                .fill(AppTheme.cardSurface)
                 .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 6)
         )
     }

@@ -149,7 +149,7 @@ struct AppointmentStatsView: View {
         .padding(24)
         .background(
             LinearGradient(
-                colors: [AppTheme.primary, AppTheme.primaryMid],
+                colors: [AppTheme.dashboardCardGradientStart, AppTheme.dashboardCardGradientEnd],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
         )
@@ -266,7 +266,7 @@ struct AppointmentStatsView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(20)
-        .background(Color.white.opacity(0.85))
+        .background(AppTheme.cardSurface)
         .cornerRadius(20)
         .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 3)
         .padding(.horizontal, 20)
@@ -301,7 +301,7 @@ struct AppointmentStatsView: View {
                     .padding(.vertical, 10)
                 }
                 .frame(height: 180)
-                .background(Color.white.opacity(0.85))
+                .background(AppTheme.cardSurface)
                 .cornerRadius(18)
                 .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 3)
                 .padding(.horizontal, 20)
@@ -363,7 +363,7 @@ struct AppointmentStatsView: View {
                     }
                 }
                 .padding(20)
-                .background(Color.white.opacity(0.85))
+                .background(AppTheme.cardSurface)
                 .cornerRadius(18)
                 .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 3)
                 .padding(.horizontal, 20)
@@ -384,7 +384,7 @@ struct AppointmentStatsView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 30)
-        .background(Color.white.opacity(0.85))
+        .background(AppTheme.cardSurface)
         .cornerRadius(18)
         .padding(.horizontal, 20)
     }
@@ -460,7 +460,7 @@ struct MiniStatCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
-        .background(Color.white.opacity(0.85))
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: color.opacity(0.1), radius: 6, x: 0, y: 3)
     }

@@ -271,6 +271,26 @@ struct LabReportCard: View {
         request.tests.compactMap { $0.resultURL }.first(where: { !$0.isEmpty })
     }
     
+    private var statusText: String {
+        if isCompleted || request.status.lowercased() == "completed" {
+            return "Completed"
+        } else if request.status.lowercased() == "in_progress" || request.status.lowercased() == "in progress" {
+            return "In Progress"
+        } else {
+            return "Pending"
+        }
+    }
+    
+    private var statusColor: Color {
+        if isCompleted || request.status.lowercased() == "completed" {
+            return .green
+        } else if request.status.lowercased() == "in_progress" || request.status.lowercased() == "in progress" {
+            return .blue
+        } else {
+            return .orange
+        }
+    }
+    
     var body: some View {
         
         VStack(alignment: .leading, spacing: 16) {
@@ -294,12 +314,12 @@ struct LabReportCard: View {
                 
                 Spacer()
                 
-                Text(isCompleted ? "Completed" : "Pending")
+                Text(statusText)
                     .font(.system(size: 12, weight: .semibold))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .background(isCompleted ? Color.green.opacity(0.15) : Color.orange.opacity(0.15))
-                    .foregroundColor(isCompleted ? .green : .orange)
+                    .background(statusColor.opacity(0.15))
+                    .foregroundColor(statusColor)
                     .cornerRadius(8)
             }
             
@@ -354,7 +374,7 @@ struct LabReportCard: View {
             }
         }
         .padding(16)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(18)
         .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 4)
     }

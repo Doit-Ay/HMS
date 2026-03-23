@@ -84,7 +84,7 @@ struct CartView: View {
                             .disabled(isCheckingOut)
                             .padding(.bottom, 20)
                         }
-                        .background(Color.white)
+                        .background(AppTheme.cardSurface)
                     }
                 }
             }
@@ -198,7 +198,7 @@ struct CartItemRow: View {
             }
         }
         .padding(12)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.03), radius: 5)
     }

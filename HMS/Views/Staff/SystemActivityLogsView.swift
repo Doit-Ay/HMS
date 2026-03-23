@@ -50,7 +50,7 @@ struct SystemActivityLogsView: View {
                                         .font(.system(size: 14, weight: viewModel.filterRole == role ? .semibold : .medium, design: .rounded))
                                         .padding(.horizontal, 16)
                                         .padding(.vertical, 8)
-                                        .background(viewModel.filterRole == role ? AppTheme.primary : Color.white)
+                                        .background(viewModel.filterRole == role ? AppTheme.primary : AppTheme.cardSurface)
                                         .foregroundColor(viewModel.filterRole == role ? .white : AppTheme.textSecondary)
                                         .clipShape(Capsule())
                                         .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
@@ -213,7 +213,7 @@ struct ActivityLogCard: View {
                 .padding(.trailing, 2)
         }
         .padding(16)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
     }

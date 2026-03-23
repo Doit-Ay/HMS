@@ -531,7 +531,7 @@ struct DoctorInfoHeader: View {
             Spacer()
         }
         .padding(16)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(20)
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
     }
@@ -580,7 +580,7 @@ struct SlotGridView: View {
                                     startPoint: .topLeading, endPoint: .bottomTrailing
                                 )
                             } else {
-                                Color.white.opacity(0.8)
+                                AppTheme.cardSurface
                             }
                         }
                     )
@@ -659,7 +659,7 @@ struct BookingSuccessSheet: View {
                 DetailRow(icon: "clock.fill", title: "Time", value: time)
             }
             .padding(20)
-            .background(Color.white)
+            .background(AppTheme.cardSurface)
             .cornerRadius(18)
             .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
             .padding(.horizontal, 20)

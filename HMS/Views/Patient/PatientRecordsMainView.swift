@@ -96,7 +96,7 @@ struct PatientRecordsMainView: View {
                         .foregroundColor(AppTheme.textSecondary.opacity(0.4))
                 }
                 .padding(18)
-                .background(Color.white)
+                .background(AppTheme.cardSurface)
                 .cornerRadius(22)
             }
             .buttonStyle(.plain)
@@ -129,7 +129,7 @@ struct PatientRecordsMainView: View {
                         .foregroundColor(AppTheme.textSecondary.opacity(0.4))
                 }
                 .padding(18)
-                .background(Color.white)
+                .background(AppTheme.cardSurface)
                 .cornerRadius(22)
             }
             .buttonStyle(.plain)
@@ -184,7 +184,7 @@ struct RecordsFolderCard: View {
                     .foregroundColor(AppTheme.textSecondary.opacity(0.4))
             }
             .padding(18)
-            .background(Color.white)
+            .background(AppTheme.cardSurface)
             .cornerRadius(22)
         }
         .buttonStyle(.plain)
@@ -233,7 +233,7 @@ struct FolderDetailView: View {
                         .foregroundColor(AppTheme.textSecondary)
                 }
                 .padding()
-                .background(Color.white)
+                .background(AppTheme.cardSurface)
                 .cornerRadius(16)
                 .shadow(radius: 10)
                 .padding(.horizontal, 40)
@@ -568,7 +568,7 @@ struct DocumentRow: View {
         .buttonStyle(PlainButtonStyle())
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 6, x: 0, y: 2)
     }

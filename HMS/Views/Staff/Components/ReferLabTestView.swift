@@ -163,7 +163,7 @@ struct ReferLabTestView: View {
                                 Spacer()
                             }
                             .padding()
-                            .background(Color.white)
+                            .background(AppTheme.cardSurface)
                             .cornerRadius(20)
                             .shadow(color: AppTheme.primary.opacity(0.08), radius: 12, x: 0, y: 6)
                             .padding(.horizontal)
@@ -211,7 +211,7 @@ struct ReferLabTestView: View {
                                 HStack(spacing: 12) {
                                     TextField("Enter specific test name...", text: $customTest)
                                         .padding()
-                                        .background(Color.white)
+                                        .background(AppTheme.cardSurface)
                                         .cornerRadius(12)
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 12)
@@ -291,7 +291,7 @@ struct ReferLabTestView: View {
                             }
                             .padding(.horizontal, 20)
                             .padding(.vertical, 12)
-                            .background(Color.white)
+                            .background(AppTheme.cardSurface)
                             .overlay(
                                 Rectangle().frame(height: 1).foregroundColor(Color.gray.opacity(0.1)),
                                 alignment: .top
@@ -331,9 +331,9 @@ struct ReferLabTestView: View {
                         .padding(.horizontal, 20)
                         .padding(.top, 12)
                         .padding(.bottom, 24)
-                        .background(Color.white)
+                        .background(AppTheme.cardSurface)
                     }
-                    .background(Color.white)
+                    .background(AppTheme.cardSurface)
                     .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                     .shadow(color: Color.black.opacity(0.08), radius: 15, x: 0, y: -5)
                     .edgesIgnoringSafeArea(.bottom)

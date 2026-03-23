@@ -290,7 +290,7 @@ struct LabRequestCard: View {
                 .frame(maxWidth: .infinity)
             }
         }
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(20)
         .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
     }
@@ -449,7 +449,7 @@ struct LabRequestDetailView: View {
                 VStack(spacing: 20) {
                     ZStack {
                         Circle()
-                            .stroke(Color.white.opacity(0.2), lineWidth: 4)
+                            .stroke(AppTheme.cardSurface, lineWidth: 4)
                             .frame(width: 60, height: 60)
                         ProgressView()
                             .scaleEffect(1.5)
@@ -702,7 +702,7 @@ struct LabRequestDetailView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
         }
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(22)
         .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 6)
         .overlay(
@@ -793,7 +793,7 @@ struct LabRequestDetailView: View {
                         .clipShape(Circle())
                 }
                 .padding(18)
-                .background(Color.white)
+                .background(AppTheme.cardSurface)
                 .cornerRadius(18)
                 .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
                 .overlay(
@@ -869,7 +869,7 @@ struct LabRequestDetailView: View {
                     .shadow(color: AppTheme.primary.opacity(0.3), radius: 8, x: 0, y: 4)
                 }
                 .padding(18)
-                .background(Color.white)
+                .background(AppTheme.cardSurface)
                 .cornerRadius(20)
                 .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
             }
@@ -1029,7 +1029,7 @@ struct TestItemCard: View {
             .padding(.trailing, 16)
             .padding(.vertical, 14)
         }
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 3)
         .overlay(
@@ -1148,11 +1148,11 @@ struct GlassUploadSheet: View {
             .padding(.horizontal, 20)
             .frame(maxWidth: .infinity)
             .background(.regularMaterial)
-            .background(Color.white.opacity(0.2))
+            .background(AppTheme.cardSurface)
             .clipShape(Capsule())
             .overlay(
                 Capsule()
-                    .stroke(Color.white.opacity(0.5), lineWidth: 1.0)
+                    .stroke(AppTheme.cardSurface, lineWidth: 1.0)
             )
             .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
         }

@@ -140,7 +140,7 @@ struct AdminInfoPill: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(12)
         .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
     }
@@ -181,7 +181,7 @@ struct AdminActionCard: View {
                 .foregroundColor(AppTheme.textSecondary.opacity(0.4))
         }
         .padding(18)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(22)
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
     }

@@ -93,7 +93,7 @@ struct PatientHomeView: View {
                                 }
                                 .foregroundColor(AppTheme.primary)
                                 .padding()
-                                .background(Color.white)
+                                .background(AppTheme.cardSurface)
                                 .cornerRadius(16)
                                 .padding(.horizontal, 24)
                                 .padding(.bottom, 24)
@@ -104,7 +104,7 @@ struct PatientHomeView: View {
                             ZStack {
 
                                 LinearGradient(
-                                    colors: [AppTheme.primary, AppTheme.primaryMid],
+                                    colors: [AppTheme.dashboardCardGradientStart, AppTheme.dashboardCardGradientEnd],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -117,7 +117,7 @@ struct PatientHomeView: View {
                             }
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-                        .shadow(color: AppTheme.primary.opacity(0.25), radius: 20, x: 0, y: 10)
+                        .shadow(color: AppTheme.dashboardCardGradientStart.opacity(0.25), radius: 20, x: 0, y: 10)
                         .padding(.horizontal, 20)
                         .offset(y: animate ? 0 : 30)
                         .opacity(animate ? 1 : 0)
@@ -407,7 +407,7 @@ struct UpcomingAppointmentCard: View {
             }
         }
         .padding(16)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 10, x: 0, y: 4)
     }
@@ -461,7 +461,7 @@ struct VitalRow: View {
             Spacer()
         }
         .padding()
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 10, x: 0, y: 4)
     }
@@ -546,7 +546,7 @@ struct HeaderProfileView: View {
 //            }
 //            .frame(maxWidth: .infinity)
 //            .padding(.vertical, 24)
-//            .background(Color.white)
+//            .background(AppTheme.cardSurface)
 //            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
 //            .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 15, x: 0, y: 8)
 //        }
@@ -578,7 +578,7 @@ struct FeatureTile: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 15, x: 0, y: 8)
     }

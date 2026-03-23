@@ -279,7 +279,7 @@ struct DoctorSearchRow: View {
                     .foregroundColor(AppTheme.textSecondary.opacity(0.4))
             }
             .padding(16)
-            .background(Color.white)
+            .background(AppTheme.cardSurface)
             .cornerRadius(16)
             .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 4)
         }
@@ -409,7 +409,7 @@ struct DoctorSlotOverlay: View {
             Spacer()
         }
         .padding(18)
-        .background(Color.white.opacity(0.85))
+        .background(AppTheme.cardSurface)
         .cornerRadius(18)
         .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 3)
         .padding(.horizontal, 20)
@@ -441,7 +441,7 @@ struct DoctorSlotOverlay: View {
                     Spacer()
                 }
                 .padding(.vertical, 16)
-                .background(Color.white.opacity(0.7))
+                .background(AppTheme.cardSurface)
                 .cornerRadius(14)
                 .padding(.horizontal, 20)
             } else {
@@ -498,7 +498,7 @@ struct DoctorSlotOverlay: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color.white.opacity(0.85))
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 3)
         .padding(.horizontal, 20)
@@ -719,7 +719,7 @@ struct SlotRowView: View {
             }
         }
         .padding(14)
-        .background(Color.white.opacity(0.85))
+        .background(AppTheme.cardSurface)
         .cornerRadius(14)
         .shadow(color: statusColor.opacity(0.08), radius: 6, x: 0, y: 3)
         .confirmationDialog(
@@ -839,7 +839,7 @@ struct AddSlotSheet: View {
                             }
                         }
                         .padding(16)
-                        .background(Color.white.opacity(0.8))
+                        .background(AppTheme.cardSurface)
                         .cornerRadius(16)
                         .padding(.horizontal, 20)
 
@@ -1000,7 +1000,7 @@ struct DoctorChip: View {
             .padding(.vertical, 8)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(isSelected ? AppTheme.primaryLight : Color.white.opacity(0.7))
+                    .fill(isSelected ? AppTheme.primaryLight : AppTheme.cardSurface)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16)

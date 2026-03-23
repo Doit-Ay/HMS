@@ -112,7 +112,7 @@ struct StaffDashboardView: View {
                             Spacer()
                             ZStack {
                                 Circle()
-                                    .fill(Color.white.opacity(0.2))
+                                    .fill(AppTheme.cardSurface)
                                     .frame(width: 66, height: 66)
                                 Image(systemName: role.sfSymbol)
                                     .font(.system(size: 30))
@@ -149,7 +149,7 @@ struct StaffDashboardView: View {
                                 }
                             }
                             .padding(14)
-                            .background(Color.white.opacity(0.85))
+                            .background(AppTheme.cardSurface)
                             .cornerRadius(14)
                             .padding(.horizontal, 20)
                         }
@@ -227,7 +227,7 @@ struct StaffQuickAction: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 18)
-            .background(Color.white.opacity(0.85))
+            .background(AppTheme.cardSurface)
             .cornerRadius(18)
             .shadow(color: color.opacity(0.1), radius: 8, x: 0, y: 4)
         }
@@ -256,7 +256,7 @@ struct TodaySummaryCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(Color.white.opacity(0.85))
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: color.opacity(0.1), radius: 8, x: 0, y: 4)
     }

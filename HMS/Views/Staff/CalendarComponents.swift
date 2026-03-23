@@ -44,7 +44,7 @@ struct CalendarCellView: View {
                     .frame(height: 42)
                     .background(
                         RoundedRectangle(cornerRadius: 10)
-                            .fill(selected ? AppTheme.primary : Color.white)
+                            .fill(selected ? AppTheme.primary : AppTheme.cardSurface)
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)

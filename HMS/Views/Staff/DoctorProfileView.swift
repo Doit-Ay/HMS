@@ -53,7 +53,7 @@ struct DoctorProfileView: View {
                             path.addLine(to: CGPoint(x: width, y: 0))
                             path.addLine(to: CGPoint(x: 0, y: 0))
                         }
-                        .fill(Color.white.opacity(0.3))
+                        .fill(AppTheme.cardSurface)
                         .frame(height: 40)
                         .offset(y: -40)
                         
@@ -86,7 +86,7 @@ struct DoctorProfileView: View {
                                                 .font(.system(size: 16, weight: .bold))
                                                 .foregroundColor(AppTheme.textPrimary)
                                                 .frame(width: 44, height: 44)
-                                                .background(Color.white)
+                                                .background(AppTheme.cardSurface)
                                                 .clipShape(Circle())
                                                 .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
                                         }
@@ -99,7 +99,7 @@ struct DoctorProfileView: View {
                                         .font(.system(size: 16, weight: .bold))
                                         .foregroundColor(AppTheme.textPrimary)
                                         .frame(width: 44, height: 44)
-                                        .background(Color.white)
+                                        .background(AppTheme.cardSurface)
                                         .clipShape(Circle())
                                         .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
                                 }
@@ -113,7 +113,7 @@ struct DoctorProfileView: View {
                         VStack(spacing: 8) {
                             ZStack(alignment: .bottomTrailing) {
                                 Circle()
-                                    .fill(Color.white)
+                                    .fill(AppTheme.cardSurface)
                                     .frame(width: 110, height: 110)
                                     .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 5)
                                     .overlay(
@@ -134,7 +134,7 @@ struct DoctorProfileView: View {
                                         .fill(AppTheme.primary)
                                         .frame(width: 32, height: 32)
                                         .overlay(Image(systemName: "camera.fill").font(.system(size: 14)).foregroundColor(.white))
-                                        .overlay(Circle().stroke(Color.white, lineWidth: 2))
+                                        .overlay(Circle().stroke(AppTheme.cardSurface, lineWidth: 2))
                                         .offset(x: -4, y: -4)
                                         .transition(.scale)
                                 }
@@ -217,7 +217,7 @@ struct DoctorProfileView: View {
                                     .foregroundColor(Color.red.opacity(0.8))
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 16)
-                                    .background(Color.white)
+                                    .background(AppTheme.cardSurface)
                                     .cornerRadius(16)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 16)
