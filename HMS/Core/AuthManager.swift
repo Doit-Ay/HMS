@@ -263,6 +263,10 @@ class AuthManager {
         staff.employeeID     = employeeID
         staff.defaultSlots   = defaultSlots
         staff.consultationFee = consultationFee
+        if role == .doctor {
+            staff.averageRating = 0.0
+            staff.reviewCount = 0
+        }
         
         try await saveUserToFirestore(user: staff, db: adminDB)
 
@@ -557,6 +561,9 @@ class AuthManager {
             user.specialization = d["specialization"] as? String
             user.employeeID = d["employeeID"] as? String
             user.defaultSlots = d["defaultSlots"] as? [String]
+            user.consultationFee = d["consultationFee"] as? Double
+            user.averageRating = d["averageRating"] as? Double ?? 0.0
+            user.reviewCount = d["reviewCount"] as? Int ?? 0
             user.isActive = d["isActive"] as? Bool ?? true
             return user
         }
@@ -923,6 +930,37 @@ class AuthManager {
         } catch {
             print("⚠️ Failed to send OTP: \(error.localizedDescription)")
         }
+    }
+
+    // MARK: - Doctor Ratings
+    func submitDoctorReview(appointmentId: String, doctorId: String, rating: Int, review: String?) async throws {
+        // 1. Update the appointment with the given rating & review
+        var appointmentUpdates: [String: Any] = [
+            "ratingGiven": rating
+        ]
+        if let text = review, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            appointmentUpdates["reviewText"] = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        try await db.collection("appointments").document(appointmentId).updateData(appointmentUpdates)
+        
+        // 2. Evaluate new rating safely
+        let doctorRef = db.collection("users").document(doctorId)
+        let doctorDoc = try await doctorRef.getDocument()
+        
+        let currentRating = doctorDoc.data()?["averageRating"] as? Double ?? 0.0
+        let currentCount = doctorDoc.data()?["reviewCount"] as? Int ?? 0
+        
+        let newCount = currentCount + 1
+        let newRating = ((currentRating * Double(currentCount)) + Double(rating)) / Double(newCount)
+        
+        let updates: [String: Any] = [
+            "averageRating": newRating,
+            "reviewCount": newCount
+        ]
+        
+        // 3. Update both master user and role-specific doctor profiles
+        try await doctorRef.updateData(updates)
+        try await db.collection("doctors").document(doctorId).updateData(updates)
     }
 } // <-- Close AuthManager class here
 

@@ -249,12 +249,12 @@ struct DoctorProfileCard: View {
 
                     Image(systemName: "star.fill")
                         .font(.system(size: 12))
-                        .foregroundColor(.orange)
+                        .foregroundColor(doctor.reviewCount ?? 0 > 0 ? .orange : .gray)
 
-                    Text("4.9")
+                    Text(String(format: "%.1f", doctor.averageRating ?? 0.0))
                         .font(.system(size: 13, weight: .semibold))
 
-                    Text("• 44 reviews")
+                    Text("• \(doctor.reviewCount ?? 0) reviews")
                         .font(.system(size: 12))
                         .foregroundColor(AppTheme.textSecondary)
                 }
