@@ -150,7 +150,7 @@ struct OTPVerificationView: View {
             .opacity(isOTPComplete ? 1 : 0.6)
         }
         .padding(24)
-        .glassCard()
+
         .padding(.horizontal, 20)
         .offset(y: animate ? 0 : 50)
         .opacity(animate ? 1 : 0)
@@ -303,7 +303,7 @@ struct OTPDigitField: View {
                 RoundedRectangle(cornerRadius: 14)
                     .fill(isFocused
                           ? AppTheme.primaryLight
-                          : Color.white.opacity(0.8))
+                          : AppTheme.cardSurface)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14)

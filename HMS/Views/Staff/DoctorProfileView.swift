@@ -36,26 +36,13 @@ struct DoctorProfileView: View {
                     
                     // 1. Hero Section
                     ZStack(alignment: .bottom) {
-                        // Mint Gradient + Wave Base
+                        // Gradient background
                         LinearGradient(
                             colors: [AppTheme.primaryLight.opacity(0.8), AppTheme.background],
                             startPoint: .top,
                             endPoint: .bottom
                         )
-                        .frame(height: 180)
-                        
-                        // Fake Sine Wave
-                        Path { path in
-                            let width = UIScreen.main.bounds.width
-                            let height: CGFloat = 40
-                            path.move(to: CGPoint(x: 0, y: height))
-                            path.addCurve(to: CGPoint(x: width, y: height), control1: CGPoint(x: width * 0.25, y: 0), control2: CGPoint(x: width * 0.75, y: height * 2))
-                            path.addLine(to: CGPoint(x: width, y: 0))
-                            path.addLine(to: CGPoint(x: 0, y: 0))
-                        }
-                        .fill(Color.white.opacity(0.3))
-                        .frame(height: 40)
-                        .offset(y: -40)
+                        .frame(height: 160)
                         
                         // Top Nav Buttons
                         VStack {
@@ -86,7 +73,7 @@ struct DoctorProfileView: View {
                                                 .font(.system(size: 16, weight: .bold))
                                                 .foregroundColor(AppTheme.textPrimary)
                                                 .frame(width: 44, height: 44)
-                                                .background(Color.white)
+                                                .background(AppTheme.cardSurface)
                                                 .clipShape(Circle())
                                                 .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
                                         }
@@ -99,7 +86,7 @@ struct DoctorProfileView: View {
                                         .font(.system(size: 16, weight: .bold))
                                         .foregroundColor(AppTheme.textPrimary)
                                         .frame(width: 44, height: 44)
-                                        .background(Color.white)
+                                        .background(AppTheme.cardSurface)
                                         .clipShape(Circle())
                                         .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
                                 }
@@ -113,7 +100,7 @@ struct DoctorProfileView: View {
                         VStack(spacing: 8) {
                             ZStack(alignment: .bottomTrailing) {
                                 Circle()
-                                    .fill(Color.white)
+                                    .fill(AppTheme.cardSurface)
                                     .frame(width: 110, height: 110)
                                     .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 5)
                                     .overlay(
@@ -134,12 +121,12 @@ struct DoctorProfileView: View {
                                         .fill(AppTheme.primary)
                                         .frame(width: 32, height: 32)
                                         .overlay(Image(systemName: "camera.fill").font(.system(size: 14)).foregroundColor(.white))
-                                        .overlay(Circle().stroke(Color.white, lineWidth: 2))
+                                        .overlay(Circle().stroke(AppTheme.cardSurface, lineWidth: 2))
                                         .offset(x: -4, y: -4)
                                         .transition(.scale)
                                 }
                             }
-                            .offset(y: 55)
+                            .offset(y: 40)
                         }
                     }
                     .ignoresSafeArea(edges: .top)
@@ -171,7 +158,7 @@ struct DoctorProfileView: View {
                                     .padding(.horizontal, 24)
                             }
                         }
-                        .padding(.top, 65)
+                        .padding(.top, 50)
                     } else {
                         VStack(spacing: 4) {
                             Text(profileSpecialty)
@@ -182,7 +169,7 @@ struct DoctorProfileView: View {
                                 .font(.system(size: 26, weight: .heavy, design: .rounded))
                                 .foregroundColor(AppTheme.textPrimary)
                         }
-                        .padding(.top, 65)
+                        .padding(.top, 50)
                         .offset(y: appearAnimation ? 0 : 20)
                         .opacity(appearAnimation ? 1 : 0)
                         
@@ -217,7 +204,7 @@ struct DoctorProfileView: View {
                                     .foregroundColor(Color.red.opacity(0.8))
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 16)
-                                    .background(Color.white)
+                                    .background(AppTheme.cardSurface)
                                     .cornerRadius(16)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 16)

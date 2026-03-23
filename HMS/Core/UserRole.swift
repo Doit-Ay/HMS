@@ -1,4 +1,5 @@
 import Foundation
+import FirebaseFirestore
 
 // MARK: - User Role
 enum UserRole: String, Codable, CaseIterable {
@@ -10,7 +11,7 @@ enum UserRole: String, Codable, CaseIterable {
     var displayName: String {
         switch self {
         case .patient:       return "Patient"
-        case .admin:         return "A2dmin"
+        case .admin:         return "Admin"
         case .doctor:        return "Doctor"
         case .labTechnician: return "Lab Technician"
         }
@@ -248,5 +249,38 @@ struct LabTestRequest: Codable, Identifiable {
     var testNames: [String]
     var status: String                  // "pending", "completed", etc.
     var dateReferred: Date
+}
+
+// MARK: - Firestore `prescriptions` Collection
+// Each document represents a generated PDF prescription uploaded to Firebase Storage.
+struct PrescriptionDocument: Codable, Identifiable {
+    var id: String                      // UUID
+    var appointmentId: String
+    var doctorId: String
+    var doctorName: String
+    var patientId: String
+    var patientName: String
+    var date: String                    // "yyyy-MM-dd"
+    var startTime: String               // Slot time
+    var pdfUrl: String                  // Download URL from Firebase Storage
+    var createdAt: Date
+    var customName: String?             // User-assigned name
+}
+
+// MARK: - Firestore `documents` Collection
+// Shared document reference representing a patient's uploaded file (Medical History, Lab Results, etc.).
+struct SharedMedicalDocument: Codable, Identifiable {
+    @DocumentID var id: String?
+    var name: String
+    var fileName: String
+    var fileURL: String
+    var fileSize: Int64?       // Optional — not always stored by the upload flow
+    var fileType: String
+    var folderType: String
+    var patientId: String
+    var uploadedBy: String
+    var uploadedByName: String
+    var uploadDate: Date
+    var notes: String?
 }
 

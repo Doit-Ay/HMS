@@ -15,7 +15,7 @@ struct HMSLogo: View {
         ZStack {
             // Outer heart — white border / glow
             HeartShape()
-                .fill(Color.white)
+                .fill(AppTheme.cardSurface)
                 .frame(width: heartSize, height: heartSize * 0.92)
                 .shadow(color: Color.black.opacity(0.10), radius: 6, x: 0, y: 3)
 
@@ -54,7 +54,7 @@ struct HMSLogo: View {
 
                 // Gloss highlight on cross
                 CrossShape(thickness: crossThickness * 0.55, cornerRadius: crossCorner * 0.6)
-                    .fill(Color.white.opacity(0.35))
+                    .fill(AppTheme.cardSurface)
                     .frame(width: crossSize * 0.55, height: crossSize * 0.55)
                     .offset(x: -crossSize * 0.06, y: -crossSize * 0.06)
             }

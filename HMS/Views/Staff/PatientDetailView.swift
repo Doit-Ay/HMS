@@ -54,17 +54,17 @@ struct PatientDetailView: View {
                 }
             } else {
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 24) {
+                    VStack(spacing: 0) {
                         
-                        // 1. Header Area (Photo + Name + Main Pills)
+                        // 1. Header with gradient background
                         buildProfileHeader()
-                            .padding(.top, 20)
                             .offset(y: appearAnimation ? 0 : 20)
                             .opacity(appearAnimation ? 1 : 0)
                         
-                        // 2. Stats Row (Height, Weight, Blood)
+                        // 2. Stats Row (overlapping header)
                         buildStatsRow()
-                            .padding(.horizontal, 24)
+                            .padding(.horizontal, 20)
+                            .offset(y: -30)
                             .offset(y: appearAnimation ? 0 : 30)
                             .opacity(appearAnimation ? 1 : 0)
                         
@@ -73,27 +73,34 @@ struct PatientDetailView: View {
                             buildContactCard()
                             buildMedicalHistoryCard()
                         }
-                        .padding(.horizontal, 24)
+                        .padding(.horizontal, 20)
+                        .padding(.top, -10)
                         .offset(y: appearAnimation ? 0 : 40)
                         .opacity(appearAnimation ? 1 : 0)
                         
                         // 4. Appointment History
                         buildAppointmentHistory()
-                            .padding(.horizontal, 24)
-                            .padding(.top, 8)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 16)
                             .padding(.bottom, 40)
                     }
                 }
             }
-            
-            // Custom Nav Bar Overlay
-            CustomNavBar()
         }
-        .navigationBarHidden(true)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                    .foregroundColor(AppTheme.textPrimary)
+                }
+            }
+        }
         .task {
-            // Initiate data load
             await viewModel.loadPatientData()
-            // Trigger general appear animation when loaded
             guard !viewModel.isLoading && viewModel.errorMessage == nil else { return }
             
             withAnimation(.easeOut(duration: 0.6)) {
@@ -103,74 +110,103 @@ struct PatientDetailView: View {
                 photoScale = 1.0
                 photoOpacity = 1.0
             }
-            // Trigger counting animations
             animateCounters()
         }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     // MARK: - Subcomponents
     
     @ViewBuilder
     private func buildProfileHeader() -> some View {
-        VStack(spacing: 16) {
-            // Profile Photo
-            ZStack {
-                Circle()
-                    .fill(AppTheme.primary.opacity(0.1))
-                    .frame(width: 100, height: 100)
-                
-                Image(systemName: "person.circle.fill")
-                    .resizable()
-                    .foregroundColor(AppTheme.primary.opacity(0.5))
-                    .frame(width: 100, height: 100)
-                
-                // If there's an actual image, we'd place AsyncImage here
-            }
-            .scaleEffect(photoScale)
-            .opacity(photoOpacity)
+        ZStack(alignment: .bottom) {
+            // Gradient background
+            LinearGradient(
+                gradient: Gradient(colors: [AppTheme.primary.opacity(0.15), AppTheme.primary.opacity(0.05), AppTheme.background]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 280)
             
-            // Name
-            Text(viewModel.patient?.fullName ?? patientName)
-                .font(.system(size: 26, weight: .bold, design: .rounded))
-                .foregroundColor(AppTheme.textPrimary)
-            
-            // Pills: Age · Gender · BloodGroup
-            HStack(spacing: 12) {
-                pillText(viewModel.ageString)
-                pillText(formatFieldValue(viewModel.patient?.gender))
-                pillText(formatFieldValue(viewModel.patient?.bloodGroup))
+            VStack(spacing: 14) {
+                // Profile Photo with ring
+                ZStack {
+                    Circle()
+                        .fill(AppTheme.cardSurface)
+                        .frame(width: 108, height: 108)
+                        .shadow(color: AppTheme.primary.opacity(0.2), radius: 12, x: 0, y: 6)
+                    
+                    Circle()
+                        .stroke(
+                            LinearGradient(colors: [AppTheme.primary, AppTheme.primaryMid], startPoint: .topLeading, endPoint: .bottomTrailing),
+                            lineWidth: 3
+                        )
+                        .frame(width: 104, height: 104)
+                    
+                    Image(systemName: "person.circle.fill")
+                        .resizable()
+                        .foregroundColor(AppTheme.primary.opacity(0.4))
+                        .frame(width: 96, height: 96)
+                        .clipShape(Circle())
+                }
+                .scaleEffect(photoScale)
+                .opacity(photoOpacity)
+                
+                // Name
+                Text(viewModel.patient?.fullName ?? patientName)
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundColor(AppTheme.textPrimary)
+                
+                // Pills: Age · Gender · BloodGroup
+                HStack(spacing: 10) {
+                    pillText(viewModel.ageString, icon: "calendar")
+                    pillText(formatFieldValue(viewModel.patient?.gender), icon: "person")
+                    pillText(formatFieldValue(viewModel.patient?.bloodGroup), icon: "drop.fill")
+                }
+                
+                Spacer().frame(height: 40)
             }
         }
     }
     
     @ViewBuilder
-    private func pillText(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 13, weight: .semibold, design: .rounded))
-            .foregroundColor(AppTheme.primaryDark)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(AppTheme.primary.opacity(0.12))
-            .clipShape(Capsule())
+    private func pillText(_ text: String, icon: String? = nil) -> some View {
+        HStack(spacing: 4) {
+            if let icon = icon {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            Text(text)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+        }
+        .foregroundColor(AppTheme.primaryDark)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(AppTheme.cardSurface)
+        .clipShape(Capsule())
+        .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
     }
     
     @ViewBuilder
     private func buildStatsRow() -> some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 12) {
             StatCard(
                 title: "Height",
-                value: targetHeight > 0 ? "\(statsCountValues[0]) cm" : "Not Set",
-                icon: "arrow.up.and.down"
+                value: targetHeight > 0 ? "\(statsCountValues[0]) cm" : "N/A",
+                icon: "arrow.up.and.down",
+                accentColor: .blue
             )
             StatCard(
                 title: "Weight",
-                value: targetWeight > 0 ? "\(statsCountValues[1]) kg" : "Not Set",
-                icon: "scalemass.fill"
+                value: targetWeight > 0 ? "\(statsCountValues[1]) kg" : "N/A",
+                icon: "scalemass.fill",
+                accentColor: .green
             )
             StatCard(
                 title: "Blood",
                 value: formatFieldValue(viewModel.patient?.bloodGroup),
-                icon: "drop.fill"
+                icon: "drop.fill",
+                accentColor: .red
             )
         }
     }
@@ -225,6 +261,26 @@ struct PatientDetailView: View {
                         tagColor: AppTheme.primary
                     )
                 }
+                
+                Divider()
+                
+                // View Records Button
+                NavigationLink(destination: DoctorMedicalHistoryView(patientId: patientId, patientName: viewModel.patient?.fullName ?? patientName)) {
+                    HStack {
+                        Image(systemName: "doc.text.magnifyingglass")
+                            .font(.system(size: 15))
+                        Text("View Medical Records")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundColor(AppTheme.primary)
+                    .padding(14)
+                    .background(AppTheme.primary.opacity(0.08))
+                    .cornerRadius(12)
+                }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -266,25 +322,7 @@ struct PatientDetailView: View {
         }
     }
     
-    private func CustomNavBar() -> some View {
-        VStack {
-            HStack {
-                Button(action: { presentationMode.wrappedValue.dismiss() }) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(AppTheme.textPrimary)
-                        .frame(width: 44, height: 44)
-                        .background(Color.white)
-                        .clipShape(Circle())
-                        .shadow(color: Color.black.opacity(0.08), radius: 6, x: 0, y: 3)
-                }
-                Spacer()
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 12)
-            Spacer()
-        }
-    }
+    // CustomNavBar removed — using native .toolbar instead
     
     // MARK: - Helpers
     private func formatFieldValue(_ val: String?) -> String {
@@ -320,26 +358,32 @@ struct StatCard: View {
     let title: String
     let value: String
     let icon: String
+    var accentColor: Color = AppTheme.primary
     
     var body: some View {
         VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 20))
-                .foregroundColor(AppTheme.primary)
+            ZStack {
+                Circle()
+                    .fill(accentColor.opacity(0.12))
+                    .frame(width: 36, height: 36)
+                Image(systemName: icon)
+                    .font(.system(size: 15))
+                    .foregroundColor(accentColor)
+            }
             
             Text(value)
-                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .font(.system(size: 15, weight: .bold, design: .rounded))
                 .foregroundColor(AppTheme.textPrimary)
             
             Text(title)
-                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .font(.system(size: 11, weight: .medium, design: .rounded))
                 .foregroundColor(AppTheme.textSecondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-        .background(Color.white)
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+        .padding(.vertical, 18)
+        .background(AppTheme.cardSurface)
+        .cornerRadius(18)
+        .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 5)
     }
 }
 
@@ -368,7 +412,7 @@ struct InfoCardContainer<Content: View>: View {
             content
         }
         .padding(20)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
     }
@@ -485,7 +529,7 @@ struct AppointmentHistoryRow: View {
             }
         }
         .padding(16)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 3)
     }

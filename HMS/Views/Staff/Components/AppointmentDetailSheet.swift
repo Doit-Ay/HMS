@@ -10,8 +10,10 @@ struct AppointmentDetailSheet: View {
     @State private var showConsultationNotes = false
     @State private var showReferLabTest = false
     @State private var appointmentStatus: String = "scheduled"
+    @State private var isLoadingStatus = true
     @State private var isUpdatingStatus = false
     @State private var firestoreAppointment: Appointment?
+    @State private var hasExistingNotes = false
     
     /// Best available patient name — prefers live-fetched name, falls back to appointment record
     private var displayName: String {
@@ -140,8 +142,15 @@ struct AppointmentDetailSheet: View {
                 
                 Spacer()
                 
-                // Action Buttons — context-sensitive
+                // Action Buttons — context-sensitive (hidden while loading status)
                 VStack(spacing: 12) {
+                  if isLoadingStatus {
+                        // Show a subtle loading indicator while fetching appointment status
+                        ProgressView()
+                            .tint(AppTheme.primary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                  } else {
                     if appointmentStatus == "scheduled" {
                         // Before consultation: show "Start Consultation" which marks it as completed
                         Button(action: markConsultationDone) {
@@ -166,11 +175,11 @@ struct AppointmentDetailSheet: View {
                     }
                     
                     if appointmentStatus == "completed" {
-                        // After consultation: show "Write Prescription"
+                        // After consultation: show "Edit" if notes exist, otherwise "Write"
                         Button(action: { showConsultationNotes = true }) {
                             HStack {
-                                Image(systemName: "pencil.and.list.clipboard")
-                                Text("Write Prescription")
+                                Image(systemName: hasExistingNotes ? "pencil.line" : "pencil.and.list.clipboard")
+                                Text(hasExistingNotes ? "Edit Prescription" : "Write Prescription")
                             }
                             .font(.system(size: 16, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
@@ -195,12 +204,15 @@ struct AppointmentDetailSheet: View {
                             .cornerRadius(16)
                         }
                     }
+                    }
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 32)
             }
         }
-        .sheet(isPresented: $showConsultationNotes) {
+        .sheet(isPresented: $showConsultationNotes, onDismiss: {
+            Task { await checkExistingNotes() }
+        }) {
             if let currentUser = UserSession.shared.currentUser,
                let appt = firestoreAppointment {
                 ConsultationNotesView(
@@ -226,7 +238,7 @@ struct AppointmentDetailSheet: View {
                 )
             }
         }
-        .background(Color.white.ignoresSafeArea())
+        .background(AppTheme.sheetBackground.ignoresSafeArea())
         .task {
             await fetchPatientData()
             await fetchAppointmentStatus()
@@ -260,13 +272,17 @@ struct AppointmentDetailSheet: View {
     private func fetchAppointmentStatus() async {
         do {
             if let appt = try await AuthManager.shared.fetchAppointment(appointmentId: appointment.id) {
-                withAnimation {
-                    self.firestoreAppointment = appt
-                    self.appointmentStatus = appt.status
-                }
+                self.firestoreAppointment = appt
+                self.appointmentStatus = appt.status
+                // Check for existing notes before showing buttons
+                await checkExistingNotes()
+                withAnimation { self.isLoadingStatus = false }
+            } else {
+                withAnimation { self.isLoadingStatus = false }
             }
         } catch {
             print("⚠️ Could not fetch appointment status: \(error.localizedDescription)")
+            withAnimation { self.isLoadingStatus = false }
         }
     }
     
@@ -284,6 +300,19 @@ struct AppointmentDetailSheet: View {
                 print("⚠️ Failed to update appointment status: \(error.localizedDescription)")
             }
             isUpdatingStatus = false
+        }
+    }
+    
+    // Check if consultation notes already exist for this appointment
+    private func checkExistingNotes() async {
+        do {
+            if let _ = try await DoctorPatientRepository.shared.fetchConsultationNote(appointmentId: appointment.id) {
+                await MainActor.run {
+                    hasExistingNotes = true
+                }
+            }
+        } catch {
+            print("⚠️ Could not check existing notes: \(error.localizedDescription)")
         }
     }
 }

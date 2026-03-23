@@ -6,7 +6,6 @@ struct PatientTabView: View {
     @State private var selectedTab = 0
 
     var body: some View {
-        // ← Only change: wrapped in ZStack and added FloatingSymptomChecker
         ZStack(alignment: .bottomTrailing) {
             TabView(selection: $selectedTab) {
                 PatientHomeView()
@@ -67,11 +66,10 @@ struct PatientHomeView: View {
                                 .offset(y: animate ? 0 : -30)
                                 .opacity(animate ? 1 : 0)
 
+                            // MARK: - Banner (Teammate's Updated Version)
                             VStack(spacing: 0) {
-
                                 HStack {
                                     VStack(alignment: .leading, spacing: 8) {
-
                                         Text("Your Health,\nOur Priority")
                                             .font(.system(size: 28, weight: .heavy, design: .rounded))
                                             .foregroundColor(.white)
@@ -82,25 +80,21 @@ struct PatientHomeView: View {
                                             .foregroundColor(.white.opacity(0.9))
                                             .padding(.trailing, 40)
                                     }
-
                                     Spacer()
                                 }
                                 .padding(24)
 
                                 NavigationLink(destination: DoctorSearchView()) {
-
                                     HStack {
                                         Text("Book Appointment")
                                             .font(.system(size: 16, weight: .bold, design: .rounded))
-
                                         Spacer()
-
                                         Image(systemName: "arrow.right.circle.fill")
                                             .font(.system(size: 24))
                                     }
                                     .foregroundColor(AppTheme.primary)
                                     .padding()
-                                    .background(Color.white)
+                                    .background(AppTheme.cardSurface)
                                     .cornerRadius(16)
                                     .padding(.horizontal, 24)
                                     .padding(.bottom, 24)
@@ -109,9 +103,8 @@ struct PatientHomeView: View {
                             }
                             .background(
                                 ZStack {
-
                                     LinearGradient(
-                                        colors: [AppTheme.primary, AppTheme.primaryMid],
+                                        colors: [AppTheme.dashboardCardGradientStart, AppTheme.dashboardCardGradientEnd],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     )
@@ -124,27 +117,39 @@ struct PatientHomeView: View {
                                 }
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-                            .shadow(color: AppTheme.primary.opacity(0.25), radius: 20, x: 0, y: 10)
+                            .shadow(color: AppTheme.dashboardCardGradientStart.opacity(0.25), radius: 20, x: 0, y: 10)
                             .padding(.horizontal, 20)
                             .offset(y: animate ? 0 : 30)
                             .opacity(animate ? 1 : 0)
 
+                            // MARK: - Top Services (Teammate's Updated Version)
                             VStack(alignment: .leading, spacing: 20) {
-
                                 Text("Top Services")
                                     .font(.system(size: 22, weight: .bold, design: .rounded))
                                     .foregroundColor(AppTheme.textPrimary)
                                     .padding(.horizontal, 24)
 
                                 HStack(spacing: 16) {
-                                    FeatureTile(icon: "doc.text.fill", title: "Records", color: AppTheme.primaryDark)
-                                    FeatureTile(icon: "pills.fill", title: "Lab Tests", color: AppTheme.primaryMid)
+                                    NavigationLink {
+                                        PatientRecordsMainView()
+                                    } label: {
+                                        FeatureTile(icon: "doc.text.fill", title: "Records", color: AppTheme.primaryDark)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                    
+                                    NavigationLink {
+                                        LabTestsView()
+                                    } label: {
+                                        FeatureTile(icon: "pills.fill", title: "Lab Tests", color: AppTheme.primaryMid)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
                                 }
                                 .padding(.horizontal, 20)
                             }
                             .offset(y: animate ? 0 : 40)
                             .opacity(animate ? 1 : 0)
 
+                            // MARK: - Upcoming Appointments
                             VStack(alignment: .leading, spacing: 20) {
                                 HStack {
                                     Text("Upcoming Appointments")
@@ -311,7 +316,7 @@ struct UpcomingAppointmentCard: View {
             }
         }
         .padding(16)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 10, x: 0, y: 4)
     }
@@ -345,7 +350,7 @@ struct VitalRow: View {
             Spacer()
         }
         .padding()
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 10, x: 0, y: 4)
     }
@@ -387,21 +392,26 @@ struct FeatureTile: View {
     let title: String
     let color: Color
     var body: some View {
-        Button {} label: {
-            VStack(spacing: 16) {
-                ZStack {
-                    Circle().fill(color.opacity(0.15)).frame(width: 54, height: 54)
-                    Image(systemName: icon).font(.system(size: 24, weight: .semibold)).foregroundColor(color)
-                }
-                Text(title).font(.system(size: 14, weight: .bold, design: .rounded)).foregroundColor(AppTheme.textPrimary)
+        VStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.15))
+                    .frame(width: 54, height: 54)
+
+                Image(systemName: icon)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundColor(color)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 24)
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 15, x: 0, y: 8)
+
+            Text(title)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundColor(AppTheme.textPrimary)
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .background(AppTheme.cardSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 15, x: 0, y: 8)
     }
 }
 
