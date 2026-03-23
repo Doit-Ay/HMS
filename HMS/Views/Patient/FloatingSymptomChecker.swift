@@ -97,50 +97,63 @@ struct FloatingSymptomChecker: View {
                         .background(Color(.systemGroupedBackground))
 
                         // Input bar or restart
-                        if vm.chatState != .showingResult {
-                            VStack(spacing: 0) {
-                                if !vm.suggestedSymptoms.isEmpty {
-                                    ScrollView(.horizontal, showsIndicators: false) {
-                                        HStack(spacing: 8) {
-                                            ForEach(vm.suggestedSymptoms, id: \.self) { suggestion in
-                                                Button(action: {
-                                                    // Haptic feedback
-                                                    let impact = UIImpactFeedbackGenerator(style: .light)
-                                                    impact.impactOccurred()
-                                                    vm.sendMessage(suggestion)
-                                                }) {
-                                                    Text(suggestion)
-                                                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                                                        .foregroundColor(AppTheme.primary)
-                                                        .padding(.horizontal, 14)
-                                                        .padding(.vertical, 8)
-                                                        .background(AppTheme.primary.opacity(0.15))
-                                                        .clipShape(Capsule())
+                        // Input bar, restart, and disclaimer
+                        VStack(spacing: 0) {
+                            if vm.chatState != .showingResult {
+                                VStack(spacing: 0) {
+                                    if !vm.suggestedSymptoms.isEmpty {
+                                        ScrollView(.horizontal, showsIndicators: false) {
+                                            HStack(spacing: 8) {
+                                                ForEach(vm.suggestedSymptoms, id: \.self) { suggestion in
+                                                    Button(action: {
+                                                        // Haptic feedback
+                                                        let impact = UIImpactFeedbackGenerator(style: .light)
+                                                        impact.impactOccurred()
+                                                        vm.sendMessage(suggestion)
+                                                    }) {
+                                                        Text(suggestion)
+                                                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                                                            .foregroundColor(AppTheme.primary)
+                                                            .padding(.horizontal, 14)
+                                                            .padding(.vertical, 8)
+                                                            .background(AppTheme.primary.opacity(0.15))
+                                                            .clipShape(Capsule())
+                                                    }
                                                 }
                                             }
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 10)
                                         }
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 10)
+                                        .background(Color(.systemBackground))
+                                        .transition(.opacity.combined(with: .move(edge: .bottom)))
                                     }
-                                    .background(Color(.systemBackground))
-                                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-                                }
 
-                                ChatInputBar(text: $vm.inputText) { text in
-                                    vm.sendMessage(text)
+                                    ChatInputBar(text: $vm.inputText) { text in
+                                        vm.sendMessage(text)
+                                    }
                                 }
+                            } else {
+                                Button(action: { vm.restart() }) {
+                                    Label("Check another symptom", systemImage: "arrow.counterclockwise")
+                                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                        .foregroundColor(AppTheme.primary)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.top, 14)
+                                        .padding(.bottom, 12)
+                                }
+                                .background(Color(.systemBackground))
                             }
-                        } else {
-                            Button(action: { vm.restart() }) {
-                                Label("Check another symptom", systemImage: "arrow.counterclockwise")
-                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                    .foregroundColor(AppTheme.primary)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.top, 14)
-                                    .padding(.bottom, 38)
-                            }
-                            .background(Color(.systemBackground))
+                            
+                            // Medical Disclaimer
+                            Text("This AI is for informational purposes and is not a substitute for professional medical advice. In an emergency, please call your local emergency services.")
+                                .font(.system(size: 10, weight: .medium, design: .rounded))
+                                .foregroundColor(AppTheme.textSecondary.opacity(0.7))
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 24)
+                                .padding(.top, 6)
+                                .padding(.bottom, 38)
                         }
+                        .background(Color(.systemBackground))
                     }
                     .background(
                         ZStack(alignment: .top) {
@@ -399,7 +412,7 @@ struct ChatInputBar: View {
         }
         .padding(.horizontal, 12)
         .padding(.top, 10)
-        .padding(.bottom, 38) // Replaces vertical padding to account for home indicator
+        .padding(.bottom, 12) // Padding moved to disclaimer bottom
         .background(Color(.systemBackground))
         .overlay(Divider(), alignment: .top)
     }
