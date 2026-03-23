@@ -153,6 +153,16 @@ final class SymptomMapper {
         ]
     ]
 
+    var allSymptoms: [String] {
+        var uniqueSymptoms = Set<String>()
+        for (_, keywords) in departmentKeywords {
+            for (word, _) in keywords {
+                uniqueSymptoms.insert(word.capitalized)
+            }
+        }
+        return Array(uniqueSymptoms).sorted()
+    }
+
     // MARK: - Public API
 
     /// Returns all matching departments sorted by confidence, highest first
