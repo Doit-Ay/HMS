@@ -155,10 +155,6 @@ struct PatientHomeView: View {
                                         FeatureTile(icon: "pills.fill", title: "Lab Tests", color: AppTheme.primaryMid)
                                     }
                                     .buttonStyle(PlainButtonStyle())
-
-                                    
-                                    // Lab Tests Tile (non-navigating for now)
-                                    
                                 }
                                 .padding(.horizontal, 20)
                             }
@@ -262,6 +258,36 @@ struct PatientHomeView: View {
                         .opacity(animate ? 1 : 0)
 
                         Spacer(minLength: 40)
+                    }
+                }
+                
+                // MARK: AI Symptom Checker FAB
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        NavigationLink {
+                            AISymptomCheckerView()
+                        } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [.purple, .indigo],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .frame(width: 64, height: 64)
+                                    .shadow(color: .purple.opacity(0.4), radius: 15, x: 0, y: 8)
+                                
+                                Image(systemName: "brain.head.profile")
+                                    .font(.system(size: 28, weight: .semibold))
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        .padding(.trailing, 24)
+                        .padding(.bottom, 24)
                     }
                 }
             }
