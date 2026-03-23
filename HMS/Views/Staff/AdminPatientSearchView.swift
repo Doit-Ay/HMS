@@ -19,7 +19,7 @@ struct AdminPatientSearchView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                HMSBackground()
+                Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     // Search bar

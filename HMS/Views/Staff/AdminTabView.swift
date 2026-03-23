@@ -36,7 +36,7 @@ struct AdminDashboardView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .top) {
-                HMSBackground()
+                Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
 
                 Circle()
                     .fill(
@@ -217,7 +217,7 @@ struct StaffManagementView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                HMSBackground()
+                Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     // Search bar

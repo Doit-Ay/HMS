@@ -32,7 +32,7 @@ struct ManageSlotsView: View {
 
     var body: some View {
         ZStack {
-            HMSBackground()
+            Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 20) {
@@ -324,7 +324,7 @@ struct DoctorSlotOverlay: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                HMSBackground()
+                Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
@@ -805,7 +805,7 @@ struct AddSlotSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                HMSBackground()
+                Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {

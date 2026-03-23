@@ -125,7 +125,7 @@ struct AppointmentStatsView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Today's Slots")
+                    Text("Total Doctors")
                         .font(.system(size: 14, design: .rounded))
                         .foregroundColor(.white.opacity(0.85))
                     Text("\(todayCount)")
@@ -137,7 +137,7 @@ struct AppointmentStatsView: View {
                     Circle()
                         .fill(Color.white.opacity(0.2))
                         .frame(width: 64, height: 64)
-                    Image(systemName: "chart.bar.doc.horizontal.fill")
+                    Image(systemName: "stethoscope")
                         .font(.system(size: 28))
                         .foregroundColor(.white)
                 }
