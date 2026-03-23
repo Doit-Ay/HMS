@@ -36,26 +36,9 @@ struct DoctorProfileView: View {
                     
                     // 1. Hero Section
                     ZStack(alignment: .bottom) {
-                        // Mint Gradient + Wave Base
-                        LinearGradient(
-                            colors: [AppTheme.primaryLight.opacity(0.8), AppTheme.background],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                        .frame(height: 180)
-                        
-                        // Fake Sine Wave
-                        Path { path in
-                            let width = UIScreen.main.bounds.width
-                            let height: CGFloat = 40
-                            path.move(to: CGPoint(x: 0, y: height))
-                            path.addCurve(to: CGPoint(x: width, y: height), control1: CGPoint(x: width * 0.25, y: 0), control2: CGPoint(x: width * 0.75, y: height * 2))
-                            path.addLine(to: CGPoint(x: width, y: 0))
-                            path.addLine(to: CGPoint(x: 0, y: 0))
-                        }
-                        .fill(AppTheme.cardSurface)
-                        .frame(height: 40)
-                        .offset(y: -40)
+                        // Clean background
+                        AppTheme.background
+                            .frame(height: 180)
                         
                         // Top Nav Buttons
                         VStack {

@@ -139,7 +139,6 @@ struct StaffLoginView: View {
                         .buttonStyle(SecondaryButtonStyle())
                     }
                     .padding(24)
-                    .glassCard()
                     .padding(.horizontal, 20)
                     .offset(y: animate ? 0 : 40)
                     .opacity(animate ? 1 : 0)
