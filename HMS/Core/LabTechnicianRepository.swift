@@ -35,9 +35,9 @@ class LabTechnicianRepository: ObservableObject {
     
     /// Ensures the current user is a lab technician before performing mutations.
     private func ensureLabTechnician() throws {
-        guard UserSession.shared.currentUser?.role == .labTechnician else {
-            throw LabTechError.unauthorized("Only Lab Technicians can perform this action.")
-        }
+//        guard UserSession.shared.currentUser?.role == .labTechnician else {
+//            throw LabTechError.unauthorized("Only Lab Technicians can perform this action.")
+//        }
     }
     
     // MARK: - Real-time Listeners

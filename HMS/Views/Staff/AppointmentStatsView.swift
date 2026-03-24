@@ -2,7 +2,7 @@ import SwiftUI
 import FirebaseFirestore
 
 // MARK: - Appointment Statistics View
-// Pulls data from `doctor_slots` collection to show real slot stats.
+// Pulls data from `doctor_slots` collection to show revenue and per-doctor stats.
 struct AppointmentStatsView: View {
     @State private var todaySlots: [DoctorSlot] = []
     @State private var monthSlots: [DoctorSlot] = []
@@ -11,6 +11,8 @@ struct AppointmentStatsView: View {
     @State private var animate = false
     @State private var errorMessage = ""
     @State private var showError = false
+
+    private let consultationFee: Int = 500
 
     // Formatters
     private var todayString: String {
@@ -34,57 +36,33 @@ struct AppointmentStatsView: View {
     }
 
     // --- Today computed stats ---
-    private var todayCount: Int { todaySlots.count }
-
-    private var availableToday: Int {
-        todaySlots.filter { $0.status == .available }.count
-    }
-    private var unavailableToday: Int {
-        todaySlots.filter { $0.status == .unavailable }.count
-    }
     private var bookedToday: Int {
         todaySlots.filter { $0.status == .booked }.count
     }
+    
+    private var todayRevenue: Int {
+        bookedToday * consultationFee
+    }
 
     // --- Month computed stats ---
-    private var monthCount: Int { monthSlots.count }
-
-    private var availableMonth: Int {
-        monthSlots.filter { $0.status == .available }.count
-    }
-    private var unavailableMonth: Int {
-        monthSlots.filter { $0.status == .unavailable }.count
-    }
     private var bookedMonth: Int {
         monthSlots.filter { $0.status == .booked }.count
     }
-
-    // Department-wise for current month
-    private var departmentStats: [(String, Int)] {
-        var dict: [String: Int] = [:]
-        for slot in monthSlots {
-            let dept = slot.department ?? "Unknown"
-            dict[dept, default: 0] += 1
-        }
-        return dict.sorted { $0.value > $1.value }
+    
+    private var monthRevenue: Int {
+        bookedMonth * consultationFee
     }
 
-    // Daily breakdown for current month (for the bar chart)
-    private var dailyStats: [(String, Int)] {
+    // Doctor Revenue Stats
+    private var doctorRevenueStats: [(String, Int, Int)] {
+        // Returns [(DoctorName, BookingCount, Revenue)]
         var dict: [String: Int] = [:]
-        for slot in monthSlots {
-            dict[slot.date, default: 0] += 1
+        for slot in monthSlots where slot.status == .booked {
+            let doc = slot.doctorName
+            dict[doc, default: 0] += 1
         }
-        return dict.sorted { $0.0 < $1.0 }
-    }
-
-    // Status breakdown for month (for donut chart)
-    private var monthStatusBreakdown: [(String, Int, Color)] {
-        return [
-            ("Available", availableMonth, AppTheme.success),
-            ("Unavailable", unavailableMonth, AppTheme.warning),
-            ("Booked", bookedMonth, Color(hex: "#6366F1"))
-        ]
+        return dict.map { ($0.key, $0.value, $0.value * consultationFee) }
+            .sorted { $0.2 > $1.2 }
     }
 
     var body: some View {
@@ -92,20 +70,14 @@ struct AppointmentStatsView: View {
             // Today's Overview Hero
             todayHeroCard
 
-            // Today Status Breakdown
-            todayStatusCards
-
             // Month Picker
             monthPickerSection
 
-            // Monthly Summary
-            monthlySummaryCard
+            // Monthly Status Cards
+            monthlyStatusCards
 
-            // Daily Bar Chart
-            dailyChartSection
-
-            // Monthly Status Donut
-            monthlyStatusSection
+            // Revenue per Doctor Section
+            revenuePerDoctorSection
         }
         .alert("Error", isPresented: $showError) {
             Button("OK", role: .cancel) {}
@@ -125,10 +97,10 @@ struct AppointmentStatsView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Total Doctors")
+                    Text("Today's Revenue")
                         .font(.system(size: 14, design: .rounded))
                         .foregroundColor(.white.opacity(0.85))
-                    Text("\(todayCount)")
+                    Text("₹\(todayRevenue)")
                         .font(.system(size: 42, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                 }
@@ -137,7 +109,7 @@ struct AppointmentStatsView: View {
                     Circle()
                         .fill(Color.white.opacity(0.2))
                         .frame(width: 64, height: 64)
-                    Image(systemName: "stethoscope")
+                    Image(systemName: "indianrupeesign.circle.fill")
                         .font(.system(size: 28))
                         .foregroundColor(.white)
                 }
@@ -158,33 +130,6 @@ struct AppointmentStatsView: View {
         .padding(.horizontal, 20)
         .padding(.top, 10)
         .offset(y: animate ? 0 : -20)
-        .opacity(animate ? 1 : 0)
-    }
-
-    // MARK: - Today Status Cards
-    private var todayStatusCards: some View {
-        HStack(spacing: 12) {
-            MiniStatCard(
-                icon: "checkmark.circle.fill",
-                label: "Available",
-                value: "\(availableToday)",
-                color: AppTheme.success
-            )
-            MiniStatCard(
-                icon: "xmark.circle.fill",
-                label: "Unavailable",
-                value: "\(unavailableToday)",
-                color: AppTheme.warning
-            )
-            MiniStatCard(
-                icon: "person.fill.checkmark",
-                label: "Booked",
-                value: "\(bookedToday)",
-                color: Color(hex: "#6366F1")
-            )
-        }
-        .padding(.horizontal, 20)
-        .offset(y: animate ? 0 : 20)
         .opacity(animate ? 1 : 0)
     }
 
@@ -225,150 +170,52 @@ struct AppointmentStatsView: View {
         .padding(.top, 8)
     }
 
-    // MARK: - Monthly Summary Card
-    private var monthlySummaryCard: some View {
+    // MARK: - Monthly Status Cards
+    private var monthlyStatusCards: some View {
         HStack(spacing: 16) {
-            VStack(spacing: 4) {
-                Text("\(monthCount)")
-                    .font(.system(size: 30, weight: .bold, design: .rounded))
-                    .foregroundColor(AppTheme.primary)
-                Text("Total Slots")
-                    .font(.system(size: 12, design: .rounded))
-                    .foregroundColor(AppTheme.textSecondary)
-            }
-
-            Rectangle()
-                .fill(AppTheme.primaryMid.opacity(0.3))
-                .frame(width: 1, height: 40)
-
-            VStack(spacing: 4) {
-                Text("\(departmentStats.count)")
-                    .font(.system(size: 30, weight: .bold, design: .rounded))
-                    .foregroundColor(AppTheme.primaryMid)
-                Text("Departments")
-                    .font(.system(size: 12, design: .rounded))
-                    .foregroundColor(AppTheme.textSecondary)
-            }
-
-            Rectangle()
-                .fill(AppTheme.primaryMid.opacity(0.3))
-                .frame(width: 1, height: 40)
-
-            VStack(spacing: 4) {
-                let avgPerDay = dailyStats.isEmpty ? 0 : monthCount / max(dailyStats.count, 1)
-                Text("\(avgPerDay)")
-                    .font(.system(size: 30, weight: .bold, design: .rounded))
-                    .foregroundColor(AppTheme.primaryDark)
-                Text("Avg/Day")
-                    .font(.system(size: 12, design: .rounded))
-                    .foregroundColor(AppTheme.textSecondary)
-            }
+            MiniStatCard(
+                icon: "chart.line.uptrend.xyaxis.circle.fill",
+                label: "Monthly Revenue",
+                value: "₹\(monthRevenue)",
+                color: AppTheme.success
+            )
+            MiniStatCard(
+                icon: "person.fill.checkmark",
+                label: "Total Bookings",
+                value: "\(bookedMonth)",
+                color: Color(hex: "#6366F1")
+            )
         }
-        .frame(maxWidth: .infinity)
-        .padding(20)
-        .background(AppTheme.cardSurface)
-        .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 3)
         .padding(.horizontal, 20)
+        .offset(y: animate ? 0 : 20)
+        .opacity(animate ? 1 : 0)
     }
 
-
-
-    // MARK: - Daily Bar Chart
-    private var dailyChartSection: some View {
+    // MARK: - Revenue per Doctor Section
+    private var revenuePerDoctorSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Daily Trend")
+            Text("Revenue per Doctor")
                 .font(.system(size: 18, weight: .bold, design: .rounded))
                 .foregroundColor(AppTheme.textPrimary)
                 .padding(.horizontal, 20)
 
-            if dailyStats.isEmpty {
-                emptyStatsPlaceholder(message: "No daily data for this month")
+            if doctorRevenueStats.isEmpty {
+                emptyStatsPlaceholder(message: "No bookings for this month")
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(alignment: .bottom, spacing: 6) {
-                        let maxVal = dailyStats.map(\.1).max() ?? 1
-                        ForEach(dailyStats, id: \.0) { day in
-                            DailyBarView(
-                                date: day.0,
-                                count: day.1,
-                                maxCount: maxVal,
-                                animate: animate
-                            )
-                        }
+                VStack(spacing: 12) {
+                    ForEach(doctorRevenueStats, id: \.0) { stat in
+                        DoctorRevenueRow(
+                            doctorName: stat.0,
+                            bookingsCount: stat.1,
+                            revenue: stat.2
+                        )
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
                 }
-                .frame(height: 180)
-                .background(AppTheme.cardSurface)
-                .cornerRadius(18)
-                .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 3)
                 .padding(.horizontal, 20)
             }
         }
-    }
-
-    // MARK: - Monthly Status Donut
-    private var monthlyStatusSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Status Breakdown")
-                .font(.system(size: 18, weight: .bold, design: .rounded))
-                .foregroundColor(AppTheme.textPrimary)
-                .padding(.horizontal, 20)
-
-            if monthCount == 0 {
-                emptyStatsPlaceholder(message: "No status data for this month")
-            } else {
-                HStack(spacing: 20) {
-                    // Donut Chart
-                    ZStack {
-                        ForEach(Array(monthStatusBreakdown.enumerated()), id: \.offset) { index, item in
-                            let total = Double(monthCount)
-                            let value = Double(item.1)
-                            let startAngle = startAngle(for: index)
-                            let endAngle = startAngle + Angle(degrees: (value / max(total, 1)) * 360)
-
-                            DonutSlice(startAngle: startAngle, endAngle: endAngle, thickness: 20)
-                                .fill(item.2)
-                        }
-
-                        VStack(spacing: 2) {
-                            Text("\(monthCount)")
-                                .font(.system(size: 22, weight: .bold, design: .rounded))
-                                .foregroundColor(AppTheme.textPrimary)
-                            Text("Total")
-                                .font(.system(size: 10, design: .rounded))
-                                .foregroundColor(AppTheme.textSecondary)
-                        }
-                    }
-                    .frame(width: 110, height: 110)
-
-                    // Legend
-                    VStack(alignment: .leading, spacing: 10) {
-                        ForEach(monthStatusBreakdown, id: \.0) { item in
-                            HStack(spacing: 8) {
-                                Circle()
-                                    .fill(item.2)
-                                    .frame(width: 10, height: 10)
-                                Text(item.0)
-                                    .font(.system(size: 13, design: .rounded))
-                                    .foregroundColor(AppTheme.textSecondary)
-                                Spacer()
-                                Text("\(item.1)")
-                                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                                    .foregroundColor(AppTheme.textPrimary)
-                            }
-                        }
-                    }
-                }
-                .padding(20)
-                .background(AppTheme.cardSurface)
-                .cornerRadius(18)
-                .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 3)
-                .padding(.horizontal, 20)
-            }
-        }
+        .offset(y: animate ? 0 : 30)
+        .opacity(animate ? 1 : 0)
     }
 
     // MARK: - Helpers
@@ -387,28 +234,6 @@ struct AppointmentStatsView: View {
         .background(AppTheme.cardSurface)
         .cornerRadius(18)
         .padding(.horizontal, 20)
-    }
-
-    private func departmentColor(index: Int) -> Color {
-        let colors: [Color] = [
-            AppTheme.primary,
-            Color(hex: "#6366F1"),
-            AppTheme.warning,
-            AppTheme.primaryMid,
-            AppTheme.primaryDark,
-            Color(hex: "#EC4899")
-        ]
-        return colors[index % colors.count]
-    }
-
-    private func startAngle(for index: Int) -> Angle {
-        let total = Double(monthCount)
-        var angle = -90.0
-        for i in 0..<index {
-            let val = Double(monthStatusBreakdown[i].1)
-            angle += (val / max(total, 1)) * 360
-        }
-        return Angle(degrees: angle)
     }
 
     // MARK: - Data Loading
@@ -438,6 +263,7 @@ struct AppointmentStatsView: View {
 }
 
 // MARK: - Mini Stat Card
+// Helper for displaying smaller stats
 struct MiniStatCard: View {
     let icon: String
     let label: String
@@ -447,82 +273,64 @@ struct MiniStatCard: View {
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 18))
+                .font(.system(size: 24))
                 .foregroundColor(color)
 
             Text(value)
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .font(.system(size: 18, weight: .bold, design: .rounded))
                 .foregroundColor(AppTheme.textPrimary)
 
             Text(label)
-                .font(.system(size: 11, design: .rounded))
+                .font(.system(size: 12, design: .rounded))
                 .foregroundColor(AppTheme.textSecondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
+        .padding(.vertical, 16)
         .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: color.opacity(0.1), radius: 6, x: 0, y: 3)
     }
 }
 
-
-
-// MARK: - Daily Bar View
-struct DailyBarView: View {
-    let date: String
-    let count: Int
-    let maxCount: Int
-    let animate: Bool
-
-    private var dayLabel: String {
-        String(date.suffix(2))
-    }
+// MARK: - Doctor Revenue Row
+// Custom row displaying individual doctor's revenue
+struct DoctorRevenueRow: View {
+    let doctorName: String
+    let bookingsCount: Int
+    let revenue: Int
 
     var body: some View {
-        VStack(spacing: 4) {
-            Text("\(count)")
-                .font(.system(size: 9, weight: .bold, design: .rounded))
-                .foregroundColor(AppTheme.textSecondary)
+        HStack(spacing: 14) {
+            // Initials avatar
+            ZStack {
+                Circle()
+                    .fill(AppTheme.primary.opacity(0.1))
+                    .frame(width: 44, height: 44)
+                Text(doctorName.prefix(1).uppercased())
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundColor(AppTheme.primary)
+            }
 
-            RoundedRectangle(cornerRadius: 4)
-                .fill(
-                    LinearGradient(
-                        colors: [AppTheme.primary, AppTheme.primaryMid],
-                        startPoint: .bottom, endPoint: .top
-                    )
-                )
-                .frame(
-                    width: 22,
-                    height: animate ? max(CGFloat(count) / CGFloat(max(maxCount, 1)) * 110, 4) : 4
-                )
-                .animation(.spring(response: 0.8, dampingFraction: 0.7).delay(0.3), value: animate)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Dr. \(doctorName)")
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundColor(AppTheme.textPrimary)
 
-            Text(dayLabel)
-                .font(.system(size: 9, design: .rounded))
-                .foregroundColor(AppTheme.textSecondary)
+                Text("\(bookingsCount) \(bookingsCount == 1 ? "Booking" : "Bookings")")
+                    .font(.system(size: 12, design: .rounded))
+                    .foregroundColor(AppTheme.textSecondary)
+            }
+
+            Spacer()
+
+            Text("₹\(revenue)")
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundColor(AppTheme.primaryDark)
         }
-    }
-}
-
-// MARK: - Donut Slice Shape
-struct DonutSlice: Shape {
-    var startAngle: Angle
-    var endAngle: Angle
-    var thickness: CGFloat = 20
-
-    func path(in rect: CGRect) -> Path {
-        let center = CGPoint(x: rect.midX, y: rect.midY)
-        let outerRadius = min(rect.width, rect.height) / 2
-        let innerRadius = outerRadius - thickness
-
-        var path = Path()
-        path.addArc(center: center, radius: outerRadius,
-                    startAngle: startAngle, endAngle: endAngle, clockwise: false)
-        path.addArc(center: center, radius: innerRadius,
-                    startAngle: endAngle, endAngle: startAngle, clockwise: true)
-        path.closeSubpath()
-        return path
+        .padding(16)
+        .background(AppTheme.cardSurface)
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
     }
 }
 
