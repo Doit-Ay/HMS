@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseFirestore
+import Combine
 
 struct ConsultationNotesView: View {
     @Environment(\.dismiss) var dismiss
@@ -26,6 +27,16 @@ struct ConsultationNotesView: View {
     @State private var generatedPDFURL: URL? = nil
     @State private var showPDFPreview = false
     @State private var isGeneratingPDF = false
+    
+    // Dictation State
+    @StateObject private var speechRecognizer = SpeechRecognizer()
+    @State private var activeDictationField: DictationField? = nil
+    @State private var textBeforeDictation: String = ""
+    @State private var dictationStartDate: Date? = nil
+    
+    enum DictationField {
+        case notes, prescription
+    }
     
     var body: some View {
         NavigationView {
@@ -59,9 +70,13 @@ struct ConsultationNotesView: View {
                             
                             // Notes Section
                             VStack(alignment: .leading, spacing: 8) {
-                                Label("Consultation Notes", systemImage: "note.text")
-                                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                    .foregroundColor(AppTheme.textPrimary)
+                                HStack {
+                                    Label("Consultation Notes", systemImage: "note.text")
+                                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                        .foregroundColor(AppTheme.textPrimary)
+                                    Spacer()
+                                    dictationButton(for: .notes)
+                                }
                                 
                                 TextEditor(text: $notes)
                                     .frame(minHeight: 150)
@@ -77,9 +92,13 @@ struct ConsultationNotesView: View {
                             
                             // Prescription Section
                             VStack(alignment: .leading, spacing: 8) {
-                                Label("Prescription", systemImage: "pills.fill")
-                                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                    .foregroundColor(AppTheme.textPrimary)
+                                HStack {
+                                    Label("Prescription", systemImage: "pills.fill")
+                                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                        .foregroundColor(AppTheme.textPrimary)
+                                    Spacer()
+                                    dictationButton(for: .prescription)
+                                }
                                 
                                 TextEditor(text: $prescription)
                                     .frame(minHeight: 150)
@@ -173,6 +192,84 @@ struct ConsultationNotesView: View {
                 if let url = generatedPDFURL {
                     PDFViewerSheet(pdfURL: url)
                 }
+            }
+            .onChange(of: speechRecognizer.transcript) { newTranscript in
+                guard !newTranscript.isEmpty, let field = activeDictationField else { return }
+                
+                let separator = textBeforeDictation.isEmpty ? "" : " "
+                switch field {
+                case .notes:
+                    self.notes = textBeforeDictation + separator + newTranscript
+                case .prescription:
+                    self.prescription = textBeforeDictation + separator + newTranscript
+                }
+            }
+        }
+        .onDisappear {
+            speechRecognizer.stopTranscribing()
+        }
+    }
+    
+    @ViewBuilder
+    private func dictationButton(for field: DictationField) -> some View {
+        let isDictatingThis = activeDictationField == field
+        let activeColor = Color.red
+        
+        HStack(spacing: 12) {
+            if isDictatingThis {
+                HStack(spacing: 8) {
+                    if let startDate = dictationStartDate {
+                        Text(startDate, style: .timer)
+                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                            .monospacedDigit()
+                            .foregroundColor(activeColor)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
+                            .background(activeColor.opacity(0.1))
+                            .cornerRadius(6)
+                    }
+                    
+                    AudioVisualizerView(isRecording: true, color: activeColor)
+                }
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
+            }
+            
+            Button(action: {
+                toggleDictation(for: field)
+            }) {
+                Image(systemName: isDictatingThis ? "mic.fill" : "mic")
+                    .font(.system(size: 18))
+                    .foregroundColor(isDictatingThis ? .white : AppTheme.primary)
+                    .padding(8)
+                    .background(isDictatingThis ? activeColor : Color.gray.opacity(0.1))
+                    .clipShape(Circle())
+                    .shadow(color: isDictatingThis ? activeColor.opacity(0.3) : Color.clear, radius: 4, x: 0, y: 2)
+            }
+        }
+    }
+    
+    private func toggleDictation(for field: DictationField) {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            if activeDictationField != nil {
+                // Stop current dictation
+                speechRecognizer.stopTranscribing()
+                let previousField = activeDictationField
+                activeDictationField = nil
+                dictationStartDate = nil
+                
+                // If they tapped a different field, switch it immediately
+                if previousField != field {
+                    activeDictationField = field
+                    textBeforeDictation = field == .notes ? notes : prescription
+                    dictationStartDate = Date()
+                    speechRecognizer.startTranscribing()
+                }
+            } else {
+                // Start dictation
+                activeDictationField = field
+                textBeforeDictation = field == .notes ? notes : prescription
+                dictationStartDate = Date()
+                speechRecognizer.startTranscribing()
             }
         }
     }
@@ -317,3 +414,4 @@ struct ConsultationNotesView: View {
         endTime: "10:30"
     )
 }
+
