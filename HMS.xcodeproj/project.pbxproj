@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		2B1276882F6ECD2B00E6F241 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 2B1276872F6ECD2B00E6F241 /* GoogleService-Info.plist */; };
 		2B12768E2F6FB86300E6F241 /* RazorpayCheckout in Frameworks */ = {isa = PBXBuildFile; productRef = 2B12768D2F6FB86300E6F241 /* RazorpayCheckout */; };
 		2BE2DDBB2F71EAE1000608F5 /* FirebaseAILogic in Frameworks */ = {isa = PBXBuildFile; productRef = 2BE2DDBA2F71EAE1000608F5 /* FirebaseAILogic */; };
 		3FB20D9D2F5C6D32008B35EC /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 3FB20D9C2F5C6D32008B35EC /* FirebaseAuth */; };
@@ -39,7 +38,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		2B1276872F6ECD2B00E6F241 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		3FB20D3F2F5BEF56008B35EC /* HMS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HMS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3FB20D4C2F5BEF58008B35EC /* HMSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HMSTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3FB20D562F5BEF58008B35EC /* HMSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HMSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -126,7 +124,6 @@
 				3FB20D4F2F5BEF58008B35EC /* HMSTests */,
 				3FB20D592F5BEF58008B35EC /* HMSUITests */,
 				3FB20D402F5BEF56008B35EC /* Products */,
-				2B1276872F6ECD2B00E6F241 /* GoogleService-Info.plist */,
 				2B12768C2F6FB86300E6F241 /* Frameworks */,
 			);
 			sourceTree = "<group>";
@@ -277,7 +274,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2B1276882F6ECD2B00E6F241 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

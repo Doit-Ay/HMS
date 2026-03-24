@@ -13,6 +13,8 @@ struct AISymptomCheckerView: View {
     @State private var showResult = false
     @FocusState private var textEditorFocused: Bool
 
+    @State private var showInvalidInput = false
+
     private let characterLimit = 400
 
     var body: some View {
@@ -206,6 +208,11 @@ struct AISymptomCheckerView: View {
         .navigationTitle("AI Checker")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
+        .alert("Invalid Input", isPresented: $showInvalidInput) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Please describe your medical symptoms clearly. For example: \"I have a headache and fever for 2 days.\"")
+        }
     }
 
     // MARK: - Analyze
@@ -216,13 +223,24 @@ struct AISymptomCheckerView: View {
         }
         let triageResult = await AITriageService.shared.analyzeSymptoms(symptoms)
         await MainActor.run {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                self.result = triageResult
-                self.isAnalyzing = false
-                self.showResult = true
+            if let triageResult = triageResult {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                    self.result = triageResult
+                    self.isAnalyzing = false
+                    self.showResult = true
+                }
+            } else {
+                // Input was not a valid medical symptom
+                withAnimation {
+                    self.isAnalyzing = false
+                    self.showResult = false
+                    self.showInvalidInput = true
+                }
             }
         }
-        await fetchDoctors(for: triageResult.department)
+        if let triageResult = triageResult {
+            await fetchDoctors(for: triageResult.department)
+        }
     }
 
     private func fetchDoctors(for department: String) async {

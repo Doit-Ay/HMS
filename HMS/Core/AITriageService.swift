@@ -1,14 +1,22 @@
 import Foundation
 
 // MARK: - AI Triage Service
-// Analyzes patient-entered symptoms using Gemini REST API directly to bypass Firebase restrictions.
+// Analyzes patient-entered symptoms using Groq API (LLaMA model) for fast, accurate medical triage.
 final class AITriageService {
 
     static let shared = AITriageService()
 
-    private let apiKey = "AIzaSyDsE_N_YPZSxgiPEnYShn9HIMX6TWncxVY"
+    // API key loaded from Secrets.plist (hidden from Git, like a .env file)
+    private var apiKey: String {
+        guard let path = Bundle.main.path(forResource: "Secrets", ofType: "plist"),
+              let dict = NSDictionary(contentsOfFile: path),
+              let key = dict["GROQ_API_KEY"] as? String else {
+            return "YOUR_GROQ_API_KEY_HERE"
+        }
+        return key
+    }
     
-    private let endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+    private let endpoint = "https://api.groq.com/openai/v1/chat/completions"
 
     private let supportedDepartments = [
         "Cardiology", "Orthopaedics", "Pediatrics", "General Medicine",
@@ -18,9 +26,10 @@ final class AITriageService {
 
     private init() {}
 
-    /// Sends the patient's symptom text to Gemini via REST API and returns the most appropriate department.
-    func analyzeSymptoms(_ symptoms: String) async -> TriageResult {
-        if apiKey == "YOUR_API_KEY_HERE" {
+    /// Sends the patient's symptom text to Groq API and returns the most appropriate department.
+    /// Returns nil if the input is not a valid medical symptom.
+    func analyzeSymptoms(_ symptoms: String) async -> TriageResult? {
+        if apiKey == "YOUR_GROQ_API_KEY_HERE" {
             print("API Key missing! Returning fallback.")
             return TriageResult(department: "General Medicine", reason: "API Key missing. Please consult a general physician.")
         }
@@ -28,38 +37,39 @@ final class AITriageService {
         let deptList = supportedDepartments.joined(separator: ", ")
         let prompt = """
         You are an expert medical triage system for a hospital management app.
-        A patient has described these symptoms: "\(symptoms.trimmingCharacters(in: .whitespacesAndNewlines))"
+        A patient has entered the following text: "\(symptoms.trimmingCharacters(in: .whitespacesAndNewlines))"
 
-        Your job is to:
-        1. Return the single most relevant department from this list: \(deptList)
-        2. Return a brief one-sentence reason (max 15 words) for why you chose that department.
+        IMPORTANT RULES:
+        - If the text does NOT describe any medical symptoms (e.g., greetings like "hi", "hello", random gibberish, questions, or non-medical text), respond with:
+          DEPARTMENT: NONE
+          REASON: Please describe your medical symptoms for accurate analysis.
+        - Only if the text clearly describes medical symptoms, return the single most relevant department from this list: \(deptList)
 
         Respond in this exact format only (no other text):
-        DEPARTMENT: <department name>
-        REASON: <brief reason>
+        DEPARTMENT: <department name or NONE>
+        REASON: <brief reason, max 15 words>
         """
 
-        // Prepare the request payload for Gemini
+        // Prepare the request payload for Groq (OpenAI-compatible format)
         let requestBody: [String: Any] = [
-            "contents": [
+            "model": "llama-3.3-70b-versatile",
+            "messages": [
                 [
-                    "parts": [
-                        ["text": prompt]
-                    ]
+                    "role": "user",
+                    "content": prompt
                 ]
             ],
-            "generationConfig": [
-                "temperature": 0.2
-            ]
+            "temperature": 0.2
         ]
         
-        guard let url = URL(string: "\(endpoint)?key=\(apiKey)") else {
+        guard let url = URL(string: endpoint) else {
             return fallback()
         }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
 
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
@@ -68,40 +78,42 @@ final class AITriageService {
             
             guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
                 if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                    print("API Error Response: \(errorJson)")
+                    print("Groq API Error Response: \(errorJson)")
                 } else {
-                    print("API HTTP Error: \( (response as? HTTPURLResponse)?.statusCode ?? 0 )")
+                    print("Groq API HTTP Error: \( (response as? HTTPURLResponse)?.statusCode ?? 0 )")
                 }
                 return fallback()
             }
             
-            // Parse Gemini Response JSON
+            // Parse Groq Response JSON (OpenAI-compatible format)
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let candidates = json["candidates"] as? [[String: Any]],
-               let firstCandidate = candidates.first,
-               let content = firstCandidate["content"] as? [String: Any],
-               let parts = content["parts"] as? [[String: Any]],
-               let firstPart = parts.first,
-               let text = firstPart["text"] as? String {
+               let choices = json["choices"] as? [[String: Any]],
+               let firstChoice = choices.first,
+               let message = firstChoice["message"] as? [String: Any],
+               let text = message["content"] as? String {
                 
                 return parseResponse(text)
             } else {
-                return fallback()
+                return nil
             }
             
         } catch {
             print("⚠️ AITriageService error: \(error.localizedDescription)")
-            return fallback()
+            return nil
         }
     }
 
-    private func parseResponse(_ text: String) -> TriageResult {
+    private func parseResponse(_ text: String) -> TriageResult? {
         var department = "General Medicine"
         var reason = "Based on your symptoms."
 
         for line in text.components(separatedBy: "\n") {
             if line.hasPrefix("DEPARTMENT:") {
                 let raw = line.replacingOccurrences(of: "DEPARTMENT:", with: "").trimmingCharacters(in: .whitespaces)
+                // If the AI says NONE, the input wasn't a valid symptom
+                if raw.uppercased() == "NONE" {
+                    return nil
+                }
                 if supportedDepartments.contains(raw) {
                     department = raw
                 }
@@ -115,6 +127,7 @@ final class AITriageService {
     private func fallback() -> TriageResult {
         return TriageResult(department: "General Medicine", reason: "Could not analyze symptoms. Please consult a general physician.")
     }
+
 }
 
 // MARK: - Triage Result
