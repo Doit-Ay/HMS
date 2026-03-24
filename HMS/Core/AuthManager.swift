@@ -631,6 +631,23 @@ class AuthManager {
     }
 
     // MARK: - Appointment Statistics
+    
+    /// Converts any future appointments marked as "completed" back to "scheduled"
+    private func sanitizeAppointments(_ appointments: [Appointment]) -> [Appointment] {
+        let currentDateTime = Date()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        
+        return appointments.map { appt in
+            var updatedAppt = appt
+            if appt.status == "completed",
+               let apptTime = formatter.date(from: "\(appt.date) \(appt.startTime)"),
+               apptTime > currentDateTime {
+                updatedAppt.status = "scheduled"
+            }
+            return updatedAppt
+        }
+    }
 
     /// Fetch all appointments (optionally filtered by date range)
     func fetchAppointments(from startDate: String? = nil, to endDate: String? = nil) async throws -> [Appointment] {
@@ -642,9 +659,10 @@ class AuthManager {
             query = query.whereField("date", isLessThanOrEqualTo: end)
         }
         let snapshot = try await query.getDocuments()
-        return snapshot.documents.compactMap {
+        let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }
+        return sanitizeAppointments(appointments)
     }
 
     /// Fetch appointments for a specific date
@@ -652,9 +670,10 @@ class AuthManager {
         let snapshot = try await db.collection("appointments")
             .whereField("date", isEqualTo: date)
             .getDocuments()
-        return snapshot.documents.compactMap {
+        let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }
+        return sanitizeAppointments(appointments)
     }
 
     /// Fetch all appointments in a given month (format: "yyyy-MM")
@@ -862,8 +881,8 @@ class AuthManager {
     /// Fetch a single appointment by ID
     func fetchAppointment(appointmentId: String) async throws -> Appointment? {
         let doc = try await db.collection("appointments").document(appointmentId).getDocument()
-        guard let data = doc.data() else { return nil }
-        return try Firestore.Decoder().decode(Appointment.self, from: data)
+        guard let data = doc.data(), let appt = try? Firestore.Decoder().decode(Appointment.self, from: data) else { return nil }
+        return sanitizeAppointments([appt]).first
     }
 
     /// Fetch appointments for a specific doctor on a given date
@@ -872,9 +891,10 @@ class AuthManager {
             .whereField("doctorId", isEqualTo: doctorId)
             .whereField("date", isEqualTo: date)
             .getDocuments()
-        return snapshot.documents.compactMap {
+        let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }.sorted { $0.startTime < $1.startTime }
+        return sanitizeAppointments(appointments)
     }
     
     /// Fetch all appointments for a specific doctor
@@ -882,9 +902,10 @@ class AuthManager {
         let snapshot = try await db.collection("appointments")
             .whereField("doctorId", isEqualTo: doctorId)
             .getDocuments()
-        return snapshot.documents.compactMap {
+        let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }
+        return sanitizeAppointments(appointments)
     }
 
     /// Fetch appointments for a specific doctor in a given month (format: "yyyy-MM")
@@ -900,9 +921,10 @@ class AuthManager {
         let snapshot = try await db.collection("appointments")
             .whereField("doctorId", isEqualTo: doctorId)
             .getDocuments()
-        return snapshot.documents.compactMap {
+        let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }.filter { $0.date >= startDate && $0.date <= endDate }
+        return sanitizeAppointments(appointments)
     }
 
     /// Fetch appointments for the logged-in patient
@@ -910,9 +932,10 @@ class AuthManager {
         let snapshot = try await db.collection("appointments")
             .whereField("patientId", isEqualTo: patientId)
             .getDocuments()
-        return snapshot.documents.compactMap {
+        let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }.sorted { $0.date < $1.date }
+        return sanitizeAppointments(appointments)
     }
 
     /// Fetch a single doctor's HMSUser record
