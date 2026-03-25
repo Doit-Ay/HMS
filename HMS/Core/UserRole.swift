@@ -214,9 +214,11 @@ struct Appointment: Codable, Identifiable {
     var startTime: String
     var endTime: String
     var status: String                      // "scheduled", "completed", "cancelled"
-    var ratingGiven: Int?
-    var reviewText: String?
-    var createdAt: Date?
+    var cancelReason: String? = nil
+    var patientNotified: Bool? = nil
+    var ratingGiven: Int? = nil
+    var reviewText: String? = nil
+    var createdAt: Date? = nil
 }
 
 // MARK: - Firestore `doctor_unavailability` Collection
@@ -230,6 +232,25 @@ struct DoctorUnavailability: Codable, Identifiable {
     var startTime: String?             // only for halfDay, "HH:mm"
     var endTime: String?               // only for halfDay, "HH:mm"
     var createdAt: Date?
+}
+
+// MARK: - Firestore `medicines` Collection
+struct AppMedicine: Codable, Identifiable, Hashable {
+    var id: String
+    var name: String
+    var type: String?           // e.g. "tablet", "syrup", "capsule"
+    var manufacturer: String?
+}
+
+// MARK: - Prescribed Medicine (embedded in consultation notes)
+struct PrescribedMedicine: Codable, Identifiable, Hashable {
+    var id: String              // UUID
+    var medicineName: String
+    var days: Int               // e.g. 5
+    var morning: Bool
+    var afternoon: Bool
+    var night: Bool
+    var beforeFood: Bool        // true = before food, false = after food
 }
 
 // MARK: - Firestore `consultation_notes` Collection
@@ -246,6 +267,7 @@ struct ConsultationNote: Codable, Identifiable {
     var endTime: String                 // "HH:mm"
     var notes: String
     var prescription: String
+    var prescribedMedicines: [PrescribedMedicine]?
     var createdAt: Date?
 }
 

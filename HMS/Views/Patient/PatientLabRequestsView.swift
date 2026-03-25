@@ -146,7 +146,9 @@ struct PatientLabRequestsView: View {
                     dateRequested: timestamp.dateValue(),
                     status: data["status"] as? String ?? "pending",
                     customName: data["customName"] as? String,
-                    collectionName: "patient_lab_requests"
+                    collectionName: "patient_lab_requests",
+                    assignedLabTechId: data["assignedLabTechId"] as? String,
+                    assignedLabTechName: data["assignedLabTechName"] as? String
                 ))
             }
         } catch {
@@ -191,7 +193,9 @@ struct PatientLabRequestsView: View {
                     dateRequested: timestamp.dateValue(),
                     status: data["status"] as? String ?? "pending",
                     customName: data["customName"] as? String,
-                    collectionName: "lab_test_requests"
+                    collectionName: "lab_test_requests",
+                    assignedLabTechId: data["assignedLabTechId"] as? String,
+                    assignedLabTechName: data["assignedLabTechName"] as? String
                 ))
             }
         } catch {
@@ -218,6 +222,8 @@ struct PatientLabRequest: Identifiable, Hashable {
     let status: String
     var customName: String?
     let collectionName: String
+    var assignedLabTechId: String?
+    var assignedLabTechName: String?
     
     var completedTestsCount: Int {
         tests.filter { $0.isCompleted }.count

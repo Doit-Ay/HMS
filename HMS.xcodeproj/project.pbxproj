@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2B1276882F6ECD2B00E6F241 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 2B1276872F6ECD2B00E6F241 /* GoogleService-Info.plist */; };
 		2B12768E2F6FB86300E6F241 /* RazorpayCheckout in Frameworks */ = {isa = PBXBuildFile; productRef = 2B12768D2F6FB86300E6F241 /* RazorpayCheckout */; };
 		2BE2DDBB2F71EAE1000608F5 /* FirebaseAILogic in Frameworks */ = {isa = PBXBuildFile; productRef = 2BE2DDBA2F71EAE1000608F5 /* FirebaseAILogic */; };
 		3FB20D9D2F5C6D32008B35EC /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 3FB20D9C2F5C6D32008B35EC /* FirebaseAuth */; };
@@ -18,6 +19,7 @@
 		3FB20DA92F5C6D32008B35EC /* FirebaseStorageCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 3FB20DA82F5C6D32008B35EC /* FirebaseStorageCombine-Community */; };
 		3FB20DAC2F5C6D9A008B35EC /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 3FB20DAB2F5C6D9A008B35EC /* GoogleSignIn */; };
 		3FB20DAE2F5C6D9A008B35EC /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 3FB20DAD2F5C6D9A008B35EC /* GoogleSignInSwift */; };
+		BE5501512F729F28005AC786 /* RazorpayCheckout in Frameworks */ = {isa = PBXBuildFile; productRef = BE5501502F729F28005AC786 /* RazorpayCheckout */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -82,13 +84,12 @@
 				3FB20DAE2F5C6D9A008B35EC /* GoogleSignInSwift in Frameworks */,
 				3FB20D9F2F5C6D32008B35EC /* FirebaseDatabase in Frameworks */,
 				3FB20DAC2F5C6D9A008B35EC /* GoogleSignIn in Frameworks */,
-				2BE2DDBB2F71EAE1000608F5 /* FirebaseAILogic in Frameworks */,
 				3FB20DA92F5C6D32008B35EC /* FirebaseStorageCombine-Community in Frameworks */,
 				3FB20DA32F5C6D32008B35EC /* FirebaseFirestoreCombine-Community in Frameworks */,
 				3FB20D9D2F5C6D32008B35EC /* FirebaseAuth in Frameworks */,
 				3FB20DA12F5C6D32008B35EC /* FirebaseFirestore in Frameworks */,
 				3FB20DA52F5C6D32008B35EC /* FirebaseInstallations in Frameworks */,
-				2B12768E2F6FB86300E6F241 /* RazorpayCheckout in Frameworks */,
+				BE5501512F729F28005AC786 /* RazorpayCheckout in Frameworks */,
 				3FB20DA72F5C6D32008B35EC /* FirebaseStorage in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -110,13 +111,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		2B12768C2F6FB86300E6F241 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
 		3FB20D362F5BEF56008B35EC = {
 			isa = PBXGroup;
 			children = (
@@ -124,6 +118,7 @@
 				3FB20D4F2F5BEF58008B35EC /* HMSTests */,
 				3FB20D592F5BEF58008B35EC /* HMSUITests */,
 				3FB20D402F5BEF56008B35EC /* Products */,
+				2B1276872F6ECD2B00E6F241 /* GoogleService-Info.plist */,
 				2B12768C2F6FB86300E6F241 /* Frameworks */,
 			);
 			sourceTree = "<group>";
@@ -167,8 +162,7 @@
 				3FB20DA82F5C6D32008B35EC /* FirebaseStorageCombine-Community */,
 				3FB20DAB2F5C6D9A008B35EC /* GoogleSignIn */,
 				3FB20DAD2F5C6D9A008B35EC /* GoogleSignInSwift */,
-				2B12768D2F6FB86300E6F241 /* RazorpayCheckout */,
-				2BE2DDBA2F71EAE1000608F5 /* FirebaseAILogic */,
+				BE5501502F729F28005AC786 /* RazorpayCheckout */,
 			);
 			productName = HMS;
 			productReference = 3FB20D3F2F5BEF56008B35EC /* HMS.app */;
@@ -255,7 +249,7 @@
 			packageReferences = (
 				3FB20D9B2F5C6C65008B35EC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				3FB20DAA2F5C6D9A008B35EC /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
-				2B12768B2F6FB84200E6F241 /* XCRemoteSwiftPackageReference "razorpay-pod" */,
+				BE55014F2F729F28005AC786 /* XCRemoteSwiftPackageReference "razorpay-pod" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3FB20D402F5BEF56008B35EC /* Products */;
@@ -640,14 +634,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		2B12768B2F6FB84200E6F241 /* XCRemoteSwiftPackageReference "razorpay-pod" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/razorpay/razorpay-pod.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.5.3;
-			};
-		};
 		3FB20D9B2F5C6C65008B35EC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
@@ -664,19 +650,17 @@
 				minimumVersion = 9.1.0;
 			};
 		};
+		BE55014F2F729F28005AC786 /* XCRemoteSwiftPackageReference "razorpay-pod" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/razorpay/razorpay-pod";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.5.3;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		2B12768D2F6FB86300E6F241 /* RazorpayCheckout */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 2B12768B2F6FB84200E6F241 /* XCRemoteSwiftPackageReference "razorpay-pod" */;
-			productName = RazorpayCheckout;
-		};
-		2BE2DDBA2F71EAE1000608F5 /* FirebaseAILogic */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 3FB20D9B2F5C6C65008B35EC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseAILogic;
-		};
 		3FB20D9C2F5C6D32008B35EC /* FirebaseAuth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 3FB20D9B2F5C6C65008B35EC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
@@ -721,6 +705,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 3FB20DAA2F5C6D9A008B35EC /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignInSwift;
+		};
+		BE5501502F729F28005AC786 /* RazorpayCheckout */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BE55014F2F729F28005AC786 /* XCRemoteSwiftPackageReference "razorpay-pod" */;
+			productName = RazorpayCheckout;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

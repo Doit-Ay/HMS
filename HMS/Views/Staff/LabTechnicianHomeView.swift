@@ -200,7 +200,7 @@ struct LabRequestCard: View {
     var body: some View {
         VStack(spacing: 0) {
             // Top Section
-            HStack(alignment: .top, spacing: 16) {
+            HStack(alignment: .center, spacing: 16) {
                 // Patient avatar
                 ZStack {
                     RoundedRectangle(cornerRadius: 16)
@@ -217,9 +217,20 @@ struct LabRequestCard: View {
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundColor(AppTheme.textPrimary)
                     
-                    Text("\(request.dateRequested.formatted(.dateTime.weekday(.wide).month(.wide).day())) at \(request.dateRequested.formatted(date: .omitted, time: .shortened))")
+                    Text("\(request.dateRequested.formatted(.dateTime.month(.wide).day())) at \(request.dateRequested.formatted(date: .omitted, time: .shortened))")
                         .font(.system(size: 13, weight: .medium, design: .rounded))
                         .foregroundColor(AppTheme.textSecondary)
+                    
+                    let docName = request.tests.first(where: { $0.requestedByDoctor != nil && !$0.requestedByDoctor!.isEmpty })?.requestedByDoctor
+                    HStack(spacing: 4) {
+                        Image(systemName: docName != nil ? "stethoscope" : "person.fill")
+                            .font(.system(size: 10))
+                        Text(docName != nil ? "Dr. \(docName!)" : "Self Requested")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                    .foregroundColor(AppTheme.primary)
                     
                     HStack {
                         HStack(spacing: 4) {
@@ -615,25 +626,29 @@ struct LabRequestDetailView: View {
                     Text(request.patientName)
                         .font(.system(size: 20, weight: .bold, design: .rounded))
                         .foregroundColor(AppTheme.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
 
                     HStack(spacing: 6) {
                         Image(systemName: "calendar.badge.clock")
-                            .font(.system(size: 11))
+                            .font(.system(size: 12))
                             .foregroundColor(AppTheme.textSecondary)
-                        Text(request.dateRequested.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute()))
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                        Text(request.dateRequested.formatted(.dateTime.month(.abbreviated).day().hour().minute()))
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
                             .foregroundColor(AppTheme.textSecondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                     }
-
-                    if let doctorName = firstDoctorName {
-                        HStack(spacing: 5) {
-                            Image(systemName: "stethoscope")
-                                .font(.system(size: 11))
-                                .foregroundColor(AppTheme.primary)
-                            Text("Dr. \(doctorName)")
-                                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                .foregroundColor(AppTheme.primary)
-                        }
+                    
+                    HStack(spacing: 5) {
+                        Image(systemName: firstDoctorName != nil ? "stethoscope" : "person.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(AppTheme.primary)
+                        Text(firstDoctorName != nil ? "Dr. \(firstDoctorName!)" : "Self Requested")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundColor(AppTheme.primary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                     }
                 }
 
@@ -860,26 +875,6 @@ struct LabRequestDetailView: View {
                         RoundedRectangle(cornerRadius: 16)
                             .fill(AppTheme.primaryLight.opacity(0.2))
                     )
-
-                    // Upload button
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 18))
-                        Text("Choose File to Upload")
-                            .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(
-                        LinearGradient(
-                            colors: [AppTheme.primary, AppTheme.primaryMid],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .cornerRadius(14)
-                    .shadow(color: AppTheme.primary.opacity(0.3), radius: 8, x: 0, y: 4)
                 }
                 .padding(18)
                 .background(AppTheme.cardSurface)
@@ -1237,3 +1232,4 @@ struct DocumentPickerView: UIViewControllerRepresentable {
 #Preview {
     LabTechnicianHomeView()
 }
+

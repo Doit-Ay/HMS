@@ -672,3 +672,7 @@ struct FeatureTile: View {
 #Preview {
     PatientTabView()
 }
+
+#Preview {
+    PatientTabView()
+}
