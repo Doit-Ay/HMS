@@ -88,7 +88,11 @@ class LabTechnicianRepository: ObservableObject {
                 }
                 
                 print("LabTechRepo: Fetched \(documents.count) pending documents")
+                let currentUserId = UserSession.shared.currentUser?.id
                 let parsed = documents.compactMap { self.parseLabRequest(from: $0) }
+                    .filter { req in
+                        req.status == "pending" || (req.status == "in_progress" && req.assignedLabTechId == currentUserId)
+                    }
                     .sorted { $0.dateRequested > $1.dateRequested }
                 print("LabTechRepo: Parsed \(parsed.count) pending requests")
                 
@@ -144,8 +148,16 @@ class LabTechnicianRepository: ObservableObject {
     func approveRequest(requestId: String) async throws {
         try ensureLabTechnician()
         
+        guard let currentUser = UserSession.shared.currentUser else {
+            throw LabTechError.unauthorized("User session not found")
+        }
+        
         let docRef = db.collection("patient_lab_requests").document(requestId)
-        try await docRef.updateData(["status": "in_progress"])
+        try await docRef.updateData([
+            "status": "in_progress",
+            "assignedLabTechId": currentUser.id,
+            "assignedLabTechName": currentUser.fullName
+        ])
     }
     
     // MARK: - One-shot Fetchers (for manual refresh)
@@ -322,7 +334,9 @@ class LabTechnicianRepository: ObservableObject {
             dateRequested: timestamp.dateValue(),
             status: data["status"] as? String ?? "pending",
             customName: data["customName"] as? String,
-            collectionName: "patient_lab_requests"
+            collectionName: "patient_lab_requests",
+            assignedLabTechId: data["assignedLabTechId"] as? String,
+            assignedLabTechName: data["assignedLabTechName"] as? String
         )
     }
     
