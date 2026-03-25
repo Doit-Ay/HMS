@@ -74,6 +74,30 @@ struct InventoryMedicine: Identifiable, Codable {
     var strengths: String
     var category: String
     var quantity: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, uses, type, strengths, category, quantity
+    }
+
+    init(name: String, uses: String = "", type: String = "", strengths: String = "", category: String = "", quantity: Int = 0) {
+        self.name = name
+        self.uses = uses
+        self.type = type
+        self.strengths = strengths
+        self.category = category
+        self.quantity = quantity
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = (try? c.decode(String.self, forKey: .id)) ?? ""
+        self.name = (try? c.decode(String.self, forKey: .name)) ?? "Unknown"
+        self.uses = (try? c.decode(String.self, forKey: .uses)) ?? ""
+        self.type = (try? c.decode(String.self, forKey: .type)) ?? ""
+        self.strengths = (try? c.decode(String.self, forKey: .strengths)) ?? ""
+        self.category = (try? c.decode(String.self, forKey: .category)) ?? "Uncategorized"
+        self.quantity = (try? c.decode(Int.self, forKey: .quantity)) ?? 0
+    }
 }
 
 // MARK: - Inventory Management View
