@@ -4,61 +4,59 @@ import FirebaseFirestore
 // MARK: - Patient Billing View
 struct PatientBillingView: View {
     @ObservedObject var session = UserSession.shared
-    @State private var invoices: [Invoice] = []
+    @State private var invoices: [HMSInvoice] = []
     @State private var isLoading = true
     @State private var showPaymentSheet = false
-    @State private var selectedInvoice: Invoice?
+    @State private var selectedInvoice: HMSInvoice?
 
-    var pendingInvoices: [Invoice] { invoices.filter { $0.status == "pending" } }
-    var paidInvoices:    [Invoice] { invoices.filter { $0.status == "paid"    } }
+    var pendingInvoices: [HMSInvoice] { invoices.filter { $0.status == .pending } }
+    var paidInvoices:    [HMSInvoice] { invoices.filter { $0.status == .paid    } }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                AppTheme.background.ignoresSafeArea()
+        ZStack {
+            AppTheme.background.ignoresSafeArea()
 
-                if isLoading {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .tint(AppTheme.primary)
-                } else if invoices.isEmpty {
-                    emptyState
-                } else {
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 24) {
-                            if !pendingInvoices.isEmpty {
-                                sectionHeader("Pending Bills", color: .orange)
-                                ForEach(pendingInvoices) { invoice in
-                                    InvoiceBillCard(invoice: invoice) {
-                                        selectedInvoice = invoice
-                                        showPaymentSheet = true
-                                    }
-                                }
-                            }
-                            if !paidInvoices.isEmpty {
-                                sectionHeader("Payment History", color: .green)
-                                ForEach(paidInvoices) { invoice in
-                                    InvoiceBillCard(invoice: invoice, onPay: nil)
+            if isLoading {
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .tint(AppTheme.primary)
+            } else if invoices.isEmpty {
+                emptyState
+            } else {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 24) {
+                        if !pendingInvoices.isEmpty {
+                            sectionHeader("Pending Bills", color: .orange)
+                            ForEach(pendingInvoices) { invoice in
+                                InvoiceBillCard(invoice: invoice) {
+                                    selectedInvoice = invoice
+                                    showPaymentSheet = true
                                 }
                             }
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 16)
+                        if !paidInvoices.isEmpty {
+                            sectionHeader("Payment History", color: .green)
+                            ForEach(paidInvoices) { invoice in
+                                InvoiceBillCard(invoice: invoice, onPay: nil)
+                            }
+                        }
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
                 }
             }
-            .navigationTitle("Billing & Invoices")
-            .navigationBarTitleDisplayMode(.inline)
-            .onAppear {
-                Task { await fetchInvoices() }
-            }
-            // Razorpay Sheet — same pattern as BookAppointmentView
-            .razorpaySheet(
-                isPresented: $showPaymentSheet,
-                options: buildPaymentOptions()
-            ) { result in
-                handlePaymentResult(result)
-            }
+        }
+        .navigationTitle("Billing & Invoices")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            Task { await fetchInvoices() }
+        }
+        // Razorpay Sheet — same pattern as BookAppointmentView
+        .razorpaySheet(
+            isPresented: $showPaymentSheet,
+            options: buildPaymentOptions()
+        ) { result in
+            handlePaymentResult(result)
         }
     }
 
@@ -100,58 +98,17 @@ struct PatientBillingView: View {
         }
     }
 
-    // MARK: - Data Fetching — Inline (same pattern as PatientLabRequestsView)
-
+    // MARK: - Data Fetching
     private func fetchInvoices() async {
         guard let patientId = session.currentUser?.id else {
             await MainActor.run { isLoading = false }
             return
         }
-        let db = Firestore.firestore()
+        
         do {
-            let snapshot = try await db.collection("invoices")
-                .whereField("patientId", isEqualTo: patientId)
-                .getDocuments()
-
-            let fetched: [Invoice] = snapshot.documents.compactMap { doc in
-                let d = doc.data()
-                guard
-                    let patientId   = d["patientId"]   as? String,
-                    let patientName = d["patientName"] as? String,
-                    let subTotal    = d["subTotal"]    as? Double,
-                    let tax         = d["tax"]         as? Double,
-                    let totalAmount = d["totalAmount"] as? Double,
-                    let status      = d["status"]      as? String,
-                    let dateTS      = d["date"]        as? Timestamp
-                else { return nil }
-
-                let rawItems = d["items"] as? [[String: Any]] ?? []
-                let items: [InvoiceItem] = rawItems.compactMap { item in
-                    guard let name = item["name"] as? String,
-                          let amount = item["amount"] as? Double else { return nil }
-                    return InvoiceItem(id: item["id"] as? String ?? UUID().uuidString,
-                                       name: name, amount: amount)
-                }
-
-                return Invoice(
-                    id:          doc.documentID,
-                    patientId:   patientId,
-                    patientName: patientName,
-                    items:       items,
-                    subTotal:    subTotal,
-                    tax:         tax,
-                    totalAmount: totalAmount,
-                    status:      status,
-                    date:        dateTS.dateValue(),
-                    paymentDate: (d["paymentDate"] as? Timestamp)?.dateValue(),
-                    pdfUrl:      d["pdfUrl"] as? String,
-                    generatedBy: d["generatedBy"] as? String ?? ""
-                )
-            }
-            .sorted { $0.date > $1.date }
-
+            let fetched = try await InventoryRepository.shared.fetchInvoices(patientId: patientId)
             await MainActor.run {
-                self.invoices = fetched
+                self.invoices = fetched   // already ordered by date desc from Firestore
                 self.isLoading = false
             }
         } catch {
@@ -160,7 +117,7 @@ struct PatientBillingView: View {
         }
     }
 
-    // MARK: - Razorpay — same pattern as BookAppointmentView
+    // MARK: - Razorpay
 
     private func buildPaymentOptions() -> RazorpayOptions {
         guard let invoice = selectedInvoice,
@@ -182,11 +139,7 @@ struct PatientBillingView: View {
         if case .success(let paymentId) = result {
             print("✅ Payment success: \(paymentId)")
             Task {
-                let db = Firestore.firestore()
-                try? await db.collection("invoices").document(invoice.id).updateData([
-                    "status": "paid",
-                    "paymentDate": Timestamp(date: Date())
-                ])
+                try? await InventoryRepository.shared.markInvoicePaid(id: invoice.firestoreId, razorpayPaymentId: paymentId)
                 await fetchInvoices()
             }
         }
@@ -197,10 +150,10 @@ struct PatientBillingView: View {
 // MARK: - Invoice Bill Card
 
 struct InvoiceBillCard: View {
-    let invoice: Invoice
+    let invoice: HMSInvoice
     var onPay: (() -> Void)?
 
-    private var statusColor: Color { invoice.status == "paid" ? .green : .orange }
+    private var statusColor: Color { invoice.status == .paid ? .green : .orange }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -208,7 +161,7 @@ struct InvoiceBillCard: View {
             // Header
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Invoice #\(String(invoice.id.prefix(8)).uppercased())")
+                    Text("Invoice #\(String(invoice.firestoreId.prefix(8)).uppercased())")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundColor(AppTheme.textSecondary)
                     Text(invoice.date.formatted(date: .long, time: .omitted))
@@ -216,7 +169,7 @@ struct InvoiceBillCard: View {
                         .foregroundColor(AppTheme.textPrimary)
                 }
                 Spacer()
-                Text(invoice.status == "paid" ? "Paid" : "Due")
+                Text(invoice.status == .paid ? "Paid" : "Due")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(statusColor)
                     .padding(.horizontal, 10)
@@ -230,7 +183,7 @@ struct InvoiceBillCard: View {
             // Line items
             ForEach(invoice.items) { item in
                 HStack {
-                    Text(item.name)
+                    Text("\(item.quantity)x \(item.name)")
                         .font(.system(size: 14))
                         .foregroundColor(AppTheme.textPrimary)
                     Spacer()
@@ -291,31 +244,6 @@ struct InvoiceBillCard: View {
                     .cornerRadius(14)
                     .shadow(color: AppTheme.primary.opacity(0.3), radius: 8, x: 0, y: 4)
                 }
-            } else {
-                // Download / View invoice PDF
-                Button(action: {
-                    if let urlStr = invoice.pdfUrl, let url = URL(string: urlStr) {
-                        UIApplication.shared.open(url)
-                    }
-                }) {
-                    HStack {
-                        Image(systemName: "arrow.down.doc.fill")
-                        Text("Download Invoice")
-                            .fontWeight(.semibold)
-                    }
-                    .font(.system(size: 14))
-                    .foregroundColor(AppTheme.primary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(AppTheme.primaryLight.opacity(0.3))
-                    .cornerRadius(12)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(AppTheme.primary.opacity(0.4), lineWidth: 1)
-                    )
-                }
-                .disabled(invoice.pdfUrl == nil)
-                .opacity(invoice.pdfUrl != nil ? 1 : 0.5)
             }
         }
         .padding(16)
@@ -323,27 +251,4 @@ struct InvoiceBillCard: View {
         .cornerRadius(18)
         .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 4)
     }
-}
-
-// MARK: - Models (co-located, same pattern as PatientLabRequestsView)
-
-struct Invoice: Identifiable {
-    let id: String
-    let patientId: String
-    let patientName: String
-    let items: [InvoiceItem]
-    let subTotal: Double
-    let tax: Double
-    let totalAmount: Double
-    let status: String      // "pending" | "paid"
-    let date: Date
-    let paymentDate: Date?
-    let pdfUrl: String?
-    let generatedBy: String
-}
-
-struct InvoiceItem: Identifiable {
-    let id: String
-    let name: String
-    let amount: Double
 }

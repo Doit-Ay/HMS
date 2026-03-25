@@ -40,6 +40,12 @@ struct ConsultationNotesView: View {
     @State private var medicineSearchText: String = ""
     @State private var showMedicineDropdown: Bool = false
     @State private var isLoadingMedicines: Bool = false
+    @State private var showMedicineSheet: Bool = false
+    
+    // Currently ConsultationNotesView doesn't pass doctor department directly,
+    // so we'll pass nil to MedicinePrescriptionSheet to show all initially,
+    // or we can fetch it if needed. For now, nil is fine.
+    var doctorDepartment: String? = nil
     
     enum DictationField {
         case notes, prescription
@@ -121,90 +127,17 @@ struct ConsultationNotesView: View {
                             
                             // MARK: Prescribed Medicines Section
                             VStack(alignment: .leading, spacing: 12) {
-                                Label("Prescribed Medicines", systemImage: "pills.circle.fill")
-                                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                    .foregroundColor(AppTheme.textPrimary)
-                                
-                                // Search Bar
-                                VStack(spacing: 0) {
-                                    HStack(spacing: 10) {
-                                        Image(systemName: "magnifyingglass")
-                                            .foregroundColor(AppTheme.textSecondary)
-                                        TextField("Search medicines...", text: $medicineSearchText)
-                                            .font(.system(size: 15, design: .rounded))
-                                            .onChange(of: medicineSearchText) { val in
-                                                showMedicineDropdown = !val.trimmingCharacters(in: .whitespaces).isEmpty
-                                            }
-                                        if !medicineSearchText.isEmpty {
-                                            Button { medicineSearchText = ""; showMedicineDropdown = false } label: {
-                                                Image(systemName: "xmark.circle.fill")
-                                                    .foregroundColor(AppTheme.textSecondary.opacity(0.5))
-                                            }
-                                        }
-                                    }
-                                    .padding(12)
-                                    .background(AppTheme.cardSurface)
-                                    .cornerRadius(12)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(AppTheme.textSecondary.opacity(0.2), lineWidth: 1)
-                                    )
-                                    
-                                    // Dropdown
-                                    if showMedicineDropdown {
-                                        let filtered = allMedicines.filter { med in
-                                            med.name.localizedCaseInsensitiveContains(medicineSearchText) &&
-                                            !prescribedMedicines.contains(where: { pm in pm.medicineName == med.name })
-                                        }
-                                        
-                                        if filtered.isEmpty {
-                                            Text("No medicines found")
-                                                .font(.system(size: 14, design: .rounded))
-                                                .foregroundColor(AppTheme.textSecondary)
-                                                .padding(12)
-                                                .frame(maxWidth: .infinity, alignment: .leading)
-                                                .background(AppTheme.cardSurface)
-                                                .cornerRadius(12)
-                                                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
-                                        } else {
-                                            ScrollView {
-                                                LazyVStack(spacing: 0) {
-                                                    ForEach(filtered.prefix(8)) { med in
-                                                        Button {
-                                                            addMedicine(med)
-                                                            medicineSearchText = ""
-                                                            showMedicineDropdown = false
-                                                        } label: {
-                                                            HStack {
-                                                                VStack(alignment: .leading, spacing: 2) {
-                                                                    Text(med.name)
-                                                                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                                                                        .foregroundColor(AppTheme.textPrimary)
-                                                                    if let type = med.type {
-                                                                        Text(type.capitalized)
-                                                                            .font(.system(size: 11, design: .rounded))
-                                                                            .foregroundColor(AppTheme.textSecondary)
-                                                                    }
-                                                                }
-                                                                Spacer()
-                                                                Image(systemName: "plus.circle.fill")
-                                                                    .foregroundColor(AppTheme.primary)
-                                                            }
-                                                            .padding(.horizontal, 12)
-                                                            .padding(.vertical, 10)
-                                                        }
-                                                        .buttonStyle(.plain)
-                                                        if med.id != filtered.prefix(8).last?.id {
-                                                            Divider().padding(.horizontal, 12)
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            .frame(maxHeight: 230)
-                                            .background(AppTheme.cardSurface)
-                                            .cornerRadius(12)
-                                            .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
-                                        }
+                                HStack {
+                                    Label("Prescribed Medicines", systemImage: "pills.circle.fill")
+                                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                        .foregroundColor(AppTheme.textPrimary)
+                                    Spacer()
+                                    Button {
+                                        showMedicineSheet = true
+                                    } label: {
+                                        Image(systemName: "plus.circle.fill")
+                                            .foregroundColor(AppTheme.primary)
+                                            .font(.system(size: 20))
                                     }
                                 }
                                 
@@ -212,13 +145,18 @@ struct ConsultationNotesView: View {
                                 if !prescribedMedicines.isEmpty {
                                     VStack(spacing: 12) {
                                         ForEach($prescribedMedicines) { $med in
-                                            PrescribedMedicineCard(medicine: $med) {
+                                            PrescribedMedicineCard(medicine: med) {
                                                 withAnimation(.spring(response: 0.3)) {
                                                     prescribedMedicines.removeAll { $0.id == med.id }
                                                 }
                                             }
                                         }
                                     }
+                                } else {
+                                    Text("No medicines prescribed yet.")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(AppTheme.textSecondary)
+                                        .padding(.vertical, 8)
                                 }
                             }
                             
@@ -297,11 +235,17 @@ struct ConsultationNotesView: View {
             }
             .task {
                 await fetchExistingNotes()
-                await loadMedicines()
             }
             .sheet(isPresented: $showPDFPreview) {
                 if let url = generatedPDFURL {
                     PDFViewerSheet(pdfURL: url)
+                }
+            }
+            .sheet(isPresented: $showMedicineSheet) {
+                MedicinePrescriptionSheet(doctorDepartment: doctorDepartment) { med in
+                    withAnimation(.spring(response: 0.3)) {
+                        prescribedMedicines.append(med)
+                    }
                 }
             }
             .onChange(of: speechRecognizer.transcript) { newTranscript in
@@ -407,7 +351,6 @@ struct ConsultationNotesView: View {
                     endTime: endTime,
                     notes: notes,
                     prescription: prescription,
-                    prescribedMedicines: prescribedMedicines.isEmpty ? nil : prescribedMedicines,
                     createdAt: Date()
                 )
                 
@@ -440,37 +383,13 @@ struct ConsultationNotesView: View {
                 existingNoteId = note.id
                 notes = note.notes
                 prescription = note.prescription
-                prescribedMedicines = note.prescribedMedicines ?? []
+                // Fetch medicines from the sub-collection
+                prescribedMedicines = try await InventoryRepository.shared.fetchPrescribedMedicines(noteId: note.id)
             }
             isLoading = false
         } catch {
             print("Failed to fetch existing notes: \(error)")
             isLoading = false
-        }
-    }
-    
-    private func loadMedicines() async {
-        isLoadingMedicines = true
-        do {
-            allMedicines = try await DoctorPatientRepository.shared.fetchMedicines()
-        } catch {
-            print("Failed to fetch medicines: \(error)")
-        }
-        isLoadingMedicines = false
-    }
-    
-    private func addMedicine(_ med: AppMedicine) {
-        let prescribed = PrescribedMedicine(
-            id: UUID().uuidString,
-            medicineName: med.name,
-            days: 5,
-            morning: true,
-            afternoon: false,
-            night: true,
-            beforeFood: false
-        )
-        withAnimation(.spring(response: 0.3)) {
-            prescribedMedicines.append(prescribed)
         }
     }
     
@@ -492,12 +411,11 @@ struct ConsultationNotesView: View {
                     endTime: endTime,
                     notes: notes,
                     prescription: prescription,
-                    prescribedMedicines: prescribedMedicines.isEmpty ? nil : prescribedMedicines,
                     createdAt: existingNoteId == nil ? Date() : nil
                 )
                 
                 // 1. If a prescription was written, generate and upload the PDF silently
-                if !prescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if !prescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !prescribedMedicines.isEmpty {
                     let labTests = try? await DoctorPatientRepository.shared.fetchLabTestRequests(patientId: patientId, doctorId: doctorId)
                     
                     let generator = PrescriptionPDFGenerator()
@@ -519,13 +437,22 @@ struct ConsultationNotesView: View {
                             createdAt: Date()
                         )
                         try await DoctorPatientRepository.shared.savePrescriptionDocument(prescriptionDoc)
-                        
-                        print("Saved Prescription to Database completely!")
                     }
                 }
                 
-                // 4. Finally, save the core consultation note
+                // 4. Save the core consultation note
                 try await DoctorPatientRepository.shared.saveConsultationNote(note)
+                
+                // 5. Save the prescribed medicines to sub-collection
+                if !prescribedMedicines.isEmpty {
+                    try await InventoryRepository.shared.savePrescribedMedicines(noteId: noteId, medicines: prescribedMedicines)
+                    
+                    // Deduct stock for medicines
+                    for med in prescribedMedicines {
+                        let quantityToDeduct = med.timesPerDay * med.durationDays
+                        try? await InventoryRepository.shared.deductStock(itemId: med.medicineId, quantity: quantityToDeduct)
+                    }
+                }
                 
                 await MainActor.run {
                     isSaving = false
@@ -543,106 +470,70 @@ struct ConsultationNotesView: View {
 
 // MARK: - Prescribed Medicine Card
 struct PrescribedMedicineCard: View {
-    @Binding var medicine: PrescribedMedicine
+    let medicine: PrescribedMedicine
     let onRemove: () -> Void
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Image(systemName: "pill.fill")
-                    .foregroundColor(AppTheme.primary)
-                    .font(.system(size: 14))
-                Text(medicine.medicineName)
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .foregroundColor(AppTheme.textPrimary)
+                ZStack {
+                    Circle()
+                        .fill(AppTheme.primary.opacity(0.12))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: medicine.medicineType.sfSymbol)
+                        .font(.system(size: 14))
+                        .foregroundColor(AppTheme.primary)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(medicine.medicineName)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                    Text(medicine.medicineType.displayName)
+                        .font(.system(size: 11))
+                        .foregroundColor(AppTheme.textSecondary)
+                }
                 Spacer()
                 Button(action: onRemove) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.red.opacity(0.7))
-                        .font(.system(size: 18))
+                        .font(.system(size: 20))
                 }
                 .buttonStyle(.plain)
             }
             
             Divider()
             
-            // Days
             HStack {
-                Text("Duration")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(AppTheme.textSecondary)
-                Spacer()
-                HStack(spacing: 12) {
-                    Button {
-                        if medicine.days > 1 { medicine.days -= 1 }
-                    } label: {
-                        Image(systemName: "minus.circle.fill")
-                            .foregroundColor(AppTheme.primary)
-                            .font(.system(size: 22))
-                    }
-                    .buttonStyle(.plain)
-                    
-                    Text("\(medicine.days) day\(medicine.days == 1 ? "" : "s")")
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                        .frame(minWidth: 55)
-                    
-                    Button {
-                        medicine.days += 1
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .foregroundColor(AppTheme.primary)
-                            .font(.system(size: 22))
-                    }
-                    .buttonStyle(.plain)
+                // Frequency
+                HStack(spacing: 6) {
+                    Image(systemName: "clock.fill")
+                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 12))
+                    Text(medicine.timesPerDay == 1 ? "Once daily" : medicine.timesPerDay == 2 ? "Twice daily" : "\(medicine.timesPerDay)x daily")
+                        .font(.system(size: 12, weight: .semibold))
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                // Duration
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar")
+                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 12))
+                    Text("For \(medicine.durationDays) day\(medicine.durationDays == 1 ? "" : "s")")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             
-            // Timing Toggles
-            HStack {
-                Text("Timing")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(AppTheme.textSecondary)
-                Spacer()
-                HStack(spacing: 8) {
-                    timingChip(label: "Morning", icon: "sunrise.fill", isOn: $medicine.morning)
-                    timingChip(label: "Afternoon", icon: "sun.max.fill", isOn: $medicine.afternoon)
-                    timingChip(label: "Night", icon: "moon.fill", isOn: $medicine.night)
-                }
-            }
-            
-            // Before/After Food
-            HStack {
-                Text("Food")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(AppTheme.textSecondary)
-                Spacer()
-                HStack(spacing: 8) {
-                    Button {
-                        medicine.beforeFood = true
-                    } label: {
-                        Text("Before Food")
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundColor(medicine.beforeFood ? .white : AppTheme.textPrimary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(medicine.beforeFood ? AppTheme.primary : Color.gray.opacity(0.1))
-                            .cornerRadius(8)
-                    }
-                    .buttonStyle(.plain)
-                    
-                    Button {
-                        medicine.beforeFood = false
-                    } label: {
-                        Text("After Food")
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundColor(!medicine.beforeFood ? .white : AppTheme.textPrimary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(!medicine.beforeFood ? AppTheme.primary : Color.gray.opacity(0.1))
-                            .cornerRadius(8)
-                    }
-                    .buttonStyle(.plain)
+            if let notes = medicine.notes, !notes.isEmpty {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "text.bubble.fill")
+                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 12))
+                        .padding(.top, 2)
+                    Text(notes)
+                        .font(.system(size: 12))
+                        .foregroundColor(AppTheme.textSecondary)
+                        .italic()
                 }
             }
         }
@@ -654,26 +545,6 @@ struct PrescribedMedicineCard: View {
                 .stroke(AppTheme.primary.opacity(0.15), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 3)
-    }
-    
-    @ViewBuilder
-    private func timingChip(label: String, icon: String, isOn: Binding<Bool>) -> some View {
-        Button {
-            isOn.wrappedValue.toggle()
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 10))
-                Text(label.prefix(3))
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-            }
-            .foregroundColor(isOn.wrappedValue ? .white : AppTheme.textSecondary)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(isOn.wrappedValue ? AppTheme.primary : Color.gray.opacity(0.1))
-            .cornerRadius(8)
-        }
-        .buttonStyle(.plain)
     }
 }
 

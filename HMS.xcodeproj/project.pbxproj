@@ -7,9 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		2B1276882F6ECD2B00E6F241 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 2B1276872F6ECD2B00E6F241 /* GoogleService-Info.plist */; };
-		2B12768E2F6FB86300E6F241 /* RazorpayCheckout in Frameworks */ = {isa = PBXBuildFile; productRef = 2B12768D2F6FB86300E6F241 /* RazorpayCheckout */; };
-		2BE2DDBB2F71EAE1000608F5 /* FirebaseAILogic in Frameworks */ = {isa = PBXBuildFile; productRef = 2BE2DDBA2F71EAE1000608F5 /* FirebaseAILogic */; };
 		3FB20D9D2F5C6D32008B35EC /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 3FB20D9C2F5C6D32008B35EC /* FirebaseAuth */; };
 		3FB20D9F2F5C6D32008B35EC /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = 3FB20D9E2F5C6D32008B35EC /* FirebaseDatabase */; };
 		3FB20DA12F5C6D32008B35EC /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 3FB20DA02F5C6D32008B35EC /* FirebaseFirestore */; };
@@ -118,8 +115,6 @@
 				3FB20D4F2F5BEF58008B35EC /* HMSTests */,
 				3FB20D592F5BEF58008B35EC /* HMSUITests */,
 				3FB20D402F5BEF56008B35EC /* Products */,
-				2B1276872F6ECD2B00E6F241 /* GoogleService-Info.plist */,
-				2B12768C2F6FB86300E6F241 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};

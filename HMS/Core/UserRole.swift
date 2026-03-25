@@ -234,27 +234,15 @@ struct DoctorUnavailability: Codable, Identifiable {
     var createdAt: Date?
 }
 
-// MARK: - Firestore `medicines` Collection
+// MARK: - Firestore `medicines` Collection (legacy, kept for backwards compat)
 struct AppMedicine: Codable, Identifiable, Hashable {
     var id: String
     var name: String
-    var type: String?           // e.g. "tablet", "syrup", "capsule"
+    var type: String?           // e.g. "tablet", "syrup"
     var manufacturer: String?
 }
 
-// MARK: - Prescribed Medicine (embedded in consultation notes)
-struct PrescribedMedicine: Codable, Identifiable, Hashable {
-    var id: String              // UUID
-    var medicineName: String
-    var days: Int               // e.g. 5
-    var morning: Bool
-    var afternoon: Bool
-    var night: Bool
-    var beforeFood: Bool        // true = before food, false = after food
-}
-
 // MARK: - Firestore `consultation_notes` Collection
-// Each document represents a consultation note or prescription written by a doctor for a patient.
 struct ConsultationNote: Codable, Identifiable {
     var id: String
     var appointmentId: String
@@ -267,8 +255,8 @@ struct ConsultationNote: Codable, Identifiable {
     var endTime: String                 // "HH:mm"
     var notes: String
     var prescription: String
-    var prescribedMedicines: [PrescribedMedicine]?
     var createdAt: Date?
+    // Prescribed medicines stored in sub-collection: consultation_notes/{id}/prescribed_medicines
 }
 
 // MARK: - Firestore `lab_test_requests` Collection
@@ -316,4 +304,3 @@ struct SharedMedicalDocument: Codable, Identifiable {
     var uploadDate: Date
     var notes: String?
 }
-

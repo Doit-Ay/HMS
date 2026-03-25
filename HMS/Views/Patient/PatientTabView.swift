@@ -1,23 +1,11 @@
 import SwiftUI
 import FirebaseFirestore
 
-// MARK: - Patient Tab View
+// MARK: - Patient Tab View (Actually now just a wrapper for Home)
 struct PatientTabView: View {
-    @State private var selectedTab = 0
-
     var body: some View {
-        TabView(selection: $selectedTab) {
+        NavigationStack {
             PatientHomeView()
-                .tabItem {
-                    Label("Home", systemImage: "house.fill")
-                }
-                .tag(0)
-
-            PatientBillingView()
-                .tabItem {
-                    Label("Billing", systemImage: "creditcard.fill")
-                }
-                .tag(1)
         }
         .tint(AppTheme.primary)
     }
@@ -156,6 +144,13 @@ struct PatientHomeView: View {
                                         LabTestsView()
                                     } label: {
                                         FeatureTile(icon: "pills.fill", title: "Lab Tests", color: AppTheme.primaryMid)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+
+                                    NavigationLink {
+                                        PatientBillingView()
+                                    } label: {
+                                        FeatureTile(icon: "creditcard.fill", title: "Billing", color: AppTheme.primary)
                                     }
                                     .buttonStyle(PlainButtonStyle())
                                 }

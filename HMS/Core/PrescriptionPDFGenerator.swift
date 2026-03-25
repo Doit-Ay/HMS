@@ -212,16 +212,16 @@ class PrescriptionPDFGenerator {
         let tableWidth = pageWidth - (margin * 2)
         let colWidths: [CGFloat] = [
             tableWidth * 0.05,  // #
-            tableWidth * 0.32,  // Medicine Name
-            tableWidth * 0.13,  // Days
-            tableWidth * 0.30,  // Timing
-            tableWidth * 0.20   // Food
+            tableWidth * 0.33,  // Medicine Name
+            tableWidth * 0.15,  // Type
+            tableWidth * 0.22,  // Frequency
+            tableWidth * 0.25   // Duration
         ]
         
         let headerFont = UIFont.systemFont(ofSize: 10, weight: .bold)
         let cellFont = UIFont.systemFont(ofSize: 10)
         let rowHeight: CGFloat = 22
-        let headers = ["#", "Medicine Name", "Days", "Timing", "Food"]
+        let headers = ["#", "Medicine", "Type", "Frequency", "Duration"]
         
         // Check page overflow for header + at least 1 row
         if y + rowHeight * 2 > pageHeight - 100 {
@@ -259,26 +259,20 @@ class PrescriptionPDFGenerator {
                 UIBezierPath(rect: rowRect).fill()
             }
             
-            // Build timing string
-            var timingParts: [String] = []
-            if med.morning { timingParts.append("Morning") }
-            if med.afternoon { timingParts.append("Afternoon") }
-            if med.night { timingParts.append("Night") }
-            let timingStr = timingParts.isEmpty ? "-" : timingParts.joined(separator: ", ")
-            
-            let foodStr = med.beforeFood ? "Before Food" : "After Food"
+            let freqStr = med.timesPerDay == 1 ? "Once daily" :
+                          med.timesPerDay == 2 ? "Twice daily" : "\(med.timesPerDay)x daily"
+            let durationStr = "\(med.durationDays) day\(med.durationDays == 1 ? "" : "s")"
             
             let cells = [
                 "\(index + 1)",
                 med.medicineName,
-                "\(med.days) day\(med.days == 1 ? "" : "s")",
-                timingStr,
-                foodStr
+                med.medicineType.displayName,
+                freqStr,
+                durationStr
             ]
             
             xOffset = margin
             for (i, text) in cells.enumerated() {
-                let attr = NSAttributedString(string: text, attributes: [.font: cellFont, .foregroundColor: UIColor.black])
                 let maxW = colWidths[i] - 10
                 let truncated = truncateString(text, font: cellFont, maxWidth: maxW)
                 let truncAttr = NSAttributedString(string: truncated, attributes: [.font: cellFont, .foregroundColor: UIColor.black])

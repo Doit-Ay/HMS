@@ -22,6 +22,10 @@ struct AdminTabView: View {
             InventoryManagementView()
                 .tabItem { Label("Inventory", systemImage: "cross.case.fill") }
                 .tag(3)
+
+            AdminInvoiceListView()
+                .tabItem { Label("Billing", systemImage: "doc.text.fill") }
+                .tag(4)
         }
         .tint(AppTheme.primary)
     }
