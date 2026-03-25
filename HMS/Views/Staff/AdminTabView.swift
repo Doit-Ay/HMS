@@ -19,8 +19,8 @@ struct AdminTabView: View {
                 .tabItem { Label("Logs", systemImage: "list.bullet.rectangle") }
                 .tag(2)
 
-            AdminRevenueDashboardView()
-                .tabItem { Label("Financials", systemImage: "dollarsign.circle.fill") }
+            InventoryManagementView()
+                .tabItem { Label("Inventory", systemImage: "cross.case.fill") }
                 .tag(3)
         }
         .tint(AppTheme.primary)
@@ -32,6 +32,7 @@ struct AdminDashboardView: View {
     @ObservedObject var session = UserSession.shared
     @State private var animate    = false
     @State private var showProfileSheet = false
+    @State private var navigateToFinancials = false
 
     private var adminName: String {
         session.currentUser?.fullName ?? "Admin"
@@ -156,7 +157,9 @@ struct AdminDashboardView: View {
                             .padding(.horizontal, 24)
                             .padding(.top, 8)
                             
-                            AppointmentStatsView()
+                            AppointmentStatsView(onRevenueTap: {
+                                navigateToFinancials = true
+                            })
                         }
                         .offset(y: animate ? 0 : 30)
                         .opacity(animate ? 1 : 0)
@@ -167,6 +170,9 @@ struct AdminDashboardView: View {
                 }
             }
             .navigationBarHidden(true)
+            .navigationDestination(isPresented: $navigateToFinancials) {
+                AdminRevenueDashboardView()
+            }
             .sheet(isPresented: $showProfileSheet) {
                 ProfileView()
             }
