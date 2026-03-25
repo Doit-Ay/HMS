@@ -13,6 +13,7 @@ struct EditStaffView: View {
     @State private var employeeID: String
     @State private var department: String
     @State private var specialization: String
+    @State private var consultationFee: String
     @State private var isLoading      = false
     @State private var errorMessage   = ""
     @State private var showError      = false
@@ -38,6 +39,7 @@ struct EditStaffView: View {
         _employeeID = State(initialValue: staff.employeeID ?? "")
         _department = State(initialValue: staff.department ?? "")
         _specialization = State(initialValue: staff.specialization ?? "")
+        _consultationFee = State(initialValue: staff.consultationFee != nil ? String(Int(staff.consultationFee!)) : "")
 
         // Parse existing defaultSlots
         var morning = false, afternoon = false, evening = false
@@ -189,6 +191,7 @@ struct EditStaffView: View {
 
                             if staff.role == .doctor {
                                 editableField("Specialization", icon: "stethoscope", text: $specialization)
+                                editableField("Consultation Fee (₹)", icon: "indianrupesign", text: $consultationFee, keyboard: .numberPad)
                             }
                         }
                         .padding(20)
@@ -504,7 +507,8 @@ struct EditStaffView: View {
                 specialization: specialization.isEmpty ? nil : specialization,
                 employeeID: employeeID.isEmpty ? nil : employeeID,
                 phoneNumber: phoneNumber.isEmpty ? nil : phoneNumber,
-                defaultSlots: defaultSlotsArray
+                defaultSlots: defaultSlotsArray,
+                consultationFee: Double(consultationFee)
             )
             showSuccess = true
         } catch {

@@ -152,26 +152,40 @@ struct AppointmentDetailSheet: View {
                             .padding(.vertical, 16)
                   } else {
                     if appointmentStatus == "scheduled" {
-                        // Before consultation: show "Start Consultation" which marks it as completed
-                        Button(action: markConsultationDone) {
-                            HStack {
-                                if isUpdatingStatus {
-                                    ProgressView()
-                                        .tint(.white)
-                                } else {
-                                    Image(systemName: "checkmark.circle.fill")
-                                    Text("Mark Consultation Done")
+                        if Date() >= appointment.startTime {
+                            // Before consultation: show "Start Consultation" which marks it as completed
+                            Button(action: markConsultationDone) {
+                                HStack {
+                                    if isUpdatingStatus {
+                                        ProgressView()
+                                            .tint(.white)
+                                    } else {
+                                        Image(systemName: "checkmark.circle.fill")
+                                        Text("Mark Consultation Done")
+                                    }
                                 }
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(AppTheme.primary)
+                                .cornerRadius(16)
+                                .shadow(color: AppTheme.primary.opacity(0.3), radius: 8, x: 0, y: 4)
+                            }
+                            .disabled(isUpdatingStatus)
+                        } else {
+                            // Future appointment
+                            HStack {
+                                Image(systemName: "clock.fill")
+                                Text("Consultation Pending")
                             }
                             .font(.system(size: 16, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
+                            .foregroundColor(AppTheme.textSecondary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(AppTheme.primary)
+                            .background(Color.gray.opacity(0.1))
                             .cornerRadius(16)
-                            .shadow(color: AppTheme.primary.opacity(0.3), radius: 8, x: 0, y: 4)
                         }
-                        .disabled(isUpdatingStatus)
                     }
                     
                     if appointmentStatus == "completed" {

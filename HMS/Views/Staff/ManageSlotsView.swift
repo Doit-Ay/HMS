@@ -63,7 +63,8 @@ struct ManageSlotsView: View {
                 NavigationStack {
                     DoctorAvailabilityView(
                         overrideDoctorId: doctor.id,
-                        doctorName: doctor.fullName
+                        doctorName: doctor.fullName,
+                        overrideDoctor: doctor
                     )
                 }
             }
@@ -791,6 +792,33 @@ struct AddSlotSheet: View {
     }
 
     private var isValid: Bool { endTime > startTime }
+    
+    private var shiftBounds: ClosedRange<Date>? {
+        guard let slots = doctor.defaultSlots, !slots.isEmpty else { return nil }
+        
+        let calendar = Calendar.current
+        var startHour = 24
+        var endHour = 0
+        
+        if slots.contains("morning") {
+            startHour = min(startHour, 9)
+            endHour = max(endHour, 13)
+        }
+        if slots.contains("afternoon") {
+            startHour = min(startHour, 13)
+            endHour = max(endHour, 17)
+        }
+        if slots.contains("evening") {
+            startHour = min(startHour, 17)
+            endHour = max(endHour, 22)
+        }
+        
+        if startHour == 24 { return nil }
+        
+        let start = calendar.date(bySettingHour: startHour, minute: 0, second: 0, of: date)!
+        let end = calendar.date(bySettingHour: endHour, minute: 0, second: 0, of: date)!
+        return start...end
+    }
 
     private var durationText: String {
         let diff = Int(endTime.timeIntervalSince(startTime)) / 60
@@ -850,18 +878,34 @@ struct AddSlotSheet: View {
                                 .foregroundColor(AppTheme.textPrimary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                            DatePicker("Start Time", selection: $startTime, displayedComponents: .hourAndMinute)
-                                .font(.system(size: 15, design: .rounded))
-                                .tint(AppTheme.primary)
-                                .onChange(of: startTime) { newVal in
-                                    if endTime <= newVal {
-                                        endTime = Calendar.current.date(byAdding: .minute, value: 30, to: newVal)!
+                            if let bounds = shiftBounds {
+                                DatePicker("Start Time", selection: $startTime, in: bounds, displayedComponents: .hourAndMinute)
+                                    .font(.system(size: 15, design: .rounded))
+                                    .tint(AppTheme.primary)
+                                    .onChange(of: startTime) { newVal in
+                                        if endTime <= newVal {
+                                            endTime = Calendar.current.date(byAdding: .minute, value: 30, to: newVal)!
+                                            if endTime > bounds.upperBound { endTime = bounds.upperBound }
+                                        }
                                     }
-                                }
 
-                            DatePicker("End Time", selection: $endTime, displayedComponents: .hourAndMinute)
-                                .font(.system(size: 15, design: .rounded))
-                                .tint(AppTheme.primary)
+                                DatePicker("End Time", selection: $endTime, in: bounds, displayedComponents: .hourAndMinute)
+                                    .font(.system(size: 15, design: .rounded))
+                                    .tint(AppTheme.primary)
+                            } else {
+                                DatePicker("Start Time", selection: $startTime, displayedComponents: .hourAndMinute)
+                                    .font(.system(size: 15, design: .rounded))
+                                    .tint(AppTheme.primary)
+                                    .onChange(of: startTime) { newVal in
+                                        if endTime <= newVal {
+                                            endTime = Calendar.current.date(byAdding: .minute, value: 30, to: newVal)!
+                                        }
+                                    }
+
+                                DatePicker("End Time", selection: $endTime, displayedComponents: .hourAndMinute)
+                                    .font(.system(size: 15, design: .rounded))
+                                    .tint(AppTheme.primary)
+                            }
 
                             Divider().opacity(0.15)
 
@@ -933,6 +977,16 @@ struct AddSlotSheet: View {
                 }
             } message: {
                 Text("\(startTimeString) – \(endTimeString) has been added for Dr. \(doctor.fullName).")
+            }
+        }
+        .onAppear {
+            if let bounds = shiftBounds {
+                startTime = bounds.lowerBound
+                endTime = Calendar.current.date(byAdding: .minute, value: 30, to: bounds.lowerBound) ?? bounds.upperBound
+                if endTime > bounds.upperBound { endTime = bounds.upperBound }
+            } else {
+                startTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: date) ?? date
+                endTime = Calendar.current.date(bySettingHour: 9, minute: 30, second: 0, of: date) ?? date
             }
         }
     }

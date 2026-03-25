@@ -10,6 +10,7 @@ struct AddStaffView: View {
     @State private var employeeID     = ""
     @State private var department     = ""
     @State private var specialization = ""
+    @State private var consultationFee = ""
     @State private var selectedRole: UserRole = .doctor
     @State private var isLoading      = false
     @State private var errorMessage   = ""
@@ -135,6 +136,9 @@ struct AddStaffView: View {
 
                             if selectedRole == .doctor {
                                 formField(icon: "stethoscope", placeholder: "Specialization", text: $specialization, capitalization: .words)
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+
+                                formField(icon: "indianrupesign", placeholder: "Consultation Fee (₹)", text: $consultationFee, keyboardType: .numberPad)
                                     .transition(.opacity.combined(with: .move(edge: .top)))
                             }
 
@@ -385,7 +389,8 @@ struct AddStaffView: View {
                 department: department.isEmpty ? nil : department,
                 specialization: specialization.isEmpty ? nil : specialization,
                 employeeID: employeeID.isEmpty ? nil : employeeID,
-                defaultSlots: defaultSlotsArray
+                defaultSlots: defaultSlotsArray,
+                consultationFee: Double(consultationFee)
             )
             showSuccess = true
         } catch {

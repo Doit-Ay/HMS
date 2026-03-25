@@ -18,6 +18,14 @@ struct AdminTabView: View {
             SystemActivityLogsView()
                 .tabItem { Label("Logs", systemImage: "list.bullet.rectangle") }
                 .tag(2)
+
+            InventoryManagementView()
+                .tabItem { Label("Inventory", systemImage: "cross.case.fill") }
+                .tag(3)
+
+            AdminInvoiceListView()
+                .tabItem { Label("Billing", systemImage: "doc.text.fill") }
+                .tag(4)
         }
         .tint(AppTheme.primary)
     }
@@ -28,6 +36,7 @@ struct AdminDashboardView: View {
     @ObservedObject var session = UserSession.shared
     @State private var animate    = false
     @State private var showProfileSheet = false
+    @State private var navigateToFinancials = false
 
     private var adminName: String {
         session.currentUser?.fullName ?? "Admin"
@@ -104,25 +113,38 @@ struct AdminDashboardView: View {
                             }
                             .padding(.horizontal, 24)
 
-                            HStack(spacing: 16) {
-                                NavigationLink(destination: ManageSlotsView()) {
-                                    AdminDashboardActionCard(
-                                        title: "Manage Slots",
-                                        icon: "calendar.badge.clock",
-                                        color: AppTheme.primary
-                                    )
-                                }
-                                .buttonStyle(.plain)
+                            NavigationLink(destination: ManageSlotsView()) {
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(AppTheme.primary.opacity(0.15))
+                                            .frame(width: 50, height: 50)
+                                        Image(systemName: "calendar.badge.clock")
+                                            .font(.system(size: 22, weight: .semibold))
+                                            .foregroundColor(AppTheme.primary)
+                                    }
 
-                                NavigationLink(destination: AdminPatientSearchView()) {
-                                    AdminDashboardActionCard(
-                                        title: "Manage Patients",
-                                        icon: "person.3.sequence.fill",
-                                        color: Color(hex: "#8B5CF6")
-                                    )
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Manage Slots")
+                                            .font(.system(size: 17, weight: .bold, design: .rounded))
+                                            .foregroundColor(AppTheme.textPrimary)
+                                        Text("Schedule and organize doctor availability")
+                                            .font(.system(size: 13, design: .rounded))
+                                            .foregroundColor(AppTheme.textSecondary)
+                                    }
+
+                                    Spacer()
+
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(AppTheme.textSecondary.opacity(0.5))
                                 }
-                                .buttonStyle(.plain)
+                                .padding(16)
+                                .background(AppTheme.cardSurface)
+                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
                             }
+                            .buttonStyle(.plain)
                             .padding(.horizontal, 20)
                         }
                         .offset(y: animate ? 0 : 20)
@@ -131,7 +153,7 @@ struct AdminDashboardView: View {
                         // Embedded Statistics
                         VStack(spacing: 16) {
                             HStack {
-                                Text("Statistics Overview")
+                                Text("Revenue Overview")
                                     .font(.system(size: 18, weight: .bold, design: .rounded))
                                     .foregroundColor(AppTheme.textPrimary)
                                 Spacer()
@@ -139,7 +161,9 @@ struct AdminDashboardView: View {
                             .padding(.horizontal, 24)
                             .padding(.top, 8)
                             
-                            AppointmentStatsView()
+                            AppointmentStatsView(onRevenueTap: {
+                                navigateToFinancials = true
+                            })
                         }
                         .offset(y: animate ? 0 : 30)
                         .opacity(animate ? 1 : 0)
@@ -150,6 +174,9 @@ struct AdminDashboardView: View {
                 }
             }
             .navigationBarHidden(true)
+            .navigationDestination(isPresented: $navigateToFinancials) {
+                AdminRevenueDashboardView()
+            }
             .sheet(isPresented: $showProfileSheet) {
                 ProfileView()
             }
@@ -162,38 +189,6 @@ struct AdminDashboardView: View {
     }
 }
 
-// MARK: - Admin Dashboard Action Card
-struct AdminDashboardActionCard: View {
-    let title: String
-    let icon: String
-    let color: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(color.opacity(0.12))
-                    .frame(width: 44, height: 44)
-                Image(systemName: icon)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(color)
-            }
-
-            Spacer(minLength: 0)
-
-            Text(title)
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
-                .foregroundColor(AppTheme.textPrimary)
-                .multilineTextAlignment(.leading)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 110)
-        .background(AppTheme.cardSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
-    }
-}
 
 // MARK: - Staff Management View
 struct StaffManagementView: View {

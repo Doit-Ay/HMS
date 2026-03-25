@@ -3,6 +3,7 @@ import SwiftUI
 struct TimeRangePickerView: View {
     @Binding var startTime: Date
     @Binding var endTime: Date
+    var allowedRange: ClosedRange<Date>? = nil
     
     private var formattedDuration: String {
         let diff = endTime.timeIntervalSince(startTime)
@@ -19,10 +20,10 @@ struct TimeRangePickerView: View {
             // Time picker pills — matching the design
             HStack(spacing: 16) {
                 // FROM pill
-                TimePillPicker(label: "From", time: $startTime)
+                TimePillPicker(label: "From", time: $startTime, allowedRange: allowedRange)
                 
                 // TO pill
-                TimePillPicker(label: "To", time: $endTime)
+                TimePillPicker(label: "To", time: $endTime, allowedRange: allowedRange)
             }
             
             // Duration indicator
@@ -46,6 +47,7 @@ struct TimeRangePickerView: View {
 struct TimePillPicker: View {
     let label: String
     let time: Binding<Date>
+    var allowedRange: ClosedRange<Date>? = nil
     
     private var timeString: String {
         let formatter = DateFormatter()
@@ -87,15 +89,28 @@ struct TimePillPicker: View {
                 .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
                 
                 // Invisible DatePicker overlay for interaction
-                DatePicker(
-                    "",
-                    selection: time,
-                    displayedComponents: .hourAndMinute
-                )
-                .labelsHidden()
-                .colorScheme(.light)
-                .opacity(0.02) // Nearly invisible but tappable
-                .allowsHitTesting(true)
+                if let range = allowedRange {
+                    DatePicker(
+                        "",
+                        selection: time,
+                        in: range,
+                        displayedComponents: .hourAndMinute
+                    )
+                    .labelsHidden()
+                    .colorScheme(.light)
+                    .opacity(0.02) // Nearly invisible but tappable
+                    .allowsHitTesting(true)
+                } else {
+                    DatePicker(
+                        "",
+                        selection: time,
+                        displayedComponents: .hourAndMinute
+                    )
+                    .labelsHidden()
+                    .colorScheme(.light)
+                    .opacity(0.02) // Nearly invisible but tappable
+                    .allowsHitTesting(true)
+                }
             }
         }
         .frame(maxWidth: .infinity)

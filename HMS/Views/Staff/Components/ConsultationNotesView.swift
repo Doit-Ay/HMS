@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseFirestore
+import Combine
 
 struct ConsultationNotesView: View {
     @Environment(\.dismiss) var dismiss
@@ -26,6 +27,29 @@ struct ConsultationNotesView: View {
     @State private var generatedPDFURL: URL? = nil
     @State private var showPDFPreview = false
     @State private var isGeneratingPDF = false
+    
+    // Dictation State
+    @StateObject private var speechRecognizer = SpeechRecognizer()
+    @State private var activeDictationField: DictationField? = nil
+    @State private var textBeforeDictation: String = ""
+    @State private var dictationStartDate: Date? = nil
+    
+    // Medicine State
+    @State private var allMedicines: [AppMedicine] = []
+    @State private var prescribedMedicines: [PrescribedMedicine] = []
+    @State private var medicineSearchText: String = ""
+    @State private var showMedicineDropdown: Bool = false
+    @State private var isLoadingMedicines: Bool = false
+    @State private var showMedicineSheet: Bool = false
+    
+    // Currently ConsultationNotesView doesn't pass doctor department directly,
+    // so we'll pass nil to MedicinePrescriptionSheet to show all initially,
+    // or we can fetch it if needed. For now, nil is fine.
+    var doctorDepartment: String? = nil
+    
+    enum DictationField {
+        case notes, prescription
+    }
     
     var body: some View {
         NavigationView {
@@ -59,9 +83,13 @@ struct ConsultationNotesView: View {
                             
                             // Notes Section
                             VStack(alignment: .leading, spacing: 8) {
-                                Label("Consultation Notes", systemImage: "note.text")
-                                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                    .foregroundColor(AppTheme.textPrimary)
+                                HStack {
+                                    Label("Consultation Notes", systemImage: "note.text")
+                                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                        .foregroundColor(AppTheme.textPrimary)
+                                    Spacer()
+                                    dictationButton(for: .notes)
+                                }
                                 
                                 TextEditor(text: $notes)
                                     .frame(minHeight: 150)
@@ -77,9 +105,13 @@ struct ConsultationNotesView: View {
                             
                             // Prescription Section
                             VStack(alignment: .leading, spacing: 8) {
-                                Label("Prescription", systemImage: "pills.fill")
-                                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                    .foregroundColor(AppTheme.textPrimary)
+                                HStack {
+                                    Label("Prescription", systemImage: "pills.fill")
+                                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                        .foregroundColor(AppTheme.textPrimary)
+                                    Spacer()
+                                    dictationButton(for: .prescription)
+                                }
                                 
                                 TextEditor(text: $prescription)
                                     .frame(minHeight: 150)
@@ -91,6 +123,41 @@ struct ConsultationNotesView: View {
                                             .stroke(AppTheme.textSecondary.opacity(0.2), lineWidth: 1)
                                     )
                                     .shadow(color: Color.black.opacity(0.02), radius: 4, x: 0, y: 2)
+                            }
+                            
+                            // MARK: Prescribed Medicines Section
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    Label("Prescribed Medicines", systemImage: "pills.circle.fill")
+                                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                        .foregroundColor(AppTheme.textPrimary)
+                                    Spacer()
+                                    Button {
+                                        showMedicineSheet = true
+                                    } label: {
+                                        Image(systemName: "plus.circle.fill")
+                                            .foregroundColor(AppTheme.primary)
+                                            .font(.system(size: 20))
+                                    }
+                                }
+                                
+                                // Prescribed Medicine Cards
+                                if !prescribedMedicines.isEmpty {
+                                    VStack(spacing: 12) {
+                                        ForEach($prescribedMedicines) { $med in
+                                            PrescribedMedicineCard(medicine: med) {
+                                                withAnimation(.spring(response: 0.3)) {
+                                                    prescribedMedicines.removeAll { $0.id == med.id }
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Text("No medicines prescribed yet.")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(AppTheme.textSecondary)
+                                        .padding(.vertical, 8)
+                                }
                             }
                             
                             if let error = errorMessage {
@@ -174,6 +241,91 @@ struct ConsultationNotesView: View {
                     PDFViewerSheet(pdfURL: url)
                 }
             }
+            .sheet(isPresented: $showMedicineSheet) {
+                MedicinePrescriptionSheet(doctorDepartment: doctorDepartment) { med in
+                    withAnimation(.spring(response: 0.3)) {
+                        prescribedMedicines.append(med)
+                    }
+                }
+            }
+            .onChange(of: speechRecognizer.transcript) { newTranscript in
+                guard !newTranscript.isEmpty, let field = activeDictationField else { return }
+                
+                let separator = textBeforeDictation.isEmpty ? "" : " "
+                switch field {
+                case .notes:
+                    self.notes = textBeforeDictation + separator + newTranscript
+                case .prescription:
+                    self.prescription = textBeforeDictation + separator + newTranscript
+                }
+            }
+        }
+        .onDisappear {
+            speechRecognizer.stopTranscribing()
+        }
+    }
+    
+    @ViewBuilder
+    private func dictationButton(for field: DictationField) -> some View {
+        let isDictatingThis = activeDictationField == field
+        let activeColor = Color.red
+        
+        HStack(spacing: 12) {
+            if isDictatingThis {
+                HStack(spacing: 8) {
+                    if let startDate = dictationStartDate {
+                        Text(startDate, style: .timer)
+                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                            .monospacedDigit()
+                            .foregroundColor(activeColor)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
+                            .background(activeColor.opacity(0.1))
+                            .cornerRadius(6)
+                    }
+                    
+                    AudioVisualizerView(isRecording: true, color: activeColor)
+                }
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
+            }
+            
+            Button(action: {
+                toggleDictation(for: field)
+            }) {
+                Image(systemName: isDictatingThis ? "mic.fill" : "mic")
+                    .font(.system(size: 18))
+                    .foregroundColor(isDictatingThis ? .white : AppTheme.primary)
+                    .padding(8)
+                    .background(isDictatingThis ? activeColor : Color.gray.opacity(0.1))
+                    .clipShape(Circle())
+                    .shadow(color: isDictatingThis ? activeColor.opacity(0.3) : Color.clear, radius: 4, x: 0, y: 2)
+            }
+        }
+    }
+    
+    private func toggleDictation(for field: DictationField) {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            if activeDictationField != nil {
+                // Stop current dictation
+                speechRecognizer.stopTranscribing()
+                let previousField = activeDictationField
+                activeDictationField = nil
+                dictationStartDate = nil
+                
+                // If they tapped a different field, switch it immediately
+                if previousField != field {
+                    activeDictationField = field
+                    textBeforeDictation = field == .notes ? notes : prescription
+                    dictationStartDate = Date()
+                    speechRecognizer.startTranscribing()
+                }
+            } else {
+                // Start dictation
+                activeDictationField = field
+                textBeforeDictation = field == .notes ? notes : prescription
+                dictationStartDate = Date()
+                speechRecognizer.startTranscribing()
+            }
         }
     }
     
@@ -198,12 +350,12 @@ struct ConsultationNotesView: View {
                     startTime: startTime,
                     endTime: endTime,
                     notes: notes,
-                    prescription: prescription, // Use live text
+                    prescription: prescription,
                     createdAt: Date()
                 )
                 
                 let generator = PrescriptionPDFGenerator()
-                if let url = generator.generatePDF(note: note, labTests: labTests, patientAge: nil, patientGender: nil) {
+                if let url = generator.generatePDF(note: note, labTests: [], prescribedMedicines: prescribedMedicines, patientAge: nil, patientGender: nil) {
                     await MainActor.run {
                         self.generatedPDFURL = url
                         self.showPDFPreview = true
@@ -231,6 +383,8 @@ struct ConsultationNotesView: View {
                 existingNoteId = note.id
                 notes = note.notes
                 prescription = note.prescription
+                // Fetch medicines from the sub-collection
+                prescribedMedicines = try await InventoryRepository.shared.fetchPrescribedMedicines(noteId: note.id)
             }
             isLoading = false
         } catch {
@@ -257,15 +411,15 @@ struct ConsultationNotesView: View {
                     endTime: endTime,
                     notes: notes,
                     prescription: prescription,
-                    createdAt: existingNoteId == nil ? Date() : nil // preserve existing if possible, or omit
+                    createdAt: existingNoteId == nil ? Date() : nil
                 )
                 
                 // 1. If a prescription was written, generate and upload the PDF silently
-                if !prescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if !prescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !prescribedMedicines.isEmpty {
                     let labTests = try? await DoctorPatientRepository.shared.fetchLabTestRequests(patientId: patientId, doctorId: doctorId)
                     
                     let generator = PrescriptionPDFGenerator()
-                    if let rawPdfURL = generator.generatePDF(note: note, labTests: labTests ?? [], patientAge: nil, patientGender: nil) {
+                    if let rawPdfURL = generator.generatePDF(note: note, labTests: [], prescribedMedicines: prescribedMedicines, patientAge: nil, patientGender: nil) {
                         // 2. Upload to Firebase Storage
                         let remoteUrl = try await DoctorPatientRepository.shared.uploadPrescriptionPDF(localURL: rawPdfURL, appointmentId: appointmentId)
                         
@@ -283,13 +437,22 @@ struct ConsultationNotesView: View {
                             createdAt: Date()
                         )
                         try await DoctorPatientRepository.shared.savePrescriptionDocument(prescriptionDoc)
-                        
-                        print("Saved Prescription to Database completely!")
                     }
                 }
                 
-                // 4. Finally, save the core consultation note
+                // 4. Save the core consultation note
                 try await DoctorPatientRepository.shared.saveConsultationNote(note)
+                
+                // 5. Save the prescribed medicines to sub-collection
+                if !prescribedMedicines.isEmpty {
+                    try await InventoryRepository.shared.savePrescribedMedicines(noteId: noteId, medicines: prescribedMedicines)
+                    
+                    // Deduct stock for medicines
+                    for med in prescribedMedicines {
+                        let quantityToDeduct = med.timesPerDay * med.durationDays
+                        try? await InventoryRepository.shared.deductStock(itemId: med.medicineId, quantity: quantityToDeduct)
+                    }
+                }
                 
                 await MainActor.run {
                     isSaving = false
@@ -302,6 +465,86 @@ struct ConsultationNotesView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Prescribed Medicine Card
+struct PrescribedMedicineCard: View {
+    let medicine: PrescribedMedicine
+    let onRemove: () -> Void
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                ZStack {
+                    Circle()
+                        .fill(AppTheme.primary.opacity(0.12))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: medicine.medicineType.sfSymbol)
+                        .font(.system(size: 14))
+                        .foregroundColor(AppTheme.primary)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(medicine.medicineName)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                    Text(medicine.medicineType.displayName)
+                        .font(.system(size: 11))
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+                Spacer()
+                Button(action: onRemove) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.red.opacity(0.7))
+                        .font(.system(size: 20))
+                }
+                .buttonStyle(.plain)
+            }
+            
+            Divider()
+            
+            HStack {
+                // Frequency
+                HStack(spacing: 6) {
+                    Image(systemName: "clock.fill")
+                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 12))
+                    Text(medicine.timesPerDay == 1 ? "Once daily" : medicine.timesPerDay == 2 ? "Twice daily" : "\(medicine.timesPerDay)x daily")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                // Duration
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar")
+                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 12))
+                    Text("For \(medicine.durationDays) day\(medicine.durationDays == 1 ? "" : "s")")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            
+            if let notes = medicine.notes, !notes.isEmpty {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "text.bubble.fill")
+                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 12))
+                        .padding(.top, 2)
+                    Text(notes)
+                        .font(.system(size: 12))
+                        .foregroundColor(AppTheme.textSecondary)
+                        .italic()
+                }
+            }
+        }
+        .padding(14)
+        .background(AppTheme.cardSurface)
+        .cornerRadius(14)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(AppTheme.primary.opacity(0.15), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 3)
     }
 }
 

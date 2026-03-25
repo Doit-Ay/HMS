@@ -235,7 +235,8 @@ class AuthManager {
         department: String?,
         specialization: String?,
         employeeID: String?,
-        defaultSlots: [String]? = nil
+        defaultSlots: [String]? = nil,
+        consultationFee: Double? = nil
     ) async throws {
         // Step 1 — Get a secondary Firebase App to isolate auth from admin session
         let secondaryAppName = "HMSStaffCreation"
@@ -261,6 +262,11 @@ class AuthManager {
         staff.specialization = specialization
         staff.employeeID     = employeeID
         staff.defaultSlots   = defaultSlots
+        staff.consultationFee = consultationFee
+        if role == .doctor {
+            staff.averageRating = 0.0
+            staff.reviewCount = 0
+        }
         
         try await saveUserToFirestore(user: staff, db: adminDB)
 
@@ -319,7 +325,8 @@ class AuthManager {
         specialization: String?,
         employeeID: String?,
         phoneNumber: String? = nil,
-        defaultSlots: [String]? = nil
+        defaultSlots: [String]? = nil,
+        consultationFee: Double? = nil
     ) async throws {
         // Step 1 — Update `users` Firestore collection
         var updates: [String: Any] = [
@@ -333,6 +340,9 @@ class AuthManager {
         }
         if let slots = defaultSlots {
             updates["defaultSlots"] = slots
+        }
+        if let fee = consultationFee {
+            updates["consultationFee"] = fee
         }
 
         try await db.collection("users").document(uid).updateData(updates)
@@ -354,6 +364,9 @@ class AuthManager {
             }
             if let slots = defaultSlots {
                 doctorUpdates["defaultSlots"] = slots
+            }
+            if let fee = consultationFee {
+                doctorUpdates["consultationFee"] = fee
             }
             try await db.collection("doctors").document(uid).setData(doctorUpdates, merge: true)
             
@@ -411,7 +424,7 @@ class AuthManager {
 
     // MARK: - Sync current doctor profile fields to doctors collection
     func syncDoctorProfileToFirestore(user: HMSUser) async {
-        let fields: [String: Any] = [
+        var fields: [String: Any] = [
             "id":             user.id,
             "email":          user.email,
             "fullName":       user.fullName,
@@ -423,6 +436,9 @@ class AuthManager {
             "specialization": user.specialization ?? "Not Set",
             "employeeID":     user.employeeID     ?? "Not Set"
         ]
+        if let fee = user.consultationFee {
+            fields["consultationFee"] = fee
+        }
         do {
             try await db.collection("doctors").document(user.id).setData(fields, merge: true)
         } catch {
@@ -545,6 +561,9 @@ class AuthManager {
             user.specialization = d["specialization"] as? String
             user.employeeID = d["employeeID"] as? String
             user.defaultSlots = d["defaultSlots"] as? [String]
+            user.consultationFee = d["consultationFee"] as? Double
+            user.averageRating = d["averageRating"] as? Double ?? 0.0
+            user.reviewCount = d["reviewCount"] as? Int ?? 0
             user.isActive = d["isActive"] as? Bool ?? true
             return user
         }
@@ -612,6 +631,23 @@ class AuthManager {
     }
 
     // MARK: - Appointment Statistics
+    
+    /// Converts any future appointments marked as "completed" back to "scheduled"
+    private func sanitizeAppointments(_ appointments: [Appointment]) -> [Appointment] {
+        let currentDateTime = Date()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        
+        return appointments.map { appt in
+            var updatedAppt = appt
+            if appt.status == "completed",
+               let apptTime = formatter.date(from: "\(appt.date) \(appt.startTime)"),
+               apptTime > currentDateTime {
+                updatedAppt.status = "scheduled"
+            }
+            return updatedAppt
+        }
+    }
 
     /// Fetch all appointments (optionally filtered by date range)
     func fetchAppointments(from startDate: String? = nil, to endDate: String? = nil) async throws -> [Appointment] {
@@ -623,9 +659,10 @@ class AuthManager {
             query = query.whereField("date", isLessThanOrEqualTo: end)
         }
         let snapshot = try await query.getDocuments()
-        return snapshot.documents.compactMap {
+        let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }
+        return sanitizeAppointments(appointments)
     }
 
     /// Fetch appointments for a specific date
@@ -633,9 +670,10 @@ class AuthManager {
         let snapshot = try await db.collection("appointments")
             .whereField("date", isEqualTo: date)
             .getDocuments()
-        return snapshot.documents.compactMap {
+        let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }
+        return sanitizeAppointments(appointments)
     }
 
     /// Fetch all appointments in a given month (format: "yyyy-MM")
@@ -843,8 +881,8 @@ class AuthManager {
     /// Fetch a single appointment by ID
     func fetchAppointment(appointmentId: String) async throws -> Appointment? {
         let doc = try await db.collection("appointments").document(appointmentId).getDocument()
-        guard let data = doc.data() else { return nil }
-        return try Firestore.Decoder().decode(Appointment.self, from: data)
+        guard let data = doc.data(), let appt = try? Firestore.Decoder().decode(Appointment.self, from: data) else { return nil }
+        return sanitizeAppointments([appt]).first
     }
 
     /// Fetch appointments for a specific doctor on a given date
@@ -853,9 +891,10 @@ class AuthManager {
             .whereField("doctorId", isEqualTo: doctorId)
             .whereField("date", isEqualTo: date)
             .getDocuments()
-        return snapshot.documents.compactMap {
+        let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }.sorted { $0.startTime < $1.startTime }
+        return sanitizeAppointments(appointments)
     }
     
     /// Fetch all appointments for a specific doctor
@@ -863,9 +902,10 @@ class AuthManager {
         let snapshot = try await db.collection("appointments")
             .whereField("doctorId", isEqualTo: doctorId)
             .getDocuments()
-        return snapshot.documents.compactMap {
+        let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }
+        return sanitizeAppointments(appointments)
     }
 
     /// Fetch appointments for a specific doctor in a given month (format: "yyyy-MM")
@@ -881,9 +921,10 @@ class AuthManager {
         let snapshot = try await db.collection("appointments")
             .whereField("doctorId", isEqualTo: doctorId)
             .getDocuments()
-        return snapshot.documents.compactMap {
+        let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }.filter { $0.date >= startDate && $0.date <= endDate }
+        return sanitizeAppointments(appointments)
     }
 
     /// Fetch appointments for the logged-in patient
@@ -891,9 +932,10 @@ class AuthManager {
         let snapshot = try await db.collection("appointments")
             .whereField("patientId", isEqualTo: patientId)
             .getDocuments()
-        return snapshot.documents.compactMap {
+        let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }.sorted { $0.date < $1.date }
+        return sanitizeAppointments(appointments)
     }
 
     /// Fetch a single doctor's HMSUser record
@@ -911,6 +953,37 @@ class AuthManager {
         } catch {
             print("⚠️ Failed to send OTP: \(error.localizedDescription)")
         }
+    }
+
+    // MARK: - Doctor Ratings
+    func submitDoctorReview(appointmentId: String, doctorId: String, rating: Int, review: String?) async throws {
+        // 1. Update the appointment with the given rating & review
+        var appointmentUpdates: [String: Any] = [
+            "ratingGiven": rating
+        ]
+        if let text = review, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            appointmentUpdates["reviewText"] = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        try await db.collection("appointments").document(appointmentId).updateData(appointmentUpdates)
+        
+        // 2. Evaluate new rating safely
+        let doctorRef = db.collection("users").document(doctorId)
+        let doctorDoc = try await doctorRef.getDocument()
+        
+        let currentRating = doctorDoc.data()?["averageRating"] as? Double ?? 0.0
+        let currentCount = doctorDoc.data()?["reviewCount"] as? Int ?? 0
+        
+        let newCount = currentCount + 1
+        let newRating = ((currentRating * Double(currentCount)) + Double(rating)) / Double(newCount)
+        
+        let updates: [String: Any] = [
+            "averageRating": newRating,
+            "reviewCount": newCount
+        ]
+        
+        // 3. Update both master user and role-specific doctor profiles
+        try await doctorRef.updateData(updates)
+        try await db.collection("doctors").document(doctorId).updateData(updates)
     }
 } // <-- Close AuthManager class here
 
