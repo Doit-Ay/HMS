@@ -65,6 +65,17 @@ private let allInventoryItems: [InventoryItem] = [
     InventoryItem(name: "Infusion Pumps", icon: "ivfluid.bag.fill", totalCount: 35, availableCount: 6, category: .equipment, unit: "units", isLowStock: true),
 ]
 
+// Local, unambiguous model used by Inventory screens to avoid type name clashes
+struct InventoryMedicine: Identifiable, Codable {
+    var id: String = ""
+    var name: String
+    var uses: String
+    var type: String
+    var strengths: String
+    var category: String
+    var quantity: Int
+}
+
 // MARK: - Inventory Management View
 struct InventoryManagementView: View {
     @State private var animate = false
@@ -394,13 +405,13 @@ struct InventoryCategoryDetailView: View {
 
 // MARK: - Medicine List View (Firestore)
 struct MedicineListView: View {
-    @State private var medicines: [Medicine] = []
+    @State private var medicines: [InventoryMedicine] = []
     @State private var isLoading = true
     @State private var selectedCategory: String? = nil
     @State private var searchText = ""
     @State private var showError = false
     @State private var errorMessage = ""
-    @State private var editingMedicine: Medicine? = nil
+    @State private var editingMedicine: InventoryMedicine? = nil
     @State private var showEditSheet = false
 
     private let lowStockThreshold = 50
@@ -409,7 +420,7 @@ struct MedicineListView: View {
         Array(Set(medicines.map { $0.category })).sorted()
     }
 
-    private var filteredMedicines: [Medicine] {
+    private var filteredMedicines: [InventoryMedicine] {
         var items = medicines
         if let cat = selectedCategory {
             items = items.filter { $0.category == cat }
@@ -569,9 +580,9 @@ struct MedicineListView: View {
         do {
             let db = Firestore.firestore()
             let snapshot = try await db.collection("medicines").getDocuments()
-            let fetched: [Medicine] = snapshot.documents.compactMap { doc in
+            let fetched: [InventoryMedicine] = snapshot.documents.compactMap { doc in
                 do {
-                    var medicine = try Firestore.Decoder().decode(Medicine.self, from: doc.data())
+                    var medicine = try Firestore.Decoder().decode(InventoryMedicine.self, from: doc.data())
                     medicine.id = doc.documentID
                     return medicine
                 } catch {
@@ -592,7 +603,7 @@ struct MedicineListView: View {
         }
     }
 
-    private func saveMedicine(_ medicine: Medicine) async {
+    private func saveMedicine(_ medicine: InventoryMedicine) async {
         do {
             let db = Firestore.firestore()
             try await db.collection("medicines").document(medicine.id).updateData([
@@ -624,11 +635,11 @@ struct MedicineEditSheet: View {
     @State private var isSaving = false
 
     private let medicineId: String
-    private let onSave: (Medicine) -> Void
+    private let onSave: (InventoryMedicine) -> Void
 
     private let typeOptions = ["Tablets", "Capsules", "Injection", "Inhalation", "Powder", "Eye drops", "Suppository", "Sublingual Tablets"]
 
-    init(medicine: Medicine, onSave: @escaping (Medicine) -> Void) {
+    init(medicine: InventoryMedicine, onSave: @escaping (InventoryMedicine) -> Void) {
         self.medicineId = medicine.id
         self._name = State(initialValue: medicine.name)
         self._uses = State(initialValue: medicine.uses)
@@ -767,7 +778,7 @@ struct MedicineEditSheet: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         isSaving = true
-                        var updated = Medicine(
+                        var updated = InventoryMedicine(
                             name: name,
                             uses: uses,
                             type: type,
@@ -797,7 +808,7 @@ struct MedicineEditSheet: View {
 
 // MARK: - Medicine Row
 struct MedicineRow: View {
-    let medicine: Medicine
+    let medicine: InventoryMedicine
     let categoryColor: Color
     let typeIcon: String
     let isLowStock: Bool
