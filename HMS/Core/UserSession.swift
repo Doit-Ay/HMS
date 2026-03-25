@@ -29,23 +29,11 @@ class UserSession: ObservableObject {
         self.needsOTPVerification = requiresOTP
         self.pendingOTPEmail = requiresOTP ? user.email : nil
         self.isLoading = false
-        
-        // Start listening for patient push notifications
-        if user.role == .patient && !requiresOTP {
-            NotificationManager.shared.requestPermission()
-            NotificationManager.shared.startListening(for: user.id)
-        }
     }
 
     func confirmOTPVerification() {
         self.needsOTPVerification = false
         self.pendingOTPEmail = nil
-        
-        // Start listening after OTP is verified
-        if let user = currentUser, user.role == .patient {
-            NotificationManager.shared.requestPermission()
-            NotificationManager.shared.startListening(for: user.id)
-        }
     }
 
     func clearSession() {
@@ -55,8 +43,6 @@ class UserSession: ObservableObject {
         self.isLoading = false
         self.needsOTPVerification = false
         self.pendingOTPEmail = nil
-        
-        NotificationManager.shared.stopListening()
     }
 
     func setLoading(_ loading: Bool) {

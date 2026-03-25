@@ -30,8 +30,6 @@ struct PatientHomeView: View {
     @State private var upcomingAppointments: [Appointment] = []
     @State private var isLoadingAppointments = true
     @State private var showProfileSheet = false
-    
-    @StateObject private var notifManager = NotificationManager.shared
 
     var body: some View {
             ZStack(alignment: .top) {
@@ -59,33 +57,6 @@ struct PatientHomeView: View {
                             .padding(.top, 20)
                             .offset(y: animate ? 0 : -30)
                             .opacity(animate ? 1 : 0)
-
-                        if notifManager.hasPendingCancellations {
-                            NavigationLink(destination: PatientAppointmentsView()) {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "exclamationmark.triangle.fill")
-                                        .font(.system(size: 20))
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("Action Required")
-                                            .font(.system(size: 14, weight: .bold, design: .rounded))
-                                        Text("Hospital cancelled an appointment. Reschedule now.")
-                                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                                            .opacity(0.9)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                }
-                                .foregroundColor(.white)
-                                .padding(16)
-                                .background(Color.red.opacity(0.85))
-                                .cornerRadius(16)
-                                .padding(.horizontal, 24)
-                                .shadow(color: Color.red.opacity(0.3), radius: 8, x: 0, y: 4)
-                            }
-                            .buttonStyle(.plain)
-                            .offset(y: animate ? 0 : -20)
-                            .opacity(animate ? 1 : 0)
-                        }
 
                         VStack(spacing: 0) {
 
