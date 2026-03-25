@@ -149,7 +149,7 @@ struct AdminDashboardView: View {
                         // Embedded Statistics
                         VStack(spacing: 16) {
                             HStack {
-                                Text("Statistics Overview")
+                                Text("Revenue Overview")
                                     .font(.system(size: 18, weight: .bold, design: .rounded))
                                     .foregroundColor(AppTheme.textPrimary)
                                 Spacer()

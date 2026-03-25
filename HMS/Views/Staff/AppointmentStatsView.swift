@@ -12,6 +12,7 @@ struct AppointmentStatsView: View {
     @State private var errorMessage = ""
     @State private var showError = false
     @State private var showTimelinePicker = false
+    @State private var showAllDoctors = false
 
     // Custom range state
     @State private var isCustomRange = false
@@ -170,10 +171,20 @@ struct AppointmentStatsView: View {
 
                 Spacer()
 
-                // Month label
-                Text(displayMonthString)
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundColor(AppTheme.textPrimary)
+                // Month label — tappable to open timeline picker
+                Button {
+                    showTimelinePicker = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(displayMonthString)
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .foregroundColor(AppTheme.textPrimary)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
+                }
+                .buttonStyle(.plain)
 
                 Spacer()
 
@@ -189,25 +200,6 @@ struct AppointmentStatsView: View {
                         .font(.system(size: 26))
                         .foregroundColor(AppTheme.primary)
                 }
-
-                // Custom timeline icon button
-                Button {
-                    showTimelinePicker = true
-                } label: {
-                    Image(systemName: "calendar.badge.clock")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(width: 36, height: 36)
-                        .background(
-                            LinearGradient(
-                                colors: [AppTheme.primary, AppTheme.primaryMid],
-                                startPoint: .topLeading, endPoint: .bottomTrailing
-                            )
-                        )
-                        .cornerRadius(10)
-                        .shadow(color: AppTheme.primary.opacity(0.3), radius: 4, x: 0, y: 2)
-                }
-                .padding(.leading, 10)
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
@@ -279,17 +271,32 @@ struct AppointmentStatsView: View {
 
     // MARK: - Revenue per Doctor Section
     private var revenuePerDoctorSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Revenue per Doctor")
-                .font(.system(size: 18, weight: .bold, design: .rounded))
-                .foregroundColor(AppTheme.textPrimary)
-                .padding(.horizontal, 20)
+        let stats = doctorRevenueStats
+        let visibleStats = Array(stats.prefix(3))
 
-            if doctorRevenueStats.isEmpty {
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Revenue per Doctor")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundColor(AppTheme.textPrimary)
+                Spacer()
+                if stats.count > 3 {
+                    NavigationLink {
+                        AllDoctorRevenueView(doctorStats: stats)
+                    } label: {
+                        Text("See all")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundColor(AppTheme.primary)
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+
+            if stats.isEmpty {
                 emptyStatsPlaceholder(message: isCustomRange ? "No bookings in this period" : "No bookings for this month")
             } else {
-                VStack(spacing: 12) {
-                    ForEach(doctorRevenueStats, id: \.0) { stat in
+                VStack(spacing: 10) {
+                    ForEach(visibleStats, id: \.0) { stat in
                         DoctorRevenueRow(
                             doctorName: stat.0,
                             bookingsCount: stat.1,
@@ -382,7 +389,7 @@ struct CustomTimelineSheet: View {
     private let presets: [(label: String, icon: String, months: Int)] = [
         ("Last 3 Months",  "3.circle.fill",       3),
         ("Last 6 Months",  "6.circle.fill",       6),
-        ("Last 1 Year",    "12.circle.fill",     12),
+        ("Last 1 Year",    "arrow.counterclockwise.circle.fill", 12),
         ("Year to Date",   "calendar.circle.fill", 0),
     ]
 
@@ -400,10 +407,14 @@ struct CustomTimelineSheet: View {
                         ForEach(presets, id: \.label) { preset in
                             Button {
                                 withAnimation(.spring(response: 0.3)) {
-                                    selectedPreset = preset.label
-                                    showCustomRange = false
+                                    if selectedPreset == preset.label {
+                                        selectedPreset = nil
+                                    } else {
+                                        selectedPreset = preset.label
+                                        showCustomRange = false
+                                        applyPreset(preset)
+                                    }
                                 }
-                                applyPreset(preset)
                             } label: {
                                 HStack(spacing: 14) {
                                     ZStack {
@@ -418,11 +429,6 @@ struct CustomTimelineSheet: View {
                                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                                         .foregroundColor(AppTheme.textPrimary)
                                     Spacer()
-                                    if selectedPreset == preset.label {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .font(.system(size: 20))
-                                            .foregroundColor(AppTheme.primary)
-                                    }
                                 }
                                 .padding(14)
                                 .background(
@@ -502,7 +508,22 @@ struct CustomTimelineSheet: View {
                         }
                     }
 
-                    // Apply Button
+                }
+                .padding(20)
+            }
+            .navigationTitle("Custom Timeline")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        onCancel()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundColor(Color(uiColor: .label))
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         if showCustomRange {
                             let fmt = DateFormatter()
@@ -513,29 +534,11 @@ struct CustomTimelineSheet: View {
                             onApply(preset)
                         }
                     } label: {
-                        Text("Apply Timeline")
-                            .font(.system(size: 17, weight: .semibold, design: .rounded))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 50)
-                            .background(
-                                (selectedPreset != nil || showCustomRange)
-                                    ? AppTheme.primary
-                                    : AppTheme.primary.opacity(0.4)
-                            )
-                            .cornerRadius(14)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor((selectedPreset != nil || showCustomRange) ? AppTheme.primary : Color(uiColor: .quaternaryLabel))
                     }
                     .disabled(selectedPreset == nil && !showCustomRange)
-                    .padding(.top, 4)
-                }
-                .padding(20)
-            }
-            .navigationTitle("Custom Timeline")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { onCancel() }
-                        .foregroundColor(AppTheme.primary)
                 }
             }
         }
@@ -596,7 +599,12 @@ struct DoctorRevenueRow: View {
         HStack(spacing: 14) {
             ZStack {
                 Circle()
-                    .fill(AppTheme.primary.opacity(0.1))
+                    .fill(
+                        LinearGradient(
+                            colors: [AppTheme.primary.opacity(0.15), AppTheme.primary.opacity(0.06)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                    )
                     .frame(width: 44, height: 44)
                 Text(doctorName.prefix(1).uppercased())
                     .font(.system(size: 18, weight: .bold, design: .rounded))
@@ -623,6 +631,53 @@ struct DoctorRevenueRow: View {
         .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
+    }
+}
+
+// MARK: - All Doctor Revenue View
+struct AllDoctorRevenueView: View {
+    let doctorStats: [(String, Int, Int)] // (name, bookings, revenue)
+    @State private var searchText = ""
+
+    private var filteredStats: [(String, Int, Int)] {
+        if searchText.isEmpty { return doctorStats }
+        return doctorStats.filter {
+            $0.0.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
+
+            if filteredStats.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 36))
+                        .foregroundColor(AppTheme.primaryMid.opacity(0.4))
+                    Text("No doctors found")
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+            } else {
+                ScrollView(showsIndicators: false) {
+                    LazyVStack(spacing: 10) {
+                        ForEach(filteredStats, id: \.0) { stat in
+                            DoctorRevenueRow(
+                                doctorName: stat.0,
+                                bookingsCount: stat.1,
+                                revenue: stat.2
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                }
+            }
+        }
+        .navigationTitle("All Doctors")
+        .navigationBarTitleDisplayMode(.inline)
+        .searchable(text: $searchText, prompt: "Search doctors")
     }
 }
 
