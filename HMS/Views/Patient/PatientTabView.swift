@@ -30,6 +30,9 @@ struct PatientHomeView: View {
     @State private var upcomingAppointments: [Appointment] = []
     @State private var isLoadingAppointments = true
     @State private var showProfileSheet = false
+    
+    @AppStorage("hasSeenSymptomCheckerTooltip") private var hasSeenSymptomCheckerTooltip = false
+    @State private var bounceTooltip = false
 
     var body: some View {
             ZStack(alignment: .top) {
@@ -267,29 +270,83 @@ struct PatientHomeView: View {
                     Spacer()
                     HStack {
                         Spacer()
-                        NavigationLink {
-                            AISymptomCheckerView()
-                        } label: {
-                            ZStack {
-                                Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [AppTheme.primary, AppTheme.primaryDark],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                    .frame(width: 64, height: 64)
-                                    // This shadow uses the primary color to make it look like it's glowing/popping
-                                    .shadow(color: AppTheme.primary.opacity(0.4), radius: 15, x: 0, y: 8)
-                                
-                                Image(systemName: "brain.head.profile")
-                                    .font(.system(size: 28, weight: .bold)) // Increased weight for better visibility
-                                    .foregroundColor(.white)
-                                    .scaleEffect(1.1) // Makes the icon feel "active"
+                        VStack(alignment: .trailing, spacing: 0) {
+                            if !hasSeenSymptomCheckerTooltip {
+                                VStack(spacing: 0) {
+                                    HStack(alignment: .top, spacing: 10) {
+                                        Text("Not sure who to see?\nTry our AI Checker!")
+                                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                            .foregroundColor(.white)
+                                            .multilineTextAlignment(.leading)
+                                        
+                                        Button {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                hasSeenSymptomCheckerTooltip = true
+                                            }
+                                        } label: {
+                                            Image(systemName: "xmark")
+                                                .font(.system(size: 12, weight: .bold))
+                                                .foregroundColor(.white.opacity(0.8))
+                                        }
+                                    }
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 10)
+                                    .background(AppTheme.primaryDark)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    .shadow(color: AppTheme.primaryDark.opacity(0.3), radius: 8, x: 0, y: 5)
+                                    
+                                    // Pointer pointing down to FAB
+                                    HStack {
+                                        Spacer()
+                                        Path { path in
+                                            path.move(to: CGPoint(x: 0, y: 0))
+                                            path.addLine(to: CGPoint(x: 16, y: 0))
+                                            path.addLine(to: CGPoint(x: 8, y: 8))
+                                            path.addLine(to: CGPoint(x: 0, y: 0))
+                                        }
+                                        .fill(AppTheme.primaryDark)
+                                        .frame(width: 16, height: 8)
+                                        .padding(.trailing, 24) // Align with FAB center
+                                    }
+                                }
+                                .offset(y: bounceTooltip ? -2 : 4)
+                                .onAppear {
+                                    withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                                        bounceTooltip = true
+                                    }
+                                }
+                                .transition(.scale(scale: 0.8, anchor: .bottomTrailing).combined(with: .opacity))
+                                .zIndex(1) // Ensure it visually sits above the button
                             }
+
+                            NavigationLink {
+                                AISymptomCheckerView()
+                                    .onAppear {
+                                        if !hasSeenSymptomCheckerTooltip {
+                                            hasSeenSymptomCheckerTooltip = true
+                                        }
+                                    }
+                            } label: {
+                                ZStack {
+                                    Circle()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [AppTheme.primary, AppTheme.primaryDark],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                        .frame(width: 64, height: 64)
+                                        .shadow(color: AppTheme.primary.opacity(0.4), radius: 15, x: 0, y: 8)
+                                    
+                                    Image(systemName: "brain.head.profile")
+                                        .font(.system(size: 28, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .scaleEffect(1.1)
+                                }
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain) // Ensures no default gray highlight on tap
                         .padding(.trailing, 24)
                         .padding(.bottom, 24)
                     }
