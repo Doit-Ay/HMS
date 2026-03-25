@@ -25,30 +25,40 @@ struct AISymptomCheckerView: View {
                 VStack(alignment: .leading, spacing: 24) {
 
                     // MARK: Header
-                    VStack(alignment: .leading, spacing: 14) {
-                        // Custom App Color Icon
-                        ZStack {
-                            Circle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color(red: 0.69, green: 0.35, blue: 0.88), Color(red: 0.39, green: 0.35, blue: 0.86)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(spacing: 14) {
+                            // Modern icon badge using app brand colors
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [AppTheme.primary, AppTheme.primaryMid],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
                                     )
-                                )
-                                .frame(width: 44, height: 44)
-                                .shadow(color: Color(red: 0.39, green: 0.35, blue: 0.86).opacity(0.3), radius: 6, x: 0, y: 3)
-                            
-                            Image(systemName: "brain.head.profile")
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundColor(.white)
+                                    .frame(width: 48, height: 48)
+                                    .shadow(color: AppTheme.primary.opacity(0.3), radius: 8, x: 0, y: 4)
+
+                                Image(systemName: "stethoscope")
+                                    .font(.system(size: 22, weight: .semibold))
+                                    .foregroundColor(.white)
+                            }
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("AI Symptom Checker")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(AppTheme.primary)
+                                    .textCase(.uppercase)
+                                    .tracking(0.8)
+
+                                Text("Describe your symptoms")
+                                    .font(.system(size: 24, weight: .bold))
+                                    .foregroundColor(AppTheme.textPrimary)
+                            }
                         }
 
-                        Text("Describe your symptoms")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(AppTheme.textPrimary)
-
-                        Text("Share what's bothering you, and our AI will guide you to the right specialist.")
+                        Text("Tell us what you're experiencing, and our AI will recommend the right specialist for you.")
                             .font(.system(size: 15, weight: .regular))
                             .foregroundColor(AppTheme.textSecondary.opacity(0.8))
                             .lineSpacing(4)
@@ -154,6 +164,24 @@ struct AISymptomCheckerView: View {
                                         .font(.system(size: 13, weight: .bold, design: .default))
                                         .textCase(.uppercase)
                                         .foregroundColor(AppTheme.textSecondary)
+                                    
+                                    Spacer()
+                                    
+                                    Text(result.urgencyLevel.uppercased())
+                                        .font(.system(size: 12, weight: .bold))
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 4)
+                                        .background(
+                                            result.urgencyLevel.lowercased() == "emergency" ? Color.red.opacity(0.15) :
+                                            result.urgencyLevel.lowercased() == "urgent" ? Color.orange.opacity(0.15) :
+                                            Color.green.opacity(0.15)
+                                        )
+                                        .foregroundColor(
+                                            result.urgencyLevel.lowercased() == "emergency" ? .red :
+                                            result.urgencyLevel.lowercased() == "urgent" ? .orange :
+                                            .green
+                                        )
+                                        .cornerRadius(8)
                                 }
 
                                 Text(result.department)
@@ -164,6 +192,48 @@ struct AISymptomCheckerView: View {
                                     .font(.system(size: 15, weight: .regular, design: .default))
                                     .foregroundColor(AppTheme.textSecondary)
                                     .lineSpacing(2)
+                                
+                                if !result.possibleConditions.isEmpty {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text("Possible Conditions:")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundColor(AppTheme.textPrimary)
+                                        
+                                        ForEach(result.possibleConditions, id: \.self) { condition in
+                                            HStack(alignment: .top, spacing: 6) {
+                                                Circle()
+                                                    .fill(AppTheme.textSecondary.opacity(0.5))
+                                                    .frame(width: 4, height: 4)
+                                                    .padding(.top, 6)
+                                                Text(condition)
+                                                    .font(.system(size: 14))
+                                                    .foregroundColor(AppTheme.textSecondary)
+                                            }
+                                        }
+                                    }
+                                    .padding(.vertical, 4)
+                                }
+                                
+                                if !result.homeCare.isEmpty {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "cross.case.fill")
+                                                .foregroundColor(.blue)
+                                                .font(.system(size: 12))
+                                            Text("Home Care / First Aid")
+                                                .font(.system(size: 14, weight: .semibold))
+                                                .foregroundColor(AppTheme.textPrimary)
+                                        }
+                                        Text(result.homeCare)
+                                            .font(.system(size: 14))
+                                            .foregroundColor(AppTheme.textSecondary)
+                                            .lineSpacing(2)
+                                    }
+                                    .padding(.all, 12)
+                                    .background(Color.blue.opacity(0.05))
+                                    .cornerRadius(12)
+                                    .padding(.vertical, 4)
+                                }
 
                                 Divider()
 

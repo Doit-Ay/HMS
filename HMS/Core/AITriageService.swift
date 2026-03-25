@@ -31,7 +31,7 @@ final class AITriageService {
     func analyzeSymptoms(_ symptoms: String) async -> TriageResult? {
         if apiKey == "YOUR_GROQ_API_KEY_HERE" {
             print("API Key missing! Returning fallback.")
-            return TriageResult(department: "General Medicine", reason: "API Key missing. Please consult a general physician.")
+            return fallback()
         }
 
         let deptList = supportedDepartments.joined(separator: ", ")
@@ -40,14 +40,22 @@ final class AITriageService {
         A patient has entered the following text: "\(symptoms.trimmingCharacters(in: .whitespacesAndNewlines))"
 
         IMPORTANT RULES:
-        - If the text does NOT describe any medical symptoms (e.g., greetings like "hi", "hello", random gibberish, questions, or non-medical text), respond with:
-          DEPARTMENT: NONE
-          REASON: Please describe your medical symptoms for accurate analysis.
-        - Only if the text clearly describes medical symptoms, return the single most relevant department from this list: \(deptList)
+        - If the text does NOT describe any medical symptoms (e.g., greetings like "hi", "hello", random gibberish, questions, or non-medical text), return exactly this JSON:
+          {
+            "department": "NONE",
+            "reason": "Please describe your medical symptoms for accurate analysis.",
+            "urgencyLevel": "Routine",
+            "possibleConditions": [],
+            "homeCare": ""
+          }
+        - Only if the text clearly describes medical symptoms, return exactly a JSON object with these keys:
+          - "department": the single most relevant department from this list: \(deptList)
+          - "reason": brief reason for department, max 15 words
+          - "urgencyLevel": "Emergency", "Urgent", or "Routine" based on symptom severity
+          - "possibleConditions": array of 2-3 potential string conditions
+          - "homeCare": brief first-aid or home care advice, max 20 words
 
-        Respond in this exact format only (no other text):
-        DEPARTMENT: <department name or NONE>
-        REASON: <brief reason, max 15 words>
+        Respond ONLY with the raw JSON object. Do not include markdown formatting or extra text.
         """
 
         // Prepare the request payload for Groq (OpenAI-compatible format)
@@ -59,6 +67,7 @@ final class AITriageService {
                     "content": prompt
                 ]
             ],
+            "response_format": ["type": "json_object"],
             "temperature": 0.2
         ]
         
@@ -104,34 +113,48 @@ final class AITriageService {
     }
 
     private func parseResponse(_ text: String) -> TriageResult? {
-        var department = "General Medicine"
-        var reason = "Based on your symptoms."
-
-        for line in text.components(separatedBy: "\n") {
-            if line.hasPrefix("DEPARTMENT:") {
-                let raw = line.replacingOccurrences(of: "DEPARTMENT:", with: "").trimmingCharacters(in: .whitespaces)
-                // If the AI says NONE, the input wasn't a valid symptom
-                if raw.uppercased() == "NONE" {
-                    return nil
-                }
-                if supportedDepartments.contains(raw) {
-                    department = raw
-                }
-            } else if line.hasPrefix("REASON:") {
-                reason = line.replacingOccurrences(of: "REASON:", with: "").trimmingCharacters(in: .whitespaces)
+        guard let data = text.data(using: .utf8) else { return nil }
+        do {
+            let result = try JSONDecoder().decode(TriageResult.self, from: data)
+            if result.department.uppercased() == "NONE" {
+                return nil
             }
+            
+            var finalResult = result
+            if !supportedDepartments.contains(result.department) {
+                // If hallucinates a department, fallback to general
+                finalResult = TriageResult(
+                    department: "General Medicine",
+                    reason: result.reason,
+                    urgencyLevel: result.urgencyLevel,
+                    possibleConditions: result.possibleConditions,
+                    homeCare: result.homeCare
+                )
+            }
+            return finalResult
+        } catch {
+            print("Failed to decode JSON from Groq: \(error)")
+            return nil
         }
-        return TriageResult(department: department, reason: reason)
     }
     
     private func fallback() -> TriageResult {
-        return TriageResult(department: "General Medicine", reason: "Could not analyze symptoms. Please consult a general physician.")
+        return TriageResult(
+            department: "General Medicine",
+            reason: "Could not analyze symptoms. Please consult a general physician.",
+            urgencyLevel: "Routine",
+            possibleConditions: [],
+            homeCare: "Please seek medical evaluation if symptoms worsen."
+        )
     }
 
 }
 
 // MARK: - Triage Result
-struct TriageResult {
+struct TriageResult: Codable {
     let department: String
     let reason: String
+    let urgencyLevel: String
+    let possibleConditions: [String]
+    let homeCare: String
 }

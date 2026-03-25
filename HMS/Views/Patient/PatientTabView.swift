@@ -262,6 +262,7 @@ struct PatientHomeView: View {
                 }
                 
                 // MARK: AI Symptom Checker FAB
+                // MARK: AI Symptom Checker FAB
                 VStack {
                     Spacer()
                     HStack {
@@ -273,19 +274,22 @@ struct PatientHomeView: View {
                                 Circle()
                                     .fill(
                                         LinearGradient(
-                                            colors: [.purple, .indigo],
+                                            colors: [AppTheme.primary, AppTheme.primaryDark],
                                             startPoint: .topLeading,
                                             endPoint: .bottomTrailing
                                         )
                                     )
                                     .frame(width: 64, height: 64)
-                                    .shadow(color: .purple.opacity(0.4), radius: 15, x: 0, y: 8)
+                                    // This shadow uses the primary color to make it look like it's glowing/popping
+                                    .shadow(color: AppTheme.primary.opacity(0.4), radius: 15, x: 0, y: 8)
                                 
                                 Image(systemName: "brain.head.profile")
-                                    .font(.system(size: 28, weight: .semibold))
+                                    .font(.system(size: 28, weight: .bold)) // Increased weight for better visibility
                                     .foregroundColor(.white)
+                                    .scaleEffect(1.1) // Makes the icon feel "active"
                             }
                         }
+                        .buttonStyle(.plain) // Ensures no default gray highlight on tap
                         .padding(.trailing, 24)
                         .padding(.bottom, 24)
                     }
