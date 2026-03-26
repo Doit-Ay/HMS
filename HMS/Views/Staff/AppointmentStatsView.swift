@@ -31,11 +31,6 @@ struct AppointmentStatsView: View {
         return f.string(from: Date())
     }
 
-    private var monthString: String {
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM"
-        return f.string(from: selectedMonth)
-    }
-
     private var displayMonthString: String {
         let f = DateFormatter(); f.dateFormat = "MMMM yyyy"
         return f.string(from: selectedMonth)
@@ -313,6 +308,18 @@ struct AppointmentStatsView: View {
 
     // MARK: - Helpers
 
+    private func getMonthRange() -> (String, String) {
+        let calendar = Calendar.current
+        
+        let start = calendar.date(from: calendar.dateComponents([.year, .month], from: selectedMonth))!
+        let end = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: start)!
+        
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        
+        return (formatter.string(from: start), formatter.string(from: end))
+    }
+
     private func emptyStatsPlaceholder(message: String) -> some View {
         VStack(spacing: 10) {
             Image(systemName: "chart.bar.xaxis")
@@ -335,7 +342,19 @@ struct AppointmentStatsView: View {
         isLoading = true
         do {
             async let today = AuthManager.shared.fetchAllSlots(forDate: todayString)
-            async let month = AuthManager.shared.fetchAllSlots(forMonth: monthString)
+            async let month: [DoctorSlot] = {
+                let (from, to) = getMonthRange()
+                let db = Firestore.firestore()
+                
+                let snapshot = try await db.collection("doctor_slots")
+                    .whereField("date", isGreaterThanOrEqualTo: from)
+                    .whereField("date", isLessThanOrEqualTo: to)
+                    .getDocuments()
+
+                return snapshot.documents.compactMap {
+                    try? Firestore.Decoder().decode(DoctorSlot.self, from: $0.data())
+                }
+            }()
             todaySlots = try await today
             monthSlots = try await month
         } catch {
@@ -346,8 +365,22 @@ struct AppointmentStatsView: View {
     }
 
     private func loadMonthData() async {
-        do {
-            monthSlots = try await AuthManager.shared.fetchAllSlots(forMonth: monthString)
+    let (from, to) = getMonthRange()
+    
+    do {
+        let db = Firestore.firestore()
+        let snapshot = try await db.collection("doctor_slots")
+            .whereField("date", isGreaterThanOrEqualTo: from)
+                .whereField("date", isLessThanOrEqualTo: to)
+                .getDocuments()
+
+            let slots = snapshot.documents.compactMap {
+                try? Firestore.Decoder().decode(DoctorSlot.self, from: $0.data())
+            }
+
+            await MainActor.run {
+                monthSlots = slots
+            }
         } catch {
             errorMessage = error.localizedDescription
             showError = true
@@ -554,8 +587,17 @@ struct CustomTimelineSheet: View {
             fromDate = Calendar.current.date(from: DateComponents(year: year, month: 1, day: 1))!
             toDate = now
         } else {
-            fromDate = Calendar.current.date(byAdding: .month, value: -preset.months, to: now)!
-            toDate = now
+            let calendar = Calendar.current
+
+            // Start of current month
+            let currentMonthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: now))!
+
+            // Go back N months
+            fromDate = calendar.date(byAdding: .month, value: -preset.months, to: currentMonthStart)!
+
+            // End = end of current month (NOT today)
+            let nextMonth = calendar.date(byAdding: .month, value: 1, to: currentMonthStart)!
+            toDate = calendar.date(byAdding: .day, value: -1, to: nextMonth)!
         }
     }
 }
