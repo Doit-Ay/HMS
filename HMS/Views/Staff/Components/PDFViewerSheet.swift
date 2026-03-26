@@ -37,6 +37,10 @@ struct PDFViewerSheet: View {
                 }
         }
         .task {
+            if pdfURL.isFileURL {
+                self.shareURL = pdfURL
+                return
+            }
             do {
                 let (tempURL, _) = try await URLSession.shared.download(from: pdfURL)
                 let safeName = title.replacingOccurrences(of: "/", with: "-")
