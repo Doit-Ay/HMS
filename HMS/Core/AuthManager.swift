@@ -393,7 +393,7 @@ class AuthManager {
     func updateCurrentDoctorProfile(
         uid: String,
         fullName: String,
-        specialization: String?,
+        department: String?,
         phoneNumber: String?,
         dateOfBirth: String?,
         gender: String?
@@ -401,7 +401,7 @@ class AuthManager {
         // 1. PRIMARY: Update `doctors` collection with ALL fields explicitly
         let doctorUpdates: [String: Any] = [
             "fullName":       fullName,
-            "specialization": specialization ?? "Not Set",
+            "department":     department     ?? "Not Set",
             "phoneNumber":    phoneNumber    ?? "Not Set",
             "dateOfBirth":    dateOfBirth    ?? "Not Set",
             "gender":         gender         ?? "Not Set"
@@ -413,7 +413,7 @@ class AuthManager {
             if let user = UserSession.shared.currentUser {
                 var updatedUser = user
                 updatedUser.fullName = fullName
-                updatedUser.specialization = specialization ?? updatedUser.specialization
+                updatedUser.department = department ?? updatedUser.department
                 updatedUser.phoneNumber = phoneNumber ?? updatedUser.phoneNumber
                 updatedUser.dateOfBirth = dateOfBirth ?? updatedUser.dateOfBirth
                 updatedUser.gender = gender ?? updatedUser.gender

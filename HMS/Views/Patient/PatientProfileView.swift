@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 import FirebaseFirestore
 
 struct PatientProfileView: View {
@@ -10,8 +11,11 @@ struct PatientProfileView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    // Profile Image placeholder
+    // Profile photo
     @State private var profileImage = "P"
+    @State private var profileImageURL: String? = nil
+    @State private var selectedPhotoItem: PhotosPickerItem? = nil
+    @State private var isUploadingPhoto = false
 
     // Profile fields
     @State private var personalFields: [ProfileInfoField] = []
@@ -102,32 +106,13 @@ struct PatientProfileView: View {
                         // Avatar
                         VStack(spacing: 8) {
 
-                            ZStack(alignment: .bottomTrailing) {
-
-                                Circle()
-                                    .fill(AppTheme.cardSurface)
-                                    .frame(width: 110, height: 110)
-                                    .shadow(radius: 10)
-
-                                    .overlay(
-                                        Text(profileImage)
-                                            .font(.system(size: 40, weight: .bold))
-                                            .foregroundColor(AppTheme.primaryDark)
-                                    )
-
-                                if isEditing {
-
-                                    Circle()
-                                        .fill(AppTheme.primary)
-                                        .frame(width: 32, height: 32)
-                                        .overlay(
-                                            Image(systemName: "camera.fill")
-                                                .foregroundColor(.white)
-                                        )
-                                }
-
-                            }
-                            .offset(y: 40)
+                            ProfilePhotoView(
+                                initial: profileImage,
+                                imageURL: profileImageURL,
+                                isEditing: isEditing,
+                                isUploading: isUploadingPhoto,
+                                selectedItem: $selectedPhotoItem
+                            )
                         }
                     }
 
@@ -214,6 +199,27 @@ struct PatientProfileView: View {
         } message: {
             Text("Profile updated successfully")
         }
+        .onChange(of: selectedPhotoItem) { newItem in
+            guard let item = newItem,
+                  let userId = UserSession.shared.currentUser?.id else { return }
+            Task {
+                isUploadingPhoto = true
+                do {
+                    let url = try await ProfilePhotoManager.shared.uploadProfilePhoto(pickerItem: item, userId: userId)
+                    await MainActor.run {
+                        profileImageURL = url
+                        isUploadingPhoto = false
+                        selectedPhotoItem = nil
+                    }
+                } catch {
+                    print("❌ Photo upload failed: \(error)")
+                    await MainActor.run {
+                        isUploadingPhoto = false
+                        selectedPhotoItem = nil
+                    }
+                }
+            }
+        }
     }
 
     // LOAD PATIENT DATA
@@ -224,6 +230,7 @@ struct PatientProfileView: View {
 
         profileName = user.fullName
         profileImage = String(user.fullName.prefix(1))
+        profileImageURL = user.profileImageURL
 
         let db = Firestore.firestore()
 

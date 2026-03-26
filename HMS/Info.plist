@@ -6,6 +6,8 @@
 	<string>HMS uses speech recognition to let doctors dictate consultation notes and prescriptions.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>HMS needs microphone access to enable voice dictation for consultation notes.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>HMS needs access to your photo library to set your profile picture.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

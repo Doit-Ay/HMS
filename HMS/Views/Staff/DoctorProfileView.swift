@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 import FirebaseFirestore
 
 struct DoctorProfileView: View {
@@ -10,8 +11,11 @@ struct DoctorProfileView: View {
     
     @Environment(\.dismiss) private var dismiss
     
-    // Fake Doctor Identity for demo purposes
-    @State private var profileImage = "Dr. S" // Placeholder for an actual Image string
+    // Profile photo
+    @State private var profileImage = "Dr. S"
+    @State private var profileImageURL: String? = nil
+    @State private var selectedPhotoItem: PhotosPickerItem? = nil
+    @State private var isUploadingPhoto = false
     
     // Dynamic form data populated on load
     @State private var personalFields: [ProfileInfoField] = []
@@ -98,35 +102,13 @@ struct DoctorProfileView: View {
                         
                         // Overlapping Avatar + Title
                         VStack(spacing: 8) {
-                            ZStack(alignment: .bottomTrailing) {
-                                Circle()
-                                    .fill(AppTheme.cardSurface)
-                                    .frame(width: 110, height: 110)
-                                    .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 5)
-                                    .overlay(
-                                        Group {
-                                            if isLoadingProfile {
-                                                ProgressView()
-                                                    .scaleEffect(1.2)
-                                            } else {
-                                                Text(profileImage)
-                                                    .font(.system(size: 40, weight: .bold, design: .rounded))
-                                                    .foregroundColor(AppTheme.primaryDark)
-                                            }
-                                        }
-                                    )
-                                
-                                if isEditing {
-                                    Circle()
-                                        .fill(AppTheme.primary)
-                                        .frame(width: 32, height: 32)
-                                        .overlay(Image(systemName: "camera.fill").font(.system(size: 14)).foregroundColor(.white))
-                                        .overlay(Circle().stroke(AppTheme.cardSurface, lineWidth: 2))
-                                        .offset(x: -4, y: -4)
-                                        .transition(.scale)
-                                }
-                            }
-                            .offset(y: 40)
+                            ProfilePhotoView(
+                                initial: profileImage,
+                                imageURL: profileImageURL,
+                                isEditing: isEditing,
+                                isUploading: isUploadingPhoto,
+                                selectedItem: $selectedPhotoItem
+                            )
                         }
                     }
                     .ignoresSafeArea(edges: .top)
@@ -235,6 +217,27 @@ struct DoctorProfileView: View {
         } message: {
             Text("Profile updated successfully")
         }
+        .onChange(of: selectedPhotoItem) { newItem in
+            guard let item = newItem,
+                  let userId = UserSession.shared.currentUser?.id else { return }
+            Task {
+                isUploadingPhoto = true
+                do {
+                    let url = try await ProfilePhotoManager.shared.uploadProfilePhoto(pickerItem: item, userId: userId)
+                    await MainActor.run {
+                        profileImageURL = url
+                        isUploadingPhoto = false
+                        selectedPhotoItem = nil
+                    }
+                } catch {
+                    print("❌ Photo upload failed: \(error)")
+                    await MainActor.run {
+                        isUploadingPhoto = false
+                        selectedPhotoItem = nil
+                    }
+                }
+            }
+        }
     }
     
     
@@ -284,8 +287,9 @@ struct DoctorProfileView: View {
             
             await MainActor.run {
                 profileName = fullName.hasPrefix("Dr.") ? fullName : "Dr. \(fullName)"
-                profileSpecialty = (specialty != "Not Set") ? specialty : (department != "Not Set" ? department : "Consultation")
+                profileSpecialty = (department != "Not Set") ? department : (specialty != "Not Set" ? specialty : "Consultation")
                 profileImage = String(fullName.replacingOccurrences(of: "Dr. ", with: "").prefix(1))
+                profileImageURL = data["profileImageURL"] as? String ?? user.profileImageURL
                 
                 personalFields = [
                     ProfileInfoField(title: "Full Name", value: fullName),
@@ -294,7 +298,7 @@ struct DoctorProfileView: View {
                 ]
                 
                 professionalFields = [
-                    ProfileInfoField(title: "Specialty", value: specialty, options: ["Cardiologist", "Neurologist", "Pediatrician", "General"]),
+                    ProfileInfoField(title: "Department", value: department, options: ["Cardiology", "Neurology", "Pediatrics", "General Medicine", "Orthopedics", "Dermatology", "ENT", "Ophthalmology"]),
                     ProfileInfoField(title: "Date Joined", value: dateJoined != nil ? formatDate(dateJoined!.dateValue()) : "Unknown", isEditable: false)
                 ]
                 
@@ -312,8 +316,9 @@ struct DoctorProfileView: View {
     private func populateFromSession(user: HMSUser) async {
         await MainActor.run {
             profileName = user.fullName.hasPrefix("Dr.") ? user.fullName : "Dr. \(user.fullName)"
-            profileSpecialty = user.specialization ?? user.department ?? "Consultation"
+            profileSpecialty = user.department ?? user.specialization ?? "Consultation"
             profileImage = String(user.fullName.replacingOccurrences(of: "Dr. ", with: "").prefix(1))
+            profileImageURL = user.profileImageURL
             
             personalFields = [
                 ProfileInfoField(title: "Full Name", value: user.fullName),
@@ -321,7 +326,7 @@ struct DoctorProfileView: View {
                 ProfileInfoField(title: "Gender", value: user.gender ?? "Not Set", options: ["Male", "Female", "Other"])
             ]
             professionalFields = [
-                ProfileInfoField(title: "Specialty", value: user.specialization ?? "Not Set", options: ["Cardiologist", "Neurologist", "Pediatrician", "General"]),
+                ProfileInfoField(title: "Department", value: user.department ?? "Not Set", options: ["Cardiology", "Neurology", "Pediatrics", "General Medicine", "Orthopedics", "Dermatology", "ENT", "Ophthalmology"]),
                 ProfileInfoField(title: "Date Joined", value: formatDate(user.createdAt), isEditable: false)
             ]
             contactFields = [
@@ -380,7 +385,7 @@ struct DoctorProfileView: View {
                 let fullName = personalFields.first(where: { $0.title == "Full Name" })?.value ?? ""
                 let dob = personalFields.first(where: { $0.title == "Date of Birth" })?.value
                 let gender = personalFields.first(where: { $0.title == "Gender" })?.value
-                let specialty = professionalFields.first(where: { $0.title == "Specialty" })?.value
+                let department = professionalFields.first(where: { $0.title == "Department" })?.value
                 let phone = contactFields.first(where: { $0.title == "Phone Number" })?.value
                 let safePhone = (phone == "Not Set" || phone?.isEmpty == true) ? nil : phone
                 
@@ -388,7 +393,7 @@ struct DoctorProfileView: View {
                     try await AuthManager.shared.updateCurrentDoctorProfile(
                         uid: uid,
                         fullName: fullName,
-                        specialization: specialty,
+                        department: department,
                         phoneNumber: safePhone,
                         dateOfBirth: dob,
                         gender: gender
@@ -404,8 +409,8 @@ struct DoctorProfileView: View {
                         let updatedName = self.personalFields.first(where: { $0.title == "Full Name" })?.value ?? ""
                         self.profileName = updatedName.hasPrefix("Dr.") ? updatedName : "Dr. \(updatedName)"
                         self.profileImage = String(updatedName.replacingOccurrences(of: "Dr. ", with: "").prefix(1))
-                        if let spec = self.professionalFields.first(where: { $0.title == "Specialty" })?.value, spec != "Not Set" {
-                            self.profileSpecialty = spec
+                        if let dept = self.professionalFields.first(where: { $0.title == "Department" })?.value, dept != "Not Set" {
+                            self.profileSpecialty = dept
                         }
                         self.triggerToast()
                     }

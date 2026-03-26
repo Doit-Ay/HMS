@@ -27,6 +27,9 @@ struct LoginView: View {
                     .padding(.vertical, 20)
                 }
             }
+            .onTapGesture {
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .alert("Error", isPresented: $showError) {
