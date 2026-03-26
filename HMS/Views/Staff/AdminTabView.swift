@@ -5,6 +5,30 @@ import FirebaseFirestore
 struct AdminTabView: View {
     @State private var selectedTab = 0
 
+    init() {
+        let appearance = UITabBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = UIColor.systemBackground
+        appearance.shadowColor = .clear
+        appearance.shadowImage = UIImage()
+        
+        // Selected item
+        appearance.stackedLayoutAppearance.selected.iconColor = UIColor(AppTheme.primary)
+        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
+            .foregroundColor: UIColor(AppTheme.primary),
+            .font: UIFont.systemFont(ofSize: 10, weight: .semibold)
+        ]
+        // Normal item
+        appearance.stackedLayoutAppearance.normal.iconColor = UIColor.secondaryLabel
+        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
+            .foregroundColor: UIColor.secondaryLabel,
+            .font: UIFont.systemFont(ofSize: 10, weight: .medium)
+        ]
+        
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+    }
+
     var body: some View {
         TabView(selection: $selectedTab) {
             AdminDashboardView()

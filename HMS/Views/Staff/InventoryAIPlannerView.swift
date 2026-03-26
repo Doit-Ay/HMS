@@ -8,11 +8,27 @@ struct InventoryAIPlannerView: View {
     @State private var selectedSection: PlannerSection = .overview
     @State private var expandedInsightId: String?
     
+    // NEW: Improvements
+    @State private var animate = false
+    @State private var healthRingProgress: CGFloat = 0
+    @State private var analyzedAt: Date?
+    @State private var searchText = ""
+    @State private var activeFilter: StatusFilter = .all
+    @State private var expandAll = false
+    
     enum PlannerSection: String, CaseIterable {
         case overview = "Overview"
         case items = "All Items"
         case risks = "Risks"
         case plan = "Action Plan"
+    }
+    
+    enum StatusFilter: String, CaseIterable {
+        case all = "All"
+        case critical = "Critical"
+        case low = "Low"
+        case overstock = "Overstock"
+        case healthy = "Healthy"
     }
     
     var body: some View {
@@ -26,23 +42,18 @@ struct InventoryAIPlannerView: View {
             } else if let data = insights {
                 VStack(spacing: 0) {
                     // Section Picker
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(PlannerSection.allCases, id: \.self) { section in
-                                Button {
-                                    withAnimation(.easeInOut(duration: 0.2)) { selectedSection = section }
-                                } label: {
-                                    Text(section.rawValue)
-                                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                                        .padding(.horizontal, 16).padding(.vertical, 8)
-                                        .background(selectedSection == section ? AppTheme.primary : AppTheme.cardSurface)
-                                        .foregroundColor(selectedSection == section ? .white : AppTheme.textSecondary)
-                                        .cornerRadius(20)
-                                }
-                            }
+                    sectionPicker
+                    
+                    // Analyzed timestamp
+                    if let time = analyzedAt {
+                        HStack(spacing: 5) {
+                            Image(systemName: "clock")
+                                .font(.system(size: 10, weight: .semibold))
+                            Text("Analyzed at \(time.formatted(date: .omitted, time: .shortened))")
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
+                        .foregroundColor(AppTheme.textSecondary.opacity(0.6))
+                        .padding(.bottom, 6)
                     }
                     
                     // Content
@@ -59,10 +70,59 @@ struct InventoryAIPlannerView: View {
                         .padding(.vertical, 14)
                         .padding(.bottom, 30)
                     }
+                    .refreshable {
+                        await refreshAnalysis()
+                    }
                 }
             }
         }
+        .navigationTitle("AI Planner")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    isLoading = true
+                    errorMessage = nil
+                    animate = false
+                    healthRingProgress = 0
+                    Task { await fetchAndAnalyze() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(AppTheme.primary)
+                        .rotationEffect(.degrees(isLoading ? 360 : 0))
+                }
+                .disabled(isLoading)
+            }
+        }
         .task { await fetchAndAnalyze() }
+    }
+    
+    // MARK: - Section Picker
+    private var sectionPicker: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(PlannerSection.allCases, id: \.self) { section in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) { selectedSection = section }
+                    } label: {
+                        Text(section.rawValue)
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .padding(.horizontal, 16).padding(.vertical, 8)
+                            .background(
+                                selectedSection == section
+                                ? AnyShapeStyle(LinearGradient(colors: [AppTheme.primary, AppTheme.primaryDark], startPoint: .leading, endPoint: .trailing))
+                                : AnyShapeStyle(AppTheme.cardSurface)
+                            )
+                            .foregroundColor(selectedSection == section ? .white : AppTheme.textSecondary)
+                            .cornerRadius(20)
+                            .shadow(color: selectedSection == section ? AppTheme.primary.opacity(0.25) : .clear, radius: 6, x: 0, y: 3)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+        }
     }
     
     // MARK: - Loading
@@ -106,11 +166,15 @@ struct InventoryAIPlannerView: View {
     // MARK: - 1. Overview Section
     private func overviewSection(_ data: GroqInventoryResponse) -> some View {
         VStack(spacing: 16) {
-            // Health Score Ring
+            // Health Score Ring (animated)
             healthScoreCard(data)
+                .offset(y: animate ? 0 : 20)
+                .opacity(animate ? 1 : 0)
             
             // Cost Card
             costCard(data)
+                .offset(y: animate ? 0 : 25)
+                .opacity(animate ? 1 : 0)
             
             // Stats Grid
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -119,6 +183,8 @@ struct InventoryAIPlannerView: View {
                 PlannerStatCard(title: "Healthy Items", value: "\(data.healthyStockCount)", icon: "checkmark.shield.fill", color: AppTheme.primary)
                 PlannerStatCard(title: "Health Score", value: "\(data.overallHealthScore)%", icon: "heart.fill", color: data.overallHealthScore > 70 ? AppTheme.primary : data.overallHealthScore > 40 ? AppTheme.warning : .red)
             }
+            .offset(y: animate ? 0 : 30)
+            .opacity(animate ? 1 : 0)
             
             // AI Summary
             VStack(alignment: .leading, spacing: 10) {
@@ -135,6 +201,8 @@ struct InventoryAIPlannerView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(AppTheme.cardSurface)
             .cornerRadius(16)
+            .offset(y: animate ? 0 : 35)
+            .opacity(animate ? 1 : 0)
             
             // Category Breakdown
             if !data.categoryBreakdown.isEmpty {
@@ -150,6 +218,8 @@ struct InventoryAIPlannerView: View {
                 .padding(18)
                 .background(AppTheme.cardSurface)
                 .cornerRadius(16)
+                .offset(y: animate ? 0 : 40)
+                .opacity(animate ? 1 : 0)
             }
         }
     }
@@ -162,14 +232,15 @@ struct InventoryAIPlannerView: View {
                     .stroke(scoreColor.opacity(0.15), lineWidth: 10)
                     .frame(width: 80, height: 80)
                 Circle()
-                    .trim(from: 0, to: CGFloat(data.overallHealthScore) / 100.0)
+                    .trim(from: 0, to: healthRingProgress)
                     .stroke(scoreColor, style: StrokeStyle(lineWidth: 10, lineCap: .round))
                     .frame(width: 80, height: 80)
                     .rotationEffect(.degrees(-90))
                 VStack(spacing: 0) {
-                    Text("\(data.overallHealthScore)")
+                    Text("\(Int(healthRingProgress * 100))")
                         .font(.system(size: 22, weight: .black, design: .rounded))
                         .foregroundColor(AppTheme.textPrimary)
+                        .contentTransition(.numericText())
                     Text("%")
                         .font(.system(size: 11, weight: .bold, design: .rounded))
                         .foregroundColor(AppTheme.textSecondary)
@@ -288,30 +359,138 @@ struct InventoryAIPlannerView: View {
     
     // MARK: - 2. All Items Section
     private func allItemsSection(_ data: GroqInventoryResponse) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            // Quick filter legend
+        let sortedInsights = data.actionableInsights.sorted { urgencyRank($0.urgency) < urgencyRank($1.urgency) }
+        let filteredInsights = sortedInsights.filter { insight in
+            let matchesSearch = searchText.isEmpty || insight.itemName.localizedCaseInsensitiveContains(searchText) || insight.category.localizedCaseInsensitiveContains(searchText)
+            let matchesFilter: Bool
+            switch activeFilter {
+            case .all: matchesFilter = true
+            case .critical: matchesFilter = insight.status.lowercased() == "critical"
+            case .low: matchesFilter = insight.status.lowercased() == "low"
+            case .overstock: matchesFilter = insight.status.lowercased() == "overstock"
+            case .healthy: matchesFilter = insight.status.lowercased() == "healthy"
+            }
+            return matchesSearch && matchesFilter
+        }
+        
+        return VStack(alignment: .leading, spacing: 14) {
+            // Search bar
             HStack(spacing: 10) {
-                miniTag("● Critical", .red)
-                miniTag("● Low", AppTheme.warning)
-                miniTag("● Overstock", .orange)
-                miniTag("● Healthy", AppTheme.primary)
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(AppTheme.textSecondary.opacity(0.5))
+                TextField("Search items...", text: $searchText)
+                    .font(.system(size: 14, design: .rounded))
+                    .foregroundColor(AppTheme.textPrimary)
+                if !searchText.isEmpty {
+                    Button { searchText = "" } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(AppTheme.textSecondary.opacity(0.5))
+                    }
+                }
+            }
+            .padding(12)
+            .background(AppTheme.cardSurface)
+            .cornerRadius(14)
+            
+            // Filter chips
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(StatusFilter.allCases, id: \.self) { filter in
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) { activeFilter = filter }
+                        } label: {
+                            HStack(spacing: 4) {
+                                if filter != .all {
+                                    Circle()
+                                        .fill(filterColor(filter))
+                                        .frame(width: 6, height: 6)
+                                }
+                                Text(filter.rawValue)
+                                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 6)
+                            .background(activeFilter == filter ? filterColor(filter).opacity(0.15) : AppTheme.cardSurface)
+                            .foregroundColor(activeFilter == filter ? filterColor(filter) : AppTheme.textSecondary)
+                            .cornerRadius(16)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(activeFilter == filter ? filterColor(filter).opacity(0.4) : Color.clear, lineWidth: 1)
+                            )
+                        }
+                    }
+                }
             }
             
-            ForEach(data.actionableInsights) { item in
-                itemDetailCard(item)
+            // Expand/Collapse toggle + count
+            HStack {
+                Text("\(filteredInsights.count) items")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundColor(AppTheme.textSecondary)
+                Spacer()
+                Button {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        expandAll.toggle()
+                        if expandAll {
+                            // expand all won't set individual IDs, handled in card
+                        } else {
+                            expandedInsightId = nil
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: expandAll ? "rectangle.compress.vertical" : "rectangle.expand.vertical")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text(expandAll ? "Collapse All" : "Expand All")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                    }
+                    .foregroundColor(AppTheme.primary)
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(AppTheme.primary.opacity(0.08))
+                    .cornerRadius(8)
+                }
+            }
+            
+            if filteredInsights.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 30))
+                        .foregroundColor(AppTheme.textSecondary.opacity(0.3))
+                    Text("No items match your filter")
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+            } else {
+                ForEach(Array(filteredInsights.enumerated()), id: \.element.id) { index, item in
+                    itemDetailCard(item)
+                        .offset(y: animate ? 0 : 20)
+                        .opacity(animate ? 1 : 0)
+                        .animation(
+                            .spring(response: 0.45, dampingFraction: 0.8).delay(Double(index) * 0.03),
+                            value: animate
+                        )
+                }
             }
         }
     }
     
     private func itemDetailCard(_ insight: GroqInventoryInsight) -> some View {
         let statusColor = colorFor(insight.status)
-        let isExpanded = expandedInsightId == insight.id
+        let isExpanded = expandAll || expandedInsightId == insight.id
         
         return VStack(alignment: .leading, spacing: 0) {
             // Header - always visible, tappable
             Button {
                 withAnimation(.easeInOut(duration: 0.25)) {
-                    expandedInsightId = isExpanded ? nil : insight.id
+                    if expandAll {
+                        expandAll = false
+                        expandedInsightId = insight.id
+                    } else {
+                        expandedInsightId = (expandedInsightId == insight.id) ? nil : insight.id
+                    }
                 }
             } label: {
                 HStack {
@@ -427,38 +606,52 @@ struct InventoryAIPlannerView: View {
     private func risksSection(_ data: GroqInventoryResponse) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             // Top Risks
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 8) {
-                    Image(systemName: "shield.trianglebadge.exclamationmark.fill")
-                        .foregroundColor(.red)
-                    Text("Top Risks")
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
-                        .foregroundColor(AppTheme.textPrimary)
-                }
-                ForEach(Array(data.topRisks.enumerated()), id: \.offset) { idx, risk in
-                    HStack(alignment: .top, spacing: 12) {
-                        ZStack {
-                            Circle().fill(Color.red.opacity(0.12)).frame(width: 28, height: 28)
-                            Text("\(idx + 1)")
-                                .font(.system(size: 13, weight: .black, design: .rounded))
-                                .foregroundColor(.red)
+            if data.topRisks.isEmpty {
+                // Success empty state
+                successCard(
+                    icon: "shield.checkmark.fill",
+                    title: "No Risks Detected",
+                    subtitle: "Your inventory is well-managed with no active risk alerts.",
+                    color: AppTheme.primary
+                )
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "shield.trianglebadge.exclamationmark.fill")
+                            .foregroundColor(.red)
+                        Text("Top Risks")
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .foregroundColor(AppTheme.textPrimary)
+                    }
+                    ForEach(Array(data.topRisks.enumerated()), id: \.offset) { idx, risk in
+                        HStack(alignment: .top, spacing: 12) {
+                            ZStack {
+                                Circle().fill(Color.red.opacity(0.12)).frame(width: 28, height: 28)
+                                Text("\(idx + 1)")
+                                    .font(.system(size: 13, weight: .black, design: .rounded))
+                                    .foregroundColor(.red)
+                            }
+                            Text(risk)
+                                .font(.system(size: 14, design: .rounded))
+                                .foregroundColor(AppTheme.textSecondary)
+                                .lineSpacing(3)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
-                        Text(risk)
-                            .font(.system(size: 14, design: .rounded))
-                            .foregroundColor(AppTheme.textSecondary)
-                            .lineSpacing(3)
-                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+                .padding(18)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(AppTheme.cardSurface)
+                .cornerRadius(16)
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.red.opacity(0.2), lineWidth: 1))
+                .offset(y: animate ? 0 : 20)
+                .opacity(animate ? 1 : 0)
             }
-            .padding(18)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppTheme.cardSurface)
-            .cornerRadius(16)
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.red.opacity(0.2), lineWidth: 1))
             
             // Critical Items fast view
-            let criticals = data.actionableInsights.filter { $0.status.lowercased() == "critical" }
+            let criticals = data.actionableInsights
+                .filter { $0.status.lowercased() == "critical" }
+                .sorted { urgencyRank($0.urgency) < urgencyRank($1.urgency) }
             if !criticals.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("🚨 Critical Stock Items")
@@ -487,6 +680,17 @@ struct InventoryAIPlannerView: View {
                 .padding(18)
                 .background(AppTheme.cardSurface)
                 .cornerRadius(16)
+                .offset(y: animate ? 0 : 25)
+                .opacity(animate ? 1 : 0)
+            } else {
+                successCard(
+                    icon: "checkmark.seal.fill",
+                    title: "No Critical Items",
+                    subtitle: "All items are above critical stock levels.",
+                    color: AppTheme.primary
+                )
+                .offset(y: animate ? 0 : 25)
+                .opacity(animate ? 1 : 0)
             }
             
             // Overstock Items
@@ -522,8 +726,35 @@ struct InventoryAIPlannerView: View {
                 .padding(18)
                 .background(AppTheme.cardSurface)
                 .cornerRadius(16)
+                .offset(y: animate ? 0 : 30)
+                .opacity(animate ? 1 : 0)
             }
         }
+    }
+    
+    // MARK: - Success Card
+    private func successCard(icon: String, title: String, subtitle: String, color: Color) -> some View {
+        VStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.12))
+                    .frame(width: 56, height: 56)
+                Image(systemName: icon)
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundColor(color)
+            }
+            Text(title)
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundColor(AppTheme.textPrimary)
+            Text(subtitle)
+                .font(.system(size: 13, design: .rounded))
+                .foregroundColor(AppTheme.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(24)
+        .background(AppTheme.cardSurface)
+        .cornerRadius(16)
     }
     
     // MARK: - 4. Action Plan Section
@@ -557,9 +788,13 @@ struct InventoryAIPlannerView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(AppTheme.cardSurface)
             .cornerRadius(16)
+            .offset(y: animate ? 0 : 20)
+            .opacity(animate ? 1 : 0)
             
             // Restock Order Summary
-            let restockItems = data.actionableInsights.filter { $0.recommendedOrder > 0 }
+            let restockItems = data.actionableInsights
+                .filter { $0.recommendedOrder > 0 }
+                .sorted { urgencyRank($0.urgency) < urgencyRank($1.urgency) }
             if !restockItems.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 8) {
@@ -628,9 +863,9 @@ struct InventoryAIPlannerView: View {
                 .padding(18)
                 .background(AppTheme.cardSurface)
                 .cornerRadius(16)
+                .offset(y: animate ? 0 : 25)
+                .opacity(animate ? 1 : 0)
             }
-            
-
         }
     }
     
@@ -644,11 +879,30 @@ struct InventoryAIPlannerView: View {
         }
     }
     
+    private func filterColor(_ filter: StatusFilter) -> Color {
+        switch filter {
+        case .all: return AppTheme.primary
+        case .critical: return .red
+        case .low: return AppTheme.warning
+        case .overstock: return .orange
+        case .healthy: return AppTheme.primary
+        }
+    }
+    
     private func urgencyColor(_ urgency: String) -> Color {
         switch urgency.lowercased() {
         case "immediate": return .red
         case "this week": return AppTheme.warning
         default: return AppTheme.primary
+        }
+    }
+    
+    private func urgencyRank(_ urgency: String) -> Int {
+        switch urgency.lowercased() {
+        case "immediate": return 0
+        case "this week": return 1
+        case "next week": return 2
+        default: return 3
         }
     }
     
@@ -658,6 +912,12 @@ struct InventoryAIPlannerView: View {
         fmt.currencySymbol = "₹"
         fmt.maximumFractionDigits = 0
         return fmt.string(from: NSNumber(value: value)) ?? "₹\(Int(value))"
+    }
+    
+    private func refreshAnalysis() async {
+        animate = false
+        healthRingProgress = 0
+        await fetchAndAnalyze()
     }
     
     private func fetchAndAnalyze() async {
@@ -686,7 +946,17 @@ struct InventoryAIPlannerView: View {
             await MainActor.run {
                 self.allItems = total
                 self.insights = result
+                self.analyzedAt = Date()
                 self.isLoading = false
+                
+                // Trigger entrance animations
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
+                    animate = true
+                }
+                // Animate health ring
+                withAnimation(.easeOut(duration: 1.0).delay(0.3)) {
+                    healthRingProgress = CGFloat(result.overallHealthScore) / 100.0
+                }
             }
         } catch {
             await MainActor.run {
