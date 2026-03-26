@@ -214,6 +214,8 @@ struct Appointment: Codable, Identifiable {
     var startTime: String
     var endTime: String
     var status: String                      // "scheduled", "completed", "cancelled"
+    var cancelReason: String?
+    var patientNotified: Bool?
     var ratingGiven: Int?
     var reviewText: String?
     var createdAt: Date?
