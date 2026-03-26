@@ -1060,6 +1060,29 @@ class AuthManager {
         try await db.collection("doctors").document(doctorId).updateData(updates)
     }
 
+    // MARK: - Cancel Appointment as Doctor Unavailable
+    
+    /// Cancels an appointment because the doctor marked the slot as unavailable.
+    /// Sets status to "cancelled", cancelReason to "doctor_unavailable", and frees the slot.
+    func cancelAppointmentAsDoctorUnavailable(appointmentId: String, slotId: String) async throws {
+        // 1. Cancel the appointment
+        try await db.collection("appointments").document(appointmentId).updateData([
+            "status": "cancelled",
+            "cancelReason": "doctor_unavailable",
+            "patientNotified": false
+        ])
+        
+        // 2. Free the slot (set back to available)
+        try await db.collection("doctor_slots").document(slotId).updateData([
+            "status": SlotStatus.available.rawValue,
+            "updatedAt": FieldValue.serverTimestamp()
+        ])
+        
+        // Invalidate caches
+        CacheManager.shared.invalidate(prefix: "appts_")
+        CacheManager.shared.invalidate(prefix: "slots_")
+    }
+    
     // MARK: - Notifications
 
     /// Save a notification document to Firestore
