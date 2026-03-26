@@ -20,7 +20,6 @@ struct EditStaffView: View {
     @State private var showSuccess    = false
     @State private var showDeactivateConfirm = false
     @State private var showReactivateConfirm = false
-    @State private var animate = false
 
     // Time Slot Selection (doctors only)
     @State private var morningSelected    = false
@@ -94,83 +93,92 @@ struct EditStaffView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                AppTheme.background.ignoresSafeArea()
+        ZStack(alignment: .bottom) {
+            AppTheme.background.ignoresSafeArea()
 
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 24) {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
 
-                        // HERO HEADER
-                        ZStack(alignment: .bottom) {
-                            LinearGradient(
-                                colors: [AppTheme.primaryLight.opacity(0.8), AppTheme.background],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                            .frame(height: 140)
-                            .ignoresSafeArea(edges: .top)
+                    // HERO SECTION (matching ProfileView)
+                    ZStack(alignment: .bottom) {
+                        LinearGradient(
+                            colors: [AppTheme.primaryLight.opacity(0.8), AppTheme.background],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: 160)
+                        .ignoresSafeArea(edges: .top)
 
-                            VStack(spacing: 10) {
-                                ZStack {
-                                    Circle()
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [AppTheme.primary, AppTheme.primaryMid],
-                                                startPoint: .topLeading, endPoint: .bottomTrailing
-                                            )
-                                        )
-                                        .frame(width: 80, height: 80)
-                                        .shadow(color: AppTheme.primary.opacity(0.25), radius: 10, x: 0, y: 5)
-                                    Text(initials)
-                                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                                        .foregroundColor(.white)
-                                }
-
-                                VStack(spacing: 4) {
-                                    Text(staff.fullName)
-                                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        // Top close button
+                        VStack {
+                            HStack {
+                                Spacer()
+                                Button(action: { dismiss() }) {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 16, weight: .bold))
                                         .foregroundColor(AppTheme.textPrimary)
-
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "envelope.fill")
-                                            .font(.system(size: 11))
-                                        Text(staff.email)
-                                            .font(.system(size: 13, design: .rounded))
-                                    }
-                                    .foregroundColor(AppTheme.textSecondary)
-
-                                    HStack(spacing: 8) {
-                                        Text(staff.role.displayName)
-                                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                                            .foregroundColor(.white)
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 4)
-                                            .background(AppTheme.primaryMid)
-                                            .cornerRadius(20)
-
-                                        HStack(spacing: 4) {
-                                            Circle()
-                                                .fill(staff.isActive ? Color.green : Color.gray)
-                                                .frame(width: 7, height: 7)
-                                            Text(staff.isActive ? "Active" : "Inactive")
-                                                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                                .foregroundColor(staff.isActive ? Color.green : AppTheme.textSecondary)
-                                        }
-                                    }
-                                    .padding(.top, 4)
+                                        .frame(width: 44, height: 44)
+                                        .background(AppTheme.cardSurface)
+                                        .clipShape(Circle())
                                 }
                             }
-                            .offset(y: 40)
+                            .padding(.horizontal, 24)
+                            .padding(.top, 16)
+                            Spacer()
                         }
-                        .padding(.bottom, 40)
-                        .offset(y: animate ? 0 : -20)
-                        .opacity(animate ? 1 : 0)
+
+                        // Avatar
+                        VStack(spacing: 8) {
+                            Circle()
+                                .fill(AppTheme.cardSurface)
+                                .frame(width: 110, height: 110)
+                                .shadow(radius: 10)
+                                .overlay(
+                                    Text(initials)
+                                        .font(.system(size: 40, weight: .bold))
+                                        .foregroundColor(AppTheme.primaryDark)
+                                )
+                                .offset(y: 40)
+                        }
+                    }
+
+                    // Name & Role & Status
+                    VStack(spacing: 4) {
+                        Text(staff.role.displayName)
+                            .font(.system(size: 14))
+                            .foregroundColor(AppTheme.textSecondary)
+
+                        Text(staff.fullName)
+                            .font(.system(size: 26, weight: .heavy))
+                            .foregroundColor(AppTheme.textPrimary)
+
+                        HStack(spacing: 6) {
+                            Image(systemName: "envelope.fill")
+                                .font(.system(size: 11))
+                            Text(staff.email)
+                                .font(.system(size: 13, design: .rounded))
+                        }
+                        .foregroundColor(AppTheme.textSecondary)
+                        .padding(.top, 2)
+
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(staff.isActive ? Color.green : Color.gray)
+                                .frame(width: 7, height: 7)
+                            Text(staff.isActive ? "Active" : "Inactive")
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                .foregroundColor(staff.isActive ? Color.green : AppTheme.textSecondary)
+                        }
+                        .padding(.top, 4)
+                    }
+                    .padding(.top, 50)
+
+                    // INFO CARDS
+                    VStack(spacing: 20) {
 
                         // PERSONAL DETAILS CARD
                         VStack(alignment: .leading, spacing: 14) {
                             sectionLabel("Personal Details", icon: "person.text.rectangle.fill")
-
                             editableField("Full Name", icon: "person.fill", text: $fullName)
                             editableField("Phone Number", icon: "phone.fill", text: $phoneNumber, keyboard: .phonePad)
                         }
@@ -178,14 +186,10 @@ struct EditStaffView: View {
                         .background(AppTheme.cardSurface)
                         .cornerRadius(20)
                         .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
-                        .padding(.horizontal, 20)
-                        .offset(y: animate ? 0 : 25)
-                        .opacity(animate ? 1 : 0)
 
                         // PROFESSIONAL DETAILS CARD
                         VStack(alignment: .leading, spacing: 14) {
                             sectionLabel("Professional Details", icon: "briefcase.fill")
-
                             editableField("Employee ID", icon: "creditcard.fill", text: $employeeID)
                             editableField("Department", icon: "building.2.fill", text: $department)
 
@@ -198,24 +202,17 @@ struct EditStaffView: View {
                         .background(AppTheme.cardSurface)
                         .cornerRadius(20)
                         .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
-                        .padding(.horizontal, 20)
-                        .offset(y: animate ? 0 : 30)
-                        .opacity(animate ? 1 : 0)
 
                         // TIME SLOTS CARD (doctors only)
                         if staff.role == .doctor {
                             VStack(alignment: .leading, spacing: 14) {
                                 sectionLabel("Availability", icon: "clock.fill")
-
                                 timeSlotSection
                             }
                             .padding(20)
                             .background(AppTheme.cardSurface)
                             .cornerRadius(20)
                             .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
-                            .padding(.horizontal, 20)
-                            .offset(y: animate ? 0 : 35)
-                            .opacity(animate ? 1 : 0)
                         }
 
                         // SAVE BUTTON
@@ -244,9 +241,7 @@ struct EditStaffView: View {
                             .shadow(color: formValid ? AppTheme.primary.opacity(0.25) : .clear, radius: 10, x: 0, y: 5)
                         }
                         .disabled(isLoading || !formValid)
-                        .padding(.horizontal, 20)
-                        .offset(y: animate ? 0 : 40)
-                        .opacity(animate ? 1 : 0)
+                        .padding(.top, 8)
 
                         // DEACTIVATE / REACTIVATE BUTTON
                         if let onDeactivate = onDeactivate, staff.isActive {
@@ -271,7 +266,6 @@ struct EditStaffView: View {
                                 .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
                             }
                             .buttonStyle(.plain)
-                            .padding(.horizontal, 20)
                             .confirmationDialog(
                                 "Deactivate \(staff.fullName)?",
                                 isPresented: $showDeactivateConfirm,
@@ -309,7 +303,6 @@ struct EditStaffView: View {
                                 .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
                             }
                             .buttonStyle(.plain)
-                            .padding(.horizontal, 20)
                             .confirmationDialog(
                                 "Reactivate \(staff.fullName)?",
                                 isPresented: $showReactivateConfirm,
@@ -324,44 +317,26 @@ struct EditStaffView: View {
                                 Text("This will restore login access and functionality for \(staff.fullName).")
                             }
                         }
-
-                        Spacer(minLength: 30)
                     }
-                    .padding(.bottom, 20)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 24)
+                    .padding(.bottom, 100)
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(AppTheme.textPrimary)
-                            .frame(width: 36, height: 36)
-                            .background(AppTheme.cardSurface)
-                            .clipShape(Circle())
-                            .shadow(color: Color.black.opacity(0.06), radius: 4, x: 0, y: 2)
-                    }
-                }
+        }
+        .navigationBarHidden(true)
+        .alert("Error", isPresented: $showError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage)
+        }
+        .alert("Success", isPresented: $showSuccess) {
+            Button("Done") {
+                onUpdate()
+                dismiss()
             }
-            .alert("Error", isPresented: $showError) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(errorMessage)
-            }
-            .alert("Success", isPresented: $showSuccess) {
-                Button("Done") {
-                    onUpdate()
-                    dismiss()
-                }
-            } message: {
-                Text("Staff details updated successfully.")
-            }
-            .onAppear {
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
-                    animate = true
-                }
-            }
+        } message: {
+            Text("Staff details updated successfully.")
         }
     }
 

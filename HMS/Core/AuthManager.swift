@@ -985,7 +985,52 @@ class AuthManager {
         try await doctorRef.updateData(updates)
         try await db.collection("doctors").document(doctorId).updateData(updates)
     }
+
+    // MARK: - Notifications
+
+    /// Save a notification document to Firestore
+    func saveNotification(_ notification: AppNotification) async throws {
+        let data = try Firestore.Encoder().encode(notification)
+        try await db.collection("notifications").document(notification.id).setData(data)
+    }
+
+    /// Fetch scheduled appointments that conflict with a doctor's new unavailability
+    func fetchConflictingAppointments(
+        doctorId: String,
+        date: String,
+        unavailabilityType: String,
+        unavailStartTime: String?,
+        unavailEndTime: String?
+    ) async throws -> [Appointment] {
+        // Get all appointments for this doctor on this date
+        let snapshot = try await db.collection("appointments")
+            .whereField("doctorId", isEqualTo: doctorId)
+            .whereField("date", isEqualTo: date)
+            .getDocuments()
+
+        let appointments = snapshot.documents.compactMap {
+            try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
+        }.filter { $0.status == "scheduled" }
+
+        if unavailabilityType == "unavailable" {
+            // Full day unavailable — all appointments on this date conflict
+            return appointments
+        }
+
+        if unavailabilityType == "halfDay",
+           let uStart = unavailStartTime,
+           let uEnd = unavailEndTime {
+            // Half day — only appointments whose time overlaps [uStart, uEnd)
+            return appointments.filter { appt in
+                // Overlap check: appt.start < unavailEnd AND appt.end > unavailStart
+                appt.startTime < uEnd && appt.endTime > uStart
+            }
+        }
+
+        return []
+    }
 } // <-- Close AuthManager class here
+
 
 // MARK: - Auth Errors
 enum AuthError: LocalizedError {

@@ -26,11 +26,47 @@ final class InventoryRepository {
     }
 
     func fetchInventory(category: InventoryCategory) async throws -> [InventoryItem] {
+        // Fetch from the 'inventory' collection
         let snapshot = try await db.collection("inventory")
             .whereField("category", isEqualTo: category.rawValue)
             .whereField("isActive", isEqualTo: true)
             .getDocuments()
-        return try snapshot.documents.compactMap { try $0.data(as: InventoryItem.self) }
+        var items = try snapshot.documents.compactMap { try $0.data(as: InventoryItem.self) }
+
+        // For medicines, also fetch from the legacy 'medicines' collection
+        if category == .medicines {
+            let medSnapshot = try await db.collection("medicines").getDocuments()
+            let legacyMeds: [InventoryItem] = medSnapshot.documents.compactMap { doc in
+                let d = doc.data()
+                let name = d["name"] as? String ?? ""
+                let quantity = d["quantity"] as? Int ?? 0
+                let typeStr = d["type"] as? String ?? "Tablets"
+                let medType: MedicineType = typeStr.lowercased().contains("liquid") || typeStr.lowercased().contains("injection") || typeStr.lowercased().contains("syrup") ? .liquid : .tablet
+                let medCategory = d["category"] as? String  // e.g. "Antivirals", "Analgesics"
+
+                // Skip if an inventory item with the same name already exists
+                if items.contains(where: { $0.name.lowercased() == name.lowercased() }) {
+                    return nil
+                }
+
+                return InventoryItem(
+                    id: doc.documentID,
+                    name: name,
+                    category: .medicines,
+                    medicineType: medType,
+                    department: medCategory,
+                    quantity: quantity,
+                    unitPrice: 0,
+                    unit: medType == .liquid ? "ml" : "tablet",
+                    isActive: true,
+                    createdAt: nil,
+                    updatedAt: nil
+                )
+            }
+            items.append(contentsOf: legacyMeds)
+        }
+
+        return items
     }
 
     /// Doctor-side: return medicines filtered to a specific department (or all medicines if nil)
@@ -94,6 +130,111 @@ final class InventoryRepository {
         return snapshot.documents
             .compactMap { try? $0.data(as: HMSInvoice.self) }
             .sorted { $0.date > $1.date }
+    }
+    
+    func fetchUnifiedPaidTransactions(patientId: String) async throws -> [HMSInvoice] {
+        var all: [HMSInvoice] = []
+        
+        let invoices = try await fetchInvoices(patientId: patientId).filter { $0.status == .paid }
+        all.append(contentsOf: invoices)
+        
+        do {
+            let snap = try await db.collection("appointments")
+                .whereField("patientId", isEqualTo: patientId)
+                .getDocuments()
+                
+            let doctorsSnap = try await db.collection("doctors").getDocuments()
+            var feeMap: [String: Double] = [:]
+            for d in doctorsSnap.documents {
+                feeMap[d.documentID] = d.data()["consultationFee"] as? Double ?? 499.0
+            }
+            
+            for doc in snap.documents {
+                let d = doc.data()
+                let status = d["status"] as? String ?? ""
+                if status != "scheduled" && status != "completed" { continue }
+                
+                guard
+                    let doctorId = d["doctorId"] as? String,
+                    let doctor = d["doctorName"] as? String,
+                    let dateStr = d["date"] as? String,
+                    let name = d["patientName"] as? String
+                else { continue }
+                
+                let dtFormatter = DateFormatter()
+                dtFormatter.dateFormat = "yyyy-MM-dd"
+                let scheduledDate = dtFormatter.date(from: dateStr) ?? Date()
+                
+                let createdAtTS = d["createdAt"] as? Timestamp
+                let paymentDate = createdAtTS?.dateValue() ?? scheduledDate
+                
+                let fee = feeMap[doctorId] ?? 499.0
+                
+                let item = HMSInvoiceItem(id: UUID().uuidString, name: "Consultation – \(doctor)", quantity: 1, unitPrice: fee, amount: fee)
+                let pseudoInvoice = HMSInvoice(
+                    id: doc.documentID,
+                    patientId: patientId,
+                    patientName: name,
+                    items: [item],
+                    subTotal: fee,
+                    tax: 0,
+                    totalAmount: fee,
+                    status: .paid,
+                    date: paymentDate,
+                    generatedBy: "System",
+                    paidAt: paymentDate,
+                    razorpayPaymentId: "txn_\(doc.documentID.prefix(6))"
+                )
+                all.append(pseudoInvoice)
+            }
+        } catch { print("Appt fetch failed: \(error)") }
+        
+        do {
+            let snap = try await db.collection("patient_lab_requests")
+                .whereField("patientId", isEqualTo: patientId)
+                .getDocuments()
+                
+            for doc in snap.documents {
+                let d = doc.data()
+                guard
+                    let name = d["patientName"] as? String,
+                    let amount = d["totalAmount"] as? Double,
+                    let dateTS = d["dateRequested"] as? Timestamp,
+                    amount > 0
+                else { continue }
+                
+                let tests = (d["tests"] as? [[String: Any]] ?? [])
+                var items: [HMSInvoiceItem] = []
+                for (idx, testData) in tests.enumerated() {
+                    let tName = testData["name"] as? String ?? "Lab Test"
+                    let tPrice = testData["price"] as? Double ?? 0
+                    if tPrice > 0 {
+                        items.append(HMSInvoiceItem(id: "\(idx)", name: tName, quantity: 1, unitPrice: tPrice, amount: tPrice))
+                    }
+                }
+                if items.isEmpty {
+                    items.append(HMSInvoiceItem(id: UUID().uuidString, name: "Various Lab Tests", quantity: 1, unitPrice: amount, amount: amount))
+                }
+                
+                let pseudoInvoice = HMSInvoice(
+                    id: doc.documentID,
+                    patientId: patientId,
+                    patientName: name,
+                    items: items,
+                    subTotal: amount,
+                    tax: 0,
+                    totalAmount: amount,
+                    status: .paid,
+                    date: dateTS.dateValue(),
+                    generatedBy: "System",
+                    paidAt: dateTS.dateValue(),
+                    razorpayPaymentId: "txn_\(doc.documentID.prefix(6))"
+                )
+                all.append(pseudoInvoice)
+            }
+        } catch { print("Lab fetch failed: \(error)") }
+        
+        return all.sorted { $0.date > $1.date }
     }
 
     func fetchAllInvoices() async throws -> [HMSInvoice] {
