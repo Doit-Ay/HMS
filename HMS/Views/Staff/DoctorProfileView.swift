@@ -284,12 +284,19 @@ struct DoctorProfileView: View {
             let email          = data["email"]          as? String ?? user.email
             let department     = data["department"]     as? String ?? "Not Set"
             let dateJoined     = data["createdAt"]      as? Timestamp
+            let avgRating      = data["averageRating"]  as? Double
             
             await MainActor.run {
                 profileName = fullName.hasPrefix("Dr.") ? fullName : "Dr. \(fullName)"
                 profileSpecialty = (department != "Not Set") ? department : (specialty != "Not Set" ? specialty : "Consultation")
                 profileImage = String(fullName.replacingOccurrences(of: "Dr. ", with: "").prefix(1))
                 profileImageURL = data["profileImageURL"] as? String ?? user.profileImageURL
+                
+                if let r = avgRating, r > 0 {
+                    rating = String(format: "%.1f", r)
+                } else {
+                    rating = "N/A"
+                }
                 
                 personalFields = [
                     ProfileInfoField(title: "Full Name", value: fullName),
@@ -319,6 +326,12 @@ struct DoctorProfileView: View {
             profileSpecialty = user.department ?? user.specialization ?? "Consultation"
             profileImage = String(user.fullName.replacingOccurrences(of: "Dr. ", with: "").prefix(1))
             profileImageURL = user.profileImageURL
+            
+            if let r = user.averageRating, r > 0 {
+                rating = String(format: "%.1f", r)
+            } else {
+                rating = "N/A"
+            }
             
             personalFields = [
                 ProfileInfoField(title: "Full Name", value: user.fullName),
