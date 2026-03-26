@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 import FirebaseFirestore
 
 // MARK: - Shared Profile View (used by admin)
@@ -15,6 +16,9 @@ struct ProfileView: View {
     @State private var profileName = "Loading..."
     @State private var profileImage = "A"
     @State private var roleLabel = ""
+    @State private var profileImageURL: String? = nil
+    @State private var selectedPhotoItem: PhotosPickerItem? = nil
+    @State private var isUploadingPhoto = false
 
     // Editable fields
     @State private var personalFields: [ProfileInfoField] = []
@@ -81,28 +85,13 @@ struct ProfileView: View {
 
                         // Avatar
                         VStack(spacing: 8) {
-                            ZStack(alignment: .bottomTrailing) {
-                                Circle()
-                                    .fill(AppTheme.cardSurface)
-                                    .frame(width: 110, height: 110)
-                                    .shadow(radius: 10)
-                                    .overlay(
-                                        Text(profileImage)
-                                            .font(.system(size: 40, weight: .bold))
-                                            .foregroundColor(AppTheme.primaryDark)
-                                    )
-
-                                if isEditing {
-                                    Circle()
-                                        .fill(AppTheme.primary)
-                                        .frame(width: 32, height: 32)
-                                        .overlay(
-                                            Image(systemName: "camera.fill")
-                                                .foregroundColor(.white)
-                                        )
-                                }
-                            }
-                            .offset(y: 40)
+                            ProfilePhotoView(
+                                initial: profileImage,
+                                imageURL: profileImageURL,
+                                isEditing: isEditing,
+                                isUploading: isUploadingPhoto,
+                                selectedItem: $selectedPhotoItem
+                            )
                         }
                     }
 
@@ -154,23 +143,14 @@ struct ProfileView: View {
                 }
             }
 
-            // Save toast
-            if showSaveToast {
-                HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.white)
-                    Text("Profile updated successfully")
-                        .foregroundColor(.white)
-                }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
-                .background(Color.green)
-                .clipShape(Capsule())
-                .padding(.bottom, 40)
-            }
         }
         .navigationBarHidden(true)
         .onAppear { loadUserData() }
+        .alert("Success", isPresented: $showSaveToast) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Profile updated successfully")
+        }
         .alert("Sign Out", isPresented: $showLogoutAlert) {
             Button("Cancel", role: .cancel) {}
             Button("Sign Out", role: .destructive) {
@@ -178,6 +158,27 @@ struct ProfileView: View {
             }
         } message: {
             Text("Are you sure you want to sign out?")
+        }
+        .onChange(of: selectedPhotoItem) { newItem in
+            guard let item = newItem,
+                  let userId = UserSession.shared.currentUser?.id else { return }
+            Task {
+                isUploadingPhoto = true
+                do {
+                    let url = try await ProfilePhotoManager.shared.uploadProfilePhoto(pickerItem: item, userId: userId)
+                    await MainActor.run {
+                        profileImageURL = url
+                        isUploadingPhoto = false
+                        selectedPhotoItem = nil
+                    }
+                } catch {
+                    print("❌ Photo upload failed: \(error)")
+                    await MainActor.run {
+                        isUploadingPhoto = false
+                        selectedPhotoItem = nil
+                    }
+                }
+            }
         }
     }
 
@@ -188,11 +189,12 @@ struct ProfileView: View {
         profileName = user.fullName
         profileImage = String(user.fullName.prefix(1))
         roleLabel = user.role.displayName
+        profileImageURL = user.profileImageURL
 
         personalFields = [
             ProfileInfoField(title: "Full Name", value: user.fullName),
             ProfileInfoField(title: "Gender", value: user.gender ?? "Not Set", options: ["Male", "Female", "Other"]),
-            ProfileInfoField(title: "Date of Birth", value: user.dateOfBirth ?? "Not Set")
+            ProfileInfoField(title: "Date of Birth", value: user.dateOfBirth ?? "Not Set", isDateField: true)
         ]
 
         contactFields = [
@@ -268,10 +270,7 @@ struct ProfileView: View {
     }
 
     private func triggerToast() {
-        withAnimation { showSaveToast = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-            withAnimation { showSaveToast = false }
-        }
+        showSaveToast = true
     }
 }
 

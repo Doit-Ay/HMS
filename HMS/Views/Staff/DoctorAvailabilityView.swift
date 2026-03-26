@@ -34,6 +34,7 @@ struct DoctorAvailabilityView: View {
     // Toast & Alert State
     @State private var showToast = false
     @State private var showConflictAlert = false
+    @State private var showBookedSlotAlert = false
     @State private var errorMessage: String? = nil
     @State private var isSaving = false
     @State private var isLoading = false
@@ -57,14 +58,26 @@ struct DoctorAvailabilityView: View {
     /// Save button only visible when something actually changed
     private var hasChanges: Bool {
         guard selectedDate != nil else { return false }
-        if markAsSelection != originalSelection { return true }
-        // Also check if slot selection changed for halfDay
+        
+        // For halfDay (custom), only show Save when at least one slot is selected
+        // AND the selection differs from what's stored
         if markAsSelection == .halfDay {
+            guard !selectedUnavailableSlots.isEmpty else { return false }
             let startOfDay = Calendar.current.startOfDay(for: selectedDate!)
             let stored = Set(storedUnavailableSlots[startOfDay] ?? [])
-            return selectedUnavailableSlots != stored
+            // Show save if slots changed OR we just switched to halfDay mode
+            return selectedUnavailableSlots != stored || originalSelection != .halfDay
         }
-        return false
+        
+        // For available/unavailable toggles, show when selection changed
+        return markAsSelection != originalSelection
+    }
+    
+    /// Number of selected slots that already have booked appointments
+    private var bookedSlotsInSelection: [(start: String, end: String)] {
+        availableSlots.filter { slot in
+            slot.isBooked && selectedUnavailableSlots.contains("\(slot.start)-\(slot.end)")
+        }.map { (start: $0.start, end: $0.end) }
     }
     
     /// Resolve the target doctor (override for admin, or logged-in user)
@@ -223,24 +236,6 @@ struct DoctorAvailabilityView: View {
                     .padding(.bottom, 8)
                     .transition(.opacity)
             }
-            
-            // 6. Success Toast
-            if showToast {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.white)
-                    Text("Availability updated")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white)
-                }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
-                .background(Color.green)
-                .clipShape(Capsule())
-                .shadow(color: Color.green.opacity(0.4), radius: 8, x: 0, y: 4)
-                .padding(.bottom, 40)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
         }
         .onAppear {
             withAnimation(.easeOut(duration: 0.6)) {
@@ -252,12 +247,28 @@ struct DoctorAvailabilityView: View {
                 fetchSlotsForDate(date)
             }
         }
+        .refreshable { loadUnavailability() }
+        .alert("Success", isPresented: $showToast) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Availability updated")
+        }
         // Conflict Alert Modal
         .alert(isPresented: $showConflictAlert) {
             Alert(
                 title: Text("Conflict Detected"),
                 message: Text("You have appointments on this day. Marking unavailable will notify patients."),
                 primaryButton: .destructive(Text("Mark Anyway")) { executeSave() },
+                secondaryButton: .cancel()
+            )
+        }
+        // Booked Slot Cancellation Alert
+        .alert(isPresented: $showBookedSlotAlert) {
+            let count = bookedSlotsInSelection.count
+            return Alert(
+                title: Text("Cancel Booked Appointment\(count > 1 ? "s" : "")"),
+                message: Text("\(count) selected slot\(count > 1 ? "s have" : " has") an active booking. Marking \(count > 1 ? "them" : "it") unavailable will cancel the appointment\(count > 1 ? "s" : "") and notify the patient\(count > 1 ? "s" : "") to reschedule."),
+                primaryButton: .destructive(Text("Cancel & Notify")) { executeSave() },
                 secondaryButton: .cancel()
             )
         }
@@ -376,6 +387,13 @@ struct DoctorAvailabilityView: View {
             return
         }
         errorMessage = nil
+        
+        // Check if any selected unavailable slots have booked appointments
+        if markAsSelection == .halfDay && !bookedSlotsInSelection.isEmpty {
+            showBookedSlotAlert = true
+            return
+        }
+        
         executeSave()
     }
     
@@ -456,7 +474,20 @@ struct DoctorAvailabilityView: View {
                         storedUnavailableSlots[startOfDay] = slotsArray
                     }
                     
-                    // Notify patients with conflicting appointments for each selected slot
+                    // Auto-cancel booked appointments for selected slots & notify patients
+                    let bookedToCancel = bookedSlotsInSelection
+                    for slot in bookedToCancel {
+                        // Cancel the booked appointment for this slot
+                        await cancelBookedSlotAppointment(
+                            doctorId: doctorId,
+                            doctorName: docName,
+                            date: dateString,
+                            startTime: slot.start,
+                            endTime: slot.end
+                        )
+                    }
+                    
+                    // Also notify patients for non-booked slots that may have future bookings
                     for slotKey in slotsArray {
                         let parts = slotKey.split(separator: "-").map(String.init)
                         if parts.count == 2 {
@@ -472,15 +503,10 @@ struct DoctorAvailabilityView: View {
                     }
                 }
                 
-                // Show success toast
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    showToast = true
-                }
+                // Show success alert
+                showToast = true
                 // Sync original so Save button hides
                 originalSelection = markAsSelection
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                    withAnimation { showToast = false }
-                }
             } catch {
                 withAnimation { errorMessage = error.localizedDescription }
             }
@@ -537,6 +563,57 @@ struct DoctorAvailabilityView: View {
             }
         } catch {
             print("⚠️ Failed to notify conflicting patients: \(error.localizedDescription)")
+        }
+    }
+    
+    // MARK: - Cancel Booked Appointment for Unavailable Slot
+    
+    /// Cancels any booked appointment matching the given slot and sends a reschedule notification.
+    private func cancelBookedSlotAppointment(
+        doctorId: String,
+        doctorName: String,
+        date: String,
+        startTime: String,
+        endTime: String
+    ) async {
+        do {
+            // Find the booked appointment for this exact slot
+            let appointments = try await AuthManager.shared.fetchDoctorAppointments(
+                doctorId: doctorId, date: date, forceRefresh: true
+            ).filter { $0.status == "scheduled" && $0.startTime == startTime && $0.endTime == endTime }
+            
+            for appointment in appointments {
+                // Cancel the appointment with doctor_unavailable reason
+                try await AuthManager.shared.cancelAppointmentAsDoctorUnavailable(
+                    appointmentId: appointment.id,
+                    slotId: appointment.slotId
+                )
+                
+                // Format date for notification
+                let displayDate: String = {
+                    let inFmt = DateFormatter(); inFmt.dateFormat = "yyyy-MM-dd"
+                    guard let d = inFmt.date(from: date) else { return date }
+                    let outFmt = DateFormatter(); outFmt.dateFormat = "MMM d, yyyy"
+                    return outFmt.string(from: d)
+                }()
+                
+                // Send reschedule notification to patient
+                let notification = AppNotification(
+                    id: UUID().uuidString,
+                    recipientId: appointment.patientId,
+                    title: "Appointment Cancelled – Reschedule Required",
+                    message: "Your appointment with Dr. \(doctorName) on \(displayDate) at \(startTime) has been cancelled because the doctor is no longer available. Please reschedule at your earliest convenience.",
+                    type: "reschedule_request",
+                    appointmentId: appointment.id,
+                    doctorId: doctorId,
+                    isRead: false,
+                    createdAt: Date()
+                )
+                try await AuthManager.shared.saveNotification(notification)
+                print("📬 Cancelled appointment \(appointment.id) and notified patient \(appointment.patientId)")
+            }
+        } catch {
+            print("⚠️ Failed to cancel booked slot appointment: \(error.localizedDescription)")
         }
     }
 

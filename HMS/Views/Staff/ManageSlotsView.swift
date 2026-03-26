@@ -75,6 +75,7 @@ struct ManageSlotsView: View {
                 animate = true
             }
         }
+        .refreshable { await loadDoctors() }
         .toolbar(.hidden, for: .tabBar)
     }
 
@@ -368,6 +369,7 @@ struct DoctorSlotOverlay: View {
                 AddSlotSheet(doctor: doctor, date: selectedDate, onSuccess: { fetchSlots() })
             }
             .onAppear { fetchSlots() }
+            .refreshable { fetchSlots() }
         }
     }
 

@@ -166,6 +166,7 @@ struct AdminRevenueDashboardView: View {
             .navigationTitle("Financial Overview")
             .navigationBarTitleDisplayMode(.inline)
             .task { await loadAllRevenue() }
+            .refreshable { await loadAllRevenue() }
         }
     }
 

@@ -7,13 +7,16 @@ struct ProfileInfoField {
     let keyboardType: UIKeyboardType
     // Optional array for dropdown options
     let options: [String]?
+    // Whether this field should use a date picker
+    let isDateField: Bool
     
-    init(title: String, value: String, isEditable: Bool = true, keyboardType: UIKeyboardType = .default, options: [String]? = nil) {
+    init(title: String, value: String, isEditable: Bool = true, keyboardType: UIKeyboardType = .default, options: [String]? = nil, isDateField: Bool = false) {
         self.title = title
         self.value = value
         self.isEditable = isEditable
         self.keyboardType = keyboardType
         self.options = options
+        self.isDateField = isDateField
     }
 }
 
@@ -84,6 +87,9 @@ struct ProfileInfoCard: View {
                                             .stroke(AppTheme.primary, lineWidth: 1)
                                     )
                                 }
+                            } else if fields[index].isDateField {
+                                // Date picker
+                                DatePickerField(value: $fields[index].value)
                             } else {
                                 // Text input field
                                 TextField("", text: $fields[index].value)
@@ -157,6 +163,64 @@ struct ProfileInfoCardPreview: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(AppTheme.background.ignoresSafeArea())
+    }
+}
+
+// MARK: - Date Picker Field
+struct DatePickerField: View {
+    @Binding var value: String
+    @State private var selectedDate = Date()
+    @State private var hasInitialized = false
+    
+    private let displayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "dd MMM yyyy"
+        return f
+    }()
+    
+    private let storedFormats: [DateFormatter] = {
+        let formats = ["dd MMM yyyy", "yyyy-MM-dd", "MM/dd/yyyy", "d MMMM yyyy", "MMM d, yyyy"]
+        return formats.map { fmt in
+            let f = DateFormatter()
+            f.dateFormat = fmt
+            return f
+        }
+    }()
+    
+    var body: some View {
+        DatePicker(
+            "",
+            selection: $selectedDate,
+            in: ...Date(),
+            displayedComponents: .date
+        )
+        .datePickerStyle(.compact)
+        .labelsHidden()
+        .tint(AppTheme.primary)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.cardSurface)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(AppTheme.primary, lineWidth: 1)
+        )
+        .onAppear {
+            if !hasInitialized {
+                // Try to parse the existing value
+                for fmt in storedFormats {
+                    if let date = fmt.date(from: value) {
+                        selectedDate = date
+                        break
+                    }
+                }
+                hasInitialized = true
+            }
+        }
+        .onChange(of: selectedDate) { newDate in
+            value = displayFormatter.string(from: newDate)
+        }
     }
 }
 

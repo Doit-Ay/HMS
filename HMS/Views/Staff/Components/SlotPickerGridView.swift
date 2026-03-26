@@ -1,5 +1,54 @@
 import SwiftUI
 
+// MARK: - Chip Color Set
+private struct ChipColors {
+    let text: Color
+    let subtext: Color
+    let background: Color
+    let border: Color
+    let shadow: Color
+}
+
+// MARK: - Slot Chip Label (extracted to avoid type-checker timeout)
+private struct SlotChipLabel: View {
+    let startText: String
+    let endText: String
+    let isSelected: Bool
+    let showBadge: Bool
+    let colors: ChipColors
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            VStack(spacing: 4) {
+                Text(startText)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                Text(endText)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundColor(colors.subtext)
+            }
+            .foregroundColor(colors.text)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(colors.background)
+            .cornerRadius(14)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(colors.border, lineWidth: isSelected ? 1.5 : 1)
+            )
+            .shadow(color: colors.shadow, radius: isSelected ? 6 : 3, x: 0, y: isSelected ? 3 : 1)
+            .scaleEffect(isSelected ? 1.03 : 1.0)
+
+            if showBadge {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.red)
+                    .background(Circle().fill(Color.white).frame(width: 12, height: 12))
+                    .offset(x: 4, y: -4)
+            }
+        }
+    }
+}
+
 // MARK: - Slot Picker Grid View
 // Replaces TimeRangePickerView — shows the doctor's actual 30-min slots as selectable chips.
 struct SlotPickerGridView: View {
@@ -25,6 +74,31 @@ struct SlotPickerGridView: View {
         let period = hour >= 12 ? "PM" : "AM"
         let displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour)
         return String(format: "%d:%02d %@", displayHour, minute, period)
+    }
+
+    private func chipColors(isBooked: Bool, isSelected: Bool) -> ChipColors {
+        let isBookedAndSelected = isBooked && isSelected
+        return ChipColors(
+            text: isBookedAndSelected ? .red
+                : isBooked ? Color(hex: "#6366F1")
+                : isSelected ? .orange
+                : AppTheme.textPrimary,
+            subtext: isBookedAndSelected ? Color.red.opacity(0.8)
+                : isBooked ? Color(hex: "#6366F1").opacity(0.7)
+                : isSelected ? Color.orange.opacity(0.8)
+                : AppTheme.textSecondary.opacity(0.6),
+            background: isBookedAndSelected ? Color.red.opacity(0.10)
+                : isBooked ? Color(hex: "#6366F1").opacity(0.08)
+                : isSelected ? Color.orange.opacity(0.12)
+                : AppTheme.cardSurface,
+            border: isBookedAndSelected ? Color.red.opacity(0.5)
+                : isBooked ? Color(hex: "#6366F1").opacity(0.3)
+                : isSelected ? Color.orange.opacity(0.5)
+                : Color.gray.opacity(0.15),
+            shadow: isBookedAndSelected ? Color.red.opacity(0.15)
+                : isSelected ? Color.orange.opacity(0.15)
+                : Color.black.opacity(0.03)
+        )
     }
 
     var body: some View {
@@ -63,70 +137,26 @@ struct SlotPickerGridView: View {
                         let slot = slots[index]
                         let key = slotKey(start: slot.start, end: slot.end)
                         let isSelected = selectedSlotKeys.contains(key)
+                        let colors = chipColors(isBooked: slot.isBooked, isSelected: isSelected)
 
                         Button {
-                            if !slot.isBooked {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                    if isSelected {
-                                        selectedSlotKeys.remove(key)
-                                    } else {
-                                        selectedSlotKeys.insert(key)
-                                    }
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                if isSelected {
+                                    selectedSlotKeys.remove(key)
+                                } else {
+                                    selectedSlotKeys.insert(key)
                                 }
                             }
                         } label: {
-                            VStack(spacing: 4) {
-                                Text(formatTime(slot.start))
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                Text(formatTime(slot.end))
-                                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                                    .foregroundColor(
-                                        slot.isBooked
-                                        ? Color(hex: "#6366F1").opacity(0.7)
-                                        : isSelected
-                                            ? Color.orange.opacity(0.8)
-                                            : AppTheme.textSecondary.opacity(0.6)
-                                    )
-                            }
-                            .foregroundColor(
-                                slot.isBooked
-                                ? Color(hex: "#6366F1")
-                                : isSelected
-                                    ? Color.orange
-                                    : AppTheme.textPrimary
+                            SlotChipLabel(
+                                startText: formatTime(slot.start),
+                                endText: formatTime(slot.end),
+                                isSelected: isSelected,
+                                showBadge: slot.isBooked && isSelected,
+                                colors: colors
                             )
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(
-                                slot.isBooked
-                                ? Color(hex: "#6366F1").opacity(0.08)
-                                : isSelected
-                                    ? Color.orange.opacity(0.12)
-                                    : AppTheme.cardSurface
-                            )
-                            .cornerRadius(14)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .stroke(
-                                        slot.isBooked
-                                        ? Color(hex: "#6366F1").opacity(0.3)
-                                        : isSelected
-                                            ? Color.orange.opacity(0.5)
-                                            : Color.gray.opacity(0.15),
-                                        lineWidth: isSelected ? 1.5 : 1
-                                    )
-                            )
-                            .shadow(
-                                color: isSelected ? Color.orange.opacity(0.15) : Color.black.opacity(0.03),
-                                radius: isSelected ? 6 : 3,
-                                x: 0,
-                                y: isSelected ? 3 : 1
-                            )
-                            .scaleEffect(isSelected ? 1.03 : 1.0)
                         }
                         .buttonStyle(.plain)
-                        .disabled(slot.isBooked)
-                        .opacity(slot.isBooked ? 0.6 : 1.0)
                     }
                 }
 
@@ -147,9 +177,10 @@ struct SlotPickerGridView: View {
                 .cornerRadius(10)
 
                 // Legend
-                HStack(spacing: 16) {
+                HStack(spacing: 12) {
                     legendItem(color: Color.orange, label: "Unavailable")
                     legendItem(color: Color(hex: "#6366F1"), label: "Booked")
+                    legendItem(color: Color.red, label: "Will Cancel")
                 }
                 .padding(.top, 4)
             }

@@ -1,7 +1,9 @@
 import SwiftUI
+import FirebaseFirestore
 
 struct DoctorHomeViewController: View {
     @State private var appearAnimation = false
+    @State private var appointmentListener: ListenerRegistration?
     @State private var selectedDate = Date()
     
     // Details Sheet State
@@ -200,9 +202,16 @@ struct DoctorHomeViewController: View {
                 appearAnimation = true
             }
             loadTodayAppointments()
+            startAppointmentListener()
         }
+        .onDisappear {
+            appointmentListener?.remove()
+            appointmentListener = nil
+        }
+        .refreshable { loadTodayAppointments() }
         .onChange(of: selectedDate) { _ in
             loadTodayAppointments()
+            startAppointmentListener()
         }
 
         .sheet(item: $selectedAppointment) { appt in
@@ -217,6 +226,26 @@ struct DoctorHomeViewController: View {
         .sheet(isPresented: $showProfile) {
             DoctorProfileView()
         }
+    }
+    
+    // MARK: - Real-Time Listener
+    private func startAppointmentListener() {
+        appointmentListener?.remove()
+        guard let doctorId = UserSession.shared.currentUser?.id else { return }
+        
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        let dateStr = formatter.string(from: selectedDate)
+        
+        appointmentListener = Firestore.firestore()
+            .collection("appointments")
+            .whereField("doctorId", isEqualTo: doctorId)
+            .whereField("date", isEqualTo: dateStr)
+            .addSnapshotListener { _, _ in
+                // Invalidate cache and reload
+                CacheManager.shared.invalidate(prefix: "appts_")
+                loadTodayAppointments()
+            }
     }
     
     // MARK: - Load Appointments from Firestore

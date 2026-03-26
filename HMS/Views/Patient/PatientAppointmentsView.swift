@@ -223,6 +223,7 @@ struct PatientAppointmentsView: View {
             }
         }
         .task { await fetchAppointments() }
+        .refreshable { await fetchAppointments() }
         .toolbar(.hidden, for: .tabBar)
     }
 

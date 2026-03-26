@@ -88,6 +88,7 @@ struct AppointmentStatsView: View {
                 animate = true
             }
         }
+        .refreshable { await loadData() }
     }
 
     // MARK: - Today Hero Card

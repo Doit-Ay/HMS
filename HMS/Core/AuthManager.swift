@@ -393,7 +393,7 @@ class AuthManager {
     func updateCurrentDoctorProfile(
         uid: String,
         fullName: String,
-        specialization: String?,
+        department: String?,
         phoneNumber: String?,
         dateOfBirth: String?,
         gender: String?
@@ -401,7 +401,7 @@ class AuthManager {
         // 1. PRIMARY: Update `doctors` collection with ALL fields explicitly
         let doctorUpdates: [String: Any] = [
             "fullName":       fullName,
-            "specialization": specialization ?? "Not Set",
+            "department":     department     ?? "Not Set",
             "phoneNumber":    phoneNumber    ?? "Not Set",
             "dateOfBirth":    dateOfBirth    ?? "Not Set",
             "gender":         gender         ?? "Not Set"
@@ -413,7 +413,7 @@ class AuthManager {
             if let user = UserSession.shared.currentUser {
                 var updatedUser = user
                 updatedUser.fullName = fullName
-                updatedUser.specialization = specialization ?? updatedUser.specialization
+                updatedUser.department = department ?? updatedUser.department
                 updatedUser.phoneNumber = phoneNumber ?? updatedUser.phoneNumber
                 updatedUser.dateOfBirth = dateOfBirth ?? updatedUser.dateOfBirth
                 updatedUser.gender = gender ?? updatedUser.gender
@@ -477,13 +477,19 @@ class AuthManager {
     }
 
     // MARK: - Admin: Fetch Staff Members
-    func fetchStaffMembers() async throws -> [HMSUser] {
+    func fetchStaffMembers(forceRefresh: Bool = false) async throws -> [HMSUser] {
+        let cacheKey = "staff_members"
+        if !forceRefresh, let cached: [HMSUser] = CacheManager.shared.get(forKey: cacheKey) {
+            return cached
+        }
         let snapshot = try await db.collection("users")
             .whereField("role", isNotEqualTo: "patient")
             .getDocuments()
-        return snapshot.documents.compactMap {
+        let result = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(HMSUser.self, from: $0.data())
         }
+        CacheManager.shared.set(result, forKey: cacheKey, ttl: 2)
+        return result
     }
 
     // MARK: - Fetch Patient Profile
@@ -536,11 +542,17 @@ class AuthManager {
     }
 
     // MARK: - Fetch All Patients
-    func fetchPatients() async throws -> [HMSUser] {
+    func fetchPatients(forceRefresh: Bool = false) async throws -> [HMSUser] {
+        let cacheKey = "all_patients"
+        if !forceRefresh, let cached: [HMSUser] = CacheManager.shared.get(forKey: cacheKey) {
+            return cached
+        }
         let snapshot = try await db.collection("users")
             .whereField("role", isEqualTo: UserRole.patient.rawValue)
             .getDocuments()
-        return snapshot.documents.compactMap { try? Firestore.Decoder().decode(HMSUser.self, from: $0.data()) }
+        let result = snapshot.documents.compactMap { try? Firestore.Decoder().decode(HMSUser.self, from: $0.data()) }
+        CacheManager.shared.set(result, forKey: cacheKey, ttl: 2)
+        return result
     }
 
     // MARK: - Fetch All Doctors
@@ -578,14 +590,20 @@ class AuthManager {
     }
 
     /// Fetch all slots for a specific doctor on a given date
-    func fetchSlots(doctorId: String, date: String) async throws -> [DoctorSlot] {
+    func fetchSlots(doctorId: String, date: String, forceRefresh: Bool = false) async throws -> [DoctorSlot] {
+        let cacheKey = "slots_\(doctorId)_\(date)"
+        if !forceRefresh, let cached: [DoctorSlot] = CacheManager.shared.get(forKey: cacheKey) {
+            return cached
+        }
         let snapshot = try await db.collection("doctor_slots")
             .whereField("doctorId", isEqualTo: doctorId)
             .whereField("date", isEqualTo: date)
             .getDocuments()
-        return snapshot.documents.compactMap {
+        let result = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(DoctorSlot.self, from: $0.data())
         }.sorted { $0.startTime < $1.startTime }
+        CacheManager.shared.set(result, forKey: cacheKey, ttl: 2)
+        return result
     }
 
     /// Toggle a slot's status between available and unavailable
@@ -594,21 +612,29 @@ class AuthManager {
             "status": newStatus.rawValue,
             "updatedAt": FieldValue.serverTimestamp()
         ])
+        CacheManager.shared.invalidate(prefix: "slots_")
     }
 
     /// Delete a specific slot
     func deleteSlot(slotId: String) async throws {
         try await db.collection("doctor_slots").document(slotId).delete()
+        CacheManager.shared.invalidate(prefix: "slots_")
     }
 
     /// Fetch ALL slots for a given date (across all doctors)
-    func fetchAllSlots(forDate date: String) async throws -> [DoctorSlot] {
+    func fetchAllSlots(forDate date: String, forceRefresh: Bool = false) async throws -> [DoctorSlot] {
+        let cacheKey = "slots_all_\(date)"
+        if !forceRefresh, let cached: [DoctorSlot] = CacheManager.shared.get(forKey: cacheKey) {
+            return cached
+        }
         let snapshot = try await db.collection("doctor_slots")
             .whereField("date", isEqualTo: date)
             .getDocuments()
-        return snapshot.documents.compactMap {
+        let result = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(DoctorSlot.self, from: $0.data())
         }
+        CacheManager.shared.set(result, forKey: cacheKey, ttl: 2)
+        return result
     }
 
     /// Fetch ALL slots for a given month (format: "yyyy-MM")
@@ -650,7 +676,11 @@ class AuthManager {
     }
 
     /// Fetch all appointments (optionally filtered by date range)
-    func fetchAppointments(from startDate: String? = nil, to endDate: String? = nil) async throws -> [Appointment] {
+    func fetchAppointments(from startDate: String? = nil, to endDate: String? = nil, forceRefresh: Bool = false) async throws -> [Appointment] {
+        let cacheKey = "appts_\(startDate ?? "all")_\(endDate ?? "all")"
+        if !forceRefresh, let cached: [Appointment] = CacheManager.shared.get(forKey: cacheKey) {
+            return cached
+        }
         var query: Query = db.collection("appointments")
         if let start = startDate {
             query = query.whereField("date", isGreaterThanOrEqualTo: start)
@@ -662,18 +692,26 @@ class AuthManager {
         let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }
-        return sanitizeAppointments(appointments)
+        let result = sanitizeAppointments(appointments)
+        CacheManager.shared.set(result, forKey: cacheKey, ttl: 2)
+        return result
     }
 
     /// Fetch appointments for a specific date
-    func fetchAppointments(forDate date: String) async throws -> [Appointment] {
+    func fetchAppointments(forDate date: String, forceRefresh: Bool = false) async throws -> [Appointment] {
+        let cacheKey = "appts_date_\(date)"
+        if !forceRefresh, let cached: [Appointment] = CacheManager.shared.get(forKey: cacheKey) {
+            return cached
+        }
         let snapshot = try await db.collection("appointments")
             .whereField("date", isEqualTo: date)
             .getDocuments()
         let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }
-        return sanitizeAppointments(appointments)
+        let result = sanitizeAppointments(appointments)
+        CacheManager.shared.set(result, forKey: cacheKey, ttl: 2)
+        return result
     }
 
     /// Fetch all appointments in a given month (format: "yyyy-MM")
@@ -696,10 +734,15 @@ class AuthManager {
     func saveUnavailability(_ entry: DoctorUnavailability) async throws {
         let data = try Firestore.Encoder().encode(entry)
         try await db.collection("doctor_unavailability").document(entry.id).setData(data, merge: true)
+        CacheManager.shared.invalidate(prefix: "unavail_")
     }
 
     /// Fetch all unavailability entries for a doctor in a given month (format: "yyyy-MM")
-    func fetchUnavailability(doctorId: String, month: String) async throws -> [DoctorUnavailability] {
+    func fetchUnavailability(doctorId: String, month: String, forceRefresh: Bool = false) async throws -> [DoctorUnavailability] {
+        let cacheKey = "unavail_\(doctorId)_\(month)"
+        if !forceRefresh, let cached: [DoctorUnavailability] = CacheManager.shared.get(forKey: cacheKey) {
+            return cached
+        }
         let startDate = month + "-01"
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
@@ -713,14 +756,17 @@ class AuthManager {
         let snapshot = try await db.collection("doctor_unavailability")
             .whereField("doctorId", isEqualTo: doctorId)
             .getDocuments()
-        return snapshot.documents.compactMap {
+        let result = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(DoctorUnavailability.self, from: $0.data())
         }.filter { $0.date >= startDate && $0.date <= endDate }
+        CacheManager.shared.set(result, forKey: cacheKey, ttl: 2)
+        return result
     }
 
     /// Delete an unavailability entry (when doctor marks day as available again)
     func deleteUnavailability(id: String) async throws {
         try await db.collection("doctor_unavailability").document(id).delete()
+        CacheManager.shared.invalidate(prefix: "unavail_")
     }
 
     /// Delete unavailability for a specific doctor on a specific date
@@ -732,6 +778,7 @@ class AuthManager {
         for doc in snapshot.documents {
             try await doc.reference.delete()
         }
+        CacheManager.shared.invalidate(prefix: "unavail_")
     }
 
     // MARK: - Default Slot Generation
@@ -879,6 +926,10 @@ class AuthManager {
         )
         let slotData = try Firestore.Encoder().encode(slot)
         try await db.collection("doctor_slots").document(slot.id).setData(slotData, merge: true)
+
+        // Invalidate related caches
+        CacheManager.shared.invalidate(prefix: "appts_")
+        CacheManager.shared.invalidate(prefix: "slots_")
     }
 
     /// Update the status of an appointment (e.g. "scheduled" → "completed")
@@ -886,6 +937,7 @@ class AuthManager {
         try await db.collection("appointments").document(appointmentId).updateData([
             "status": status
         ])
+        CacheManager.shared.invalidate(prefix: "appts_")
     }
 
     /// Fetch a single appointment by ID
@@ -896,7 +948,11 @@ class AuthManager {
     }
 
     /// Fetch appointments for a specific doctor on a given date
-    func fetchDoctorAppointments(doctorId: String, date: String) async throws -> [Appointment] {
+    func fetchDoctorAppointments(doctorId: String, date: String, forceRefresh: Bool = false) async throws -> [Appointment] {
+        let cacheKey = "appts_doc_\(doctorId)_\(date)"
+        if !forceRefresh, let cached: [Appointment] = CacheManager.shared.get(forKey: cacheKey) {
+            return cached
+        }
         let snapshot = try await db.collection("appointments")
             .whereField("doctorId", isEqualTo: doctorId)
             .whereField("date", isEqualTo: date)
@@ -904,7 +960,9 @@ class AuthManager {
         let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }.sorted { $0.startTime < $1.startTime }
-        return sanitizeAppointments(appointments)
+        let result = sanitizeAppointments(appointments)
+        CacheManager.shared.set(result, forKey: cacheKey, ttl: 2)
+        return result
     }
     
     /// Fetch all appointments for a specific doctor
@@ -938,14 +996,20 @@ class AuthManager {
     }
 
     /// Fetch appointments for the logged-in patient
-    func fetchPatientAppointments(patientId: String) async throws -> [Appointment] {
+    func fetchPatientAppointments(patientId: String, forceRefresh: Bool = false) async throws -> [Appointment] {
+        let cacheKey = "appts_patient_\(patientId)"
+        if !forceRefresh, let cached: [Appointment] = CacheManager.shared.get(forKey: cacheKey) {
+            return cached
+        }
         let snapshot = try await db.collection("appointments")
             .whereField("patientId", isEqualTo: patientId)
             .getDocuments()
         let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }.sorted { $0.date < $1.date }
-        return sanitizeAppointments(appointments)
+        let result = sanitizeAppointments(appointments)
+        CacheManager.shared.set(result, forKey: cacheKey, ttl: 2)
+        return result
     }
 
     /// Fetch a single doctor's HMSUser record
@@ -996,6 +1060,29 @@ class AuthManager {
         try await db.collection("doctors").document(doctorId).updateData(updates)
     }
 
+    // MARK: - Cancel Appointment as Doctor Unavailable
+    
+    /// Cancels an appointment because the doctor marked the slot as unavailable.
+    /// Sets status to "cancelled", cancelReason to "doctor_unavailable", and frees the slot.
+    func cancelAppointmentAsDoctorUnavailable(appointmentId: String, slotId: String) async throws {
+        // 1. Cancel the appointment
+        try await db.collection("appointments").document(appointmentId).updateData([
+            "status": "cancelled",
+            "cancelReason": "doctor_unavailable",
+            "patientNotified": false
+        ])
+        
+        // 2. Free the slot (set back to available)
+        try await db.collection("doctor_slots").document(slotId).updateData([
+            "status": SlotStatus.available.rawValue,
+            "updatedAt": FieldValue.serverTimestamp()
+        ])
+        
+        // Invalidate caches
+        CacheManager.shared.invalidate(prefix: "appts_")
+        CacheManager.shared.invalidate(prefix: "slots_")
+    }
+    
     // MARK: - Notifications
 
     /// Save a notification document to Firestore

@@ -68,6 +68,7 @@ struct PatientLabRequestsView: View {
         .onAppear {
             Task { await fetchLabRequests() }
         }
+        .refreshable { await fetchLabRequests() }
     }
     
     private func fetchLabRequests() async {

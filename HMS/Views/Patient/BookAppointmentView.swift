@@ -1,10 +1,55 @@
 import SwiftUI
 import FirebaseFirestore
+import Combine
+
+// MARK: - Real-Time Slot Listener
+/// Listens to Firestore changes on doctor_slots and doctor_unavailability
+/// so the patient booking screen updates instantly when a doctor changes availability.
+class SlotListenerManager: ObservableObject {
+    @Published var lastUpdate = Date()
+    private var slotListener: ListenerRegistration?
+    private var unavailListener: ListenerRegistration?
+    private let db = Firestore.firestore()
+    
+    /// Called whenever slots or unavailability change
+    var onSlotsChanged: (() -> Void)?
+    
+    func startListening(doctorId: String, date: String, month: String) {
+        stopListening()
+        
+        // Listen to slot changes for this doctor + date
+        slotListener = db.collection("doctor_slots")
+            .whereField("doctorId", isEqualTo: doctorId)
+            .whereField("date", isEqualTo: date)
+            .addSnapshotListener { [weak self] _, _ in
+                self?.onSlotsChanged?()
+            }
+        
+        // Listen to unavailability changes for this doctor
+        unavailListener = db.collection("doctor_unavailability")
+            .whereField("doctorId", isEqualTo: doctorId)
+            .addSnapshotListener { [weak self] _, _ in
+                self?.onSlotsChanged?()
+            }
+    }
+    
+    func stopListening() {
+        slotListener?.remove()
+        unavailListener?.remove()
+        slotListener = nil
+        unavailListener = nil
+    }
+    
+    deinit {
+        stopListening()
+    }
+}
 
 // MARK: - Book Appointment View (Patient Booking Flow — Step 2)
 struct BookAppointmentView: View {
     let doctor: HMSUser
     @ObservedObject var session = UserSession.shared
+    @StateObject private var slotListener = SlotListenerManager()
     @Environment(\.dismiss) var dismiss
     
     var consultationFee: Int {
@@ -85,6 +130,7 @@ struct BookAppointmentView: View {
                     .padding(.horizontal, 20)
                     .onChange(of: selectedDate) { _ in
                         loadSlotsForSelectedDate()
+                        startSlotListener()
                     }
                     .offset(y: animate ? 0 : 15)
                     .opacity(animate ? 1 : 0)
@@ -217,7 +263,12 @@ struct BookAppointmentView: View {
             }
             loadUnavailability()
             loadSlotsForSelectedDate()
+            startSlotListener()
         }
+        .onDisappear {
+            slotListener.stopListening()
+        }
+        .refreshable { loadSlotsForSelectedDate() }
         // Hidden NavigationLink to push Appointments after booking
         .background(
             NavigationLink(
@@ -307,6 +358,24 @@ struct BookAppointmentView: View {
                 print("⚠️ Error loading unavailability: \(error)")
             }
         }
+    }
+    
+    // MARK: - Real-Time Listener
+    
+    private func startSlotListener() {
+        guard let dateStr = selectedDateString else { return }
+        slotListener.onSlotsChanged = { [self] in
+            // Invalidate cache so we get fresh data
+            CacheManager.shared.invalidate(prefix: "slots_")
+            CacheManager.shared.invalidate(prefix: "unavail_")
+            loadUnavailability()
+            loadSlotsForSelectedDate()
+        }
+        slotListener.startListening(
+            doctorId: doctor.id,
+            date: dateStr,
+            month: visibleMonthString
+        )
     }
     
     // MARK: - Load Slots for Selected Date
