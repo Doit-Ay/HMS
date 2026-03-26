@@ -295,3 +295,18 @@ struct SharedMedicalDocument: Codable, Identifiable {
     var notes: String?
 }
 
+// MARK: - Firestore `notifications` Collection
+// Each document represents a notification sent to a user (e.g. reschedule request).
+// Document ID = auto-generated UUID
+struct AppNotification: Codable, Identifiable {
+    var id: String
+    var recipientId: String          // FK → users/{uid} — the patient to notify
+    var title: String
+    var message: String
+    var type: String                 // "reschedule_request"
+    var appointmentId: String?       // FK → appointments/{id}
+    var doctorId: String?            // FK → users/{uid}
+    var isRead: Bool
+    var createdAt: Date
+}
+

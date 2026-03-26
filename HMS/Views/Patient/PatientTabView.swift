@@ -496,6 +496,7 @@ struct HeaderProfileView: View {
 
     @ObservedObject var session: UserSession
     @Binding var showProfile: Bool
+    @ObservedObject private var notificationManager = NotificationManager.shared
 
     var body: some View {
 
@@ -522,6 +523,27 @@ struct HeaderProfileView: View {
 
             Spacer()
 
+            // MARK: Notification Bell
+            NavigationLink(destination: NotificationsView()) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: "bell.fill")
+                        .font(.system(size: 22))
+                        .foregroundColor(AppTheme.textPrimary.opacity(0.7))
+                        .frame(width: 44, height: 44)
+
+                    if notificationManager.unreadCount > 0 {
+                        Text("\(min(notificationManager.unreadCount, 99))")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                            .frame(minWidth: 18, minHeight: 18)
+                            .background(Color.red)
+                            .clipShape(Circle())
+                            .offset(x: 4, y: -2)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+
             // MARK: Profile Button — opens as bottom sheet
             Button {
                 showProfile = true
@@ -539,6 +561,7 @@ struct HeaderProfileView: View {
         }
     }
 }
+
 
 // MARK: - Feature Tile
 //struct FeatureTile: View {
