@@ -229,8 +229,9 @@ struct DoctorUnavailability: Codable, Identifiable {
     var doctorId: String                // FK → users/{uid}
     var date: String                    // "yyyy-MM-dd"
     var type: String                    // "unavailable" | "halfDay"
-    var startTime: String?             // only for halfDay, "HH:mm"
-    var endTime: String?               // only for halfDay, "HH:mm"
+    var startTime: String?             // only for halfDay (legacy), "HH:mm"
+    var endTime: String?               // only for halfDay (legacy), "HH:mm"
+    var unavailableSlots: [String]?    // individual slot keys, e.g. ["09:00-09:30", "10:00-10:30"]
     var createdAt: Date?
 }
 

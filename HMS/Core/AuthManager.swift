@@ -824,10 +824,20 @@ class AuthManager {
             if unav.type == "unavailable" {
                 return [] // whole day off
             }
-            if unav.type == "halfDay", let uStart = unav.startTime, let uEnd = unav.endTime {
-                allChunks = allChunks.filter { chunk in
-                    // Remove chunks that overlap with unavailability
-                    !(chunk.start >= uStart && chunk.start < uEnd)
+            if unav.type == "halfDay" {
+                // New: filter by individual unavailable slot keys
+                if let unavSlots = unav.unavailableSlots, !unavSlots.isEmpty {
+                    let unavSet = Set(unavSlots)
+                    allChunks = allChunks.filter { chunk in
+                        !unavSet.contains("\(chunk.start)-\(chunk.end)")
+                    }
+                }
+                // Legacy: filter by start/end time range
+                else if let uStart = unav.startTime, let uEnd = unav.endTime {
+                    allChunks = allChunks.filter { chunk in
+                        // Remove chunks that overlap with unavailability
+                        !(chunk.start >= uStart && chunk.start < uEnd)
+                    }
                 }
             }
         }

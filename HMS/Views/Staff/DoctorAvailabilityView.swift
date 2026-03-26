@@ -16,14 +16,20 @@ struct DoctorAvailabilityView: View {
     // Tracks Firestore doc IDs for each date so we can delete/update
     @State private var unavailabilityIDs: [Date: String] = [:]
     
+    // Tracks stored unavailableSlots per date for re-selecting
+    @State private var storedUnavailableSlots: [Date: [String]] = [:]
+    
     // Visible month for fetching
     @State private var visibleMonth: Date = Date()
     
     // Bottom Panel State
     @State private var markAsSelection: DayAvailabilityState = .available
     @State private var originalSelection: DayAvailabilityState = .available
-    @State private var startTime: Date = Date()
-    @State private var endTime: Date = Date().addingTimeInterval(3600)
+    
+    // Slot picker state (replaces old startTime/endTime)
+    @State private var availableSlots: [(start: String, end: String, isBooked: Bool)] = []
+    @State private var selectedUnavailableSlots: Set<String> = []
+    @State private var isFetchingSlots = false
     
     // Toast & Alert State
     @State private var showToast = false
@@ -34,38 +40,6 @@ struct DoctorAvailabilityView: View {
     
     private var currentDoctorId: String? {
         overrideDoctorId ?? session.currentUser?.id
-    }
-    
-    private var shiftBounds: ClosedRange<Date>? {
-        guard let date = selectedDate else { return nil }
-        
-        let targetDoc = overrideDoctor ?? session.currentUser
-        guard let slots = targetDoc?.defaultSlots, !slots.isEmpty else {
-            return nil
-        }
-        
-        let calendar = Calendar.current
-        var startHour = 24
-        var endHour = 0
-        
-        if slots.contains("morning") {
-            startHour = min(startHour, 9)
-            endHour = max(endHour, 13)
-        }
-        if slots.contains("afternoon") {
-            startHour = min(startHour, 13)
-            endHour = max(endHour, 17)
-        }
-        if slots.contains("evening") {
-            startHour = min(startHour, 17)
-            endHour = max(endHour, 22)
-        }
-        
-        if startHour == 24 { return nil }
-        
-        let start = calendar.date(bySettingHour: startHour, minute: 0, second: 0, of: date)!
-        let end = calendar.date(bySettingHour: endHour, minute: 0, second: 0, of: date)!
-        return start...end
     }
     
     private var headerTitle: String {
@@ -83,7 +57,19 @@ struct DoctorAvailabilityView: View {
     /// Save button only visible when something actually changed
     private var hasChanges: Bool {
         guard selectedDate != nil else { return false }
-        return markAsSelection != originalSelection
+        if markAsSelection != originalSelection { return true }
+        // Also check if slot selection changed for halfDay
+        if markAsSelection == .halfDay {
+            let startOfDay = Calendar.current.startOfDay(for: selectedDate!)
+            let stored = Set(storedUnavailableSlots[startOfDay] ?? [])
+            return selectedUnavailableSlots != stored
+        }
+        return false
+    }
+    
+    /// Resolve the target doctor (override for admin, or logged-in user)
+    private var targetDoctor: HMSUser? {
+        overrideDoctor ?? session.currentUser
     }
     
     var body: some View {
@@ -176,14 +162,11 @@ struct DoctorAvailabilityView: View {
                                 markAsSelection = saved
                                 originalSelection = saved
                                 
-                                if let bounds = shiftBounds {
-                                    startTime = bounds.lowerBound
-                                    endTime = Calendar.current.date(byAdding: .hour, value: 1, to: bounds.lowerBound) ?? bounds.upperBound
-                                    if endTime > bounds.upperBound { endTime = bounds.upperBound }
-                                } else {
-                                    startTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: date) ?? date
-                                    endTime = Calendar.current.date(bySettingHour: 10, minute: 0, second: 0, of: date) ?? date
-                                }
+                                // Restore previously stored slot selections
+                                selectedUnavailableSlots = Set(storedUnavailableSlots[startOfDay] ?? [])
+                                
+                                // Fetch slots for this date
+                                fetchSlotsForDate(date)
                             }
                         }
                         
@@ -194,13 +177,18 @@ struct DoctorAvailabilityView: View {
                                 
                                 // 3. Mark As Toggle
                                 MarkAsToggleView(selection: $markAsSelection)
+                                    .onChange(of: markAsSelection) { newValue in
+                                        if newValue == .halfDay, let date = selectedDate {
+                                            fetchSlotsForDate(date)
+                                        }
+                                    }
                                 
-                                // 4. Time Picker (Slide down if half day)
+                                // 4. Slot Picker (replaces old TimeRangePickerView)
                                 if markAsSelection == .halfDay {
-                                    TimeRangePickerView(
-                                        startTime: $startTime,
-                                        endTime: $endTime,
-                                        allowedRange: shiftBounds
+                                    SlotPickerGridView(
+                                        slots: availableSlots,
+                                        selectedSlotKeys: $selectedUnavailableSlots,
+                                        isLoading: isFetchingSlots
                                     )
                                     .transition(.move(edge: .top).combined(with: .opacity))
                                 }
@@ -259,6 +247,10 @@ struct DoctorAvailabilityView: View {
                 appearAnimation = true
             }
             loadUnavailability()
+            // Fetch slots for initially selected date
+            if let date = selectedDate {
+                fetchSlotsForDate(date)
+            }
         }
         // Conflict Alert Modal
         .alert(isPresented: $showConflictAlert) {
@@ -268,6 +260,50 @@ struct DoctorAvailabilityView: View {
                 primaryButton: .destructive(Text("Mark Anyway")) { executeSave() },
                 secondaryButton: .cancel()
             )
+        }
+    }
+    
+    // MARK: - Fetch Slots for Selected Date
+    
+    private func fetchSlotsForDate(_ date: Date) {
+        guard let doctor = targetDoctor, let defaults = doctor.defaultSlots, !defaults.isEmpty else {
+            availableSlots = []
+            return
+        }
+        guard let doctorId = currentDoctorId else { return }
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let dateString = dateFormatter.string(from: date)
+        
+        isFetchingSlots = true
+        
+        Task {
+            do {
+                // Fetch booked slots for this date
+                let bookedSlots = try await AuthManager.shared.fetchSlots(
+                    doctorId: doctorId, date: dateString
+                ).filter { $0.status == .booked }
+                
+                // Generate 30-min chunks from the doctor's defaultSlots
+                let chunks = AuthManager.shared.generate30MinSlots(
+                    from: defaults,
+                    unavailability: nil, // Don't filter — we want to show ALL slots
+                    bookedSlots: bookedSlots
+                )
+                
+                await MainActor.run {
+                    withAnimation {
+                        availableSlots = chunks
+                    }
+                    isFetchingSlots = false
+                }
+            } catch {
+                await MainActor.run {
+                    availableSlots = []
+                    isFetchingSlots = false
+                }
+            }
         }
     }
     
@@ -290,6 +326,7 @@ struct DoctorAvailabilityView: View {
                 
                 var newMap: [Date: DayAvailabilityState] = [:]
                 var newIDs: [Date: String] = [:]
+                var newStoredSlots: [Date: [String]] = [:]
                 
                 for entry in entries {
                     guard let date = dateFormatter.date(from: entry.date) else { continue }
@@ -300,6 +337,10 @@ struct DoctorAvailabilityView: View {
                         newMap[startOfDay] = .unavailable
                     case "halfDay":
                         newMap[startOfDay] = .halfDay
+                        // Restore slot selections
+                        if let slots = entry.unavailableSlots, !slots.isEmpty {
+                            newStoredSlots[startOfDay] = slots
+                        }
                     default:
                         break
                     }
@@ -309,12 +350,14 @@ struct DoctorAvailabilityView: View {
                 withAnimation {
                     availabilityMap = newMap
                     unavailabilityIDs = newIDs
+                    storedUnavailableSlots = newStoredSlots
                 }
                 
                 // Sync toggle for currently selected date
                 if let selected = selectedDate {
                     let startOfDay = calendar.startOfDay(for: selected)
                     markAsSelection = availabilityMap[startOfDay] ?? .available
+                    selectedUnavailableSlots = Set(storedUnavailableSlots[startOfDay] ?? [])
                 }
             } catch {
                 print("⚠️ Availability fetch error: \(error.localizedDescription)")
@@ -361,6 +404,7 @@ struct DoctorAvailabilityView: View {
                     withAnimation {
                         availabilityMap.removeValue(forKey: startOfDay)
                         unavailabilityIDs.removeValue(forKey: startOfDay)
+                        storedUnavailableSlots.removeValue(forKey: startOfDay)
                     }
                     
                 case .unavailable:
@@ -372,12 +416,14 @@ struct DoctorAvailabilityView: View {
                         type: "unavailable",
                         startTime: nil,
                         endTime: nil,
+                        unavailableSlots: nil,
                         createdAt: Date()
                     )
                     try await AuthManager.shared.saveUnavailability(entry)
                     withAnimation {
                         availabilityMap[startOfDay] = .unavailable
                         unavailabilityIDs[startOfDay] = entryId
+                        storedUnavailableSlots.removeValue(forKey: startOfDay)
                     }
                     
                     // Notify patients with conflicting appointments
@@ -391,35 +437,39 @@ struct DoctorAvailabilityView: View {
                     )
                     
                 case .halfDay:
-                    let timeFormatter = DateFormatter()
-                    timeFormatter.dateFormat = "HH:mm"
+                    let slotsArray = Array(selectedUnavailableSlots).sorted()
                     let entryId = unavailabilityIDs[startOfDay] ?? UUID().uuidString
-                    let startTimeStr = timeFormatter.string(from: startTime)
-                    let endTimeStr = timeFormatter.string(from: endTime)
                     let entry = DoctorUnavailability(
                         id: entryId,
                         doctorId: doctorId,
                         date: dateString,
                         type: "halfDay",
-                        startTime: startTimeStr,
-                        endTime: endTimeStr,
+                        startTime: nil,
+                        endTime: nil,
+                        unavailableSlots: slotsArray,
                         createdAt: Date()
                     )
                     try await AuthManager.shared.saveUnavailability(entry)
                     withAnimation {
                         availabilityMap[startOfDay] = .halfDay
                         unavailabilityIDs[startOfDay] = entryId
+                        storedUnavailableSlots[startOfDay] = slotsArray
                     }
                     
-                    // Notify patients with conflicting appointments
-                    await notifyConflictingPatients(
-                        doctorId: doctorId,
-                        doctorName: docName,
-                        date: dateString,
-                        type: "halfDay",
-                        startTime: startTimeStr,
-                        endTime: endTimeStr
-                    )
+                    // Notify patients with conflicting appointments for each selected slot
+                    for slotKey in slotsArray {
+                        let parts = slotKey.split(separator: "-").map(String.init)
+                        if parts.count == 2 {
+                            await notifyConflictingPatients(
+                                doctorId: doctorId,
+                                doctorName: docName,
+                                date: dateString,
+                                type: "halfDay",
+                                startTime: parts[0],
+                                endTime: parts[1]
+                            )
+                        }
+                    }
                 }
                 
                 // Show success toast
