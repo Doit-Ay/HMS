@@ -18,6 +18,10 @@ struct PatientAppointmentsView: View {
     @State private var rescheduleDoctor: HMSUser? = nil
     @State private var rescheduleAppointment: Appointment? = nil
     @State private var isFetchingDoctor = false
+    
+    // Rating state
+    @State private var appointmentToRate: Appointment? = nil
+    
     @Environment(\.dismiss) private var dismiss
 
     private var upcomingAppointments: [Appointment] {
@@ -29,12 +33,21 @@ struct PatientAppointmentsView: View {
             .sorted { if $0.date != $1.date { return $0.date < $1.date }; return $0.startTime < $1.startTime }
     }
 
+    private var cancelledByHospitalList: [Appointment] {
+        appointments.filter {
+            $0.status == "cancelled" &&
+            $0.cancelReason == "doctor_unavailable" &&
+            ($0.patientNotified == false || $0.patientNotified == nil)
+        }
+    }
+
     private var pastAppointments: [Appointment] {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm"
         let nowStr = formatter.string(from: Date())
         return appointments
             .filter { $0.status != "scheduled" || "\($0.date) \($0.endTime)" < nowStr }
+            .filter { !($0.status == "cancelled" && $0.cancelReason == "doctor_unavailable" && ($0.patientNotified == false || $0.patientNotified == nil)) }
             .sorted { if $0.date != $1.date { return $0.date > $1.date }; return $0.startTime > $1.startTime }
     }
 
@@ -76,39 +89,78 @@ struct PatientAppointmentsView: View {
                         .tint(AppTheme.primary)
                     Spacer()
                 } else {
-                    let list = selectedTab == 0 ? upcomingAppointments : pastAppointments
-
-                    if list.isEmpty {
-                        Spacer()
-                        VStack(spacing: 14) {
-                            Image(systemName: selectedTab == 0 ? "calendar.badge.clock" : "calendar.badge.minus")
-                                .font(.system(size: 44))
-                                .foregroundColor(AppTheme.textSecondary.opacity(0.35))
-                            Text(selectedTab == 0 ? "No upcoming appointments" : "No past appointments")
-                                .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                .foregroundColor(AppTheme.textSecondary)
-                        }
-                        Spacer()
-                    } else {
-                        ScrollView(showsIndicators: false) {
-                            LazyVStack(spacing: 16) {
-                                ForEach(list) { appointment in
-                                    AppointmentDetailCard(
-                                        appointment: appointment,
-                                        isUpcoming: selectedTab == 0,
-                                        onCancel: {
-                                            appointmentToCancel = appointment
-                                            showCancelAlert = true
-                                        },
-                                        onReschedule: {
-                                            Task { await fetchDoctorForReschedule(appointment) }
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 24) {
+                            
+                            // MARK: Action Required Cancelled Section
+                            if !cancelledByHospitalList.isEmpty {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "exclamationmark.triangle.fill")
+                                            .foregroundColor(.white)
+                                            .font(.system(size: 16))
+                                        Text("Action Required: Cancelled by Hospital")
+                                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                                            .foregroundColor(.white)
+                                    }
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 8)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color.red.opacity(0.85))
+                                    .cornerRadius(12)
+                                    .padding(.horizontal, 20)
+                                    .padding(.top, 8)
+                                    
+                                    LazyVStack(spacing: 16) {
+                                        ForEach(cancelledByHospitalList) { appt in
+                                            HospitalCancelledCard(appointment: appt) {
+                                                Task { await acknowledgeCancellation(appt) }
+                                            } onReschedule: {
+                                                Task {
+                                                    await acknowledgeCancellation(appt)
+                                                    await fetchDoctorForReschedule(appt)
+                                                }
+                                            }
                                         }
-                                    )
+                                    }
+                                    .padding(.horizontal, 20)
                                 }
                             }
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 12)
-                            .padding(.bottom, 30)
+                        
+                            let list = selectedTab == 0 ? upcomingAppointments : pastAppointments
+
+                            if list.isEmpty {
+                                VStack(spacing: 14) {
+                                    Image(systemName: selectedTab == 0 ? "calendar.badge.clock" : "calendar.badge.minus")
+                                        .font(.system(size: 44))
+                                        .foregroundColor(AppTheme.textSecondary.opacity(0.35))
+                                    Text(selectedTab == 0 ? "No upcoming appointments" : "No past appointments")
+                                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                        .foregroundColor(AppTheme.textSecondary)
+                                }
+                                .padding(.top, 60)
+                            } else {
+                                LazyVStack(spacing: 16) {
+                                    ForEach(list) { appointment in
+                                        AppointmentDetailCard(
+                                            appointment: appointment,
+                                            isUpcoming: selectedTab == 0,
+                                            onCancel: {
+                                                appointmentToCancel = appointment
+                                                showCancelAlert = true
+                                            },
+                                            onReschedule: {
+                                                Task { await fetchDoctorForReschedule(appointment) }
+                                            },
+                                            onRate: {
+                                                appointmentToRate = appointment
+                                            }
+                                        )
+                                    }
+                                }
+                                .padding(.horizontal, 20)
+                                .padding(.bottom, 30)
+                            }
                         }
                     }
                 }
@@ -165,7 +217,13 @@ struct PatientAppointmentsView: View {
         } message: { appt in
             Text("Are you sure you want to cancel your appointment with \(appt.doctorName) on \(formatDate(appt.date)) at \(appt.startTime)?")
         }
+        .sheet(item: $appointmentToRate) { appt in
+            DoctorRatingSheet(appointment: appt) { rating, review in
+                Task { await submitRating(appt, rating: rating, review: review) }
+            }
+        }
         .task { await fetchAppointments() }
+        .toolbar(.hidden, for: .tabBar)
     }
 
     // MARK: - Fetch
@@ -193,7 +251,9 @@ struct PatientAppointmentsView: View {
                     date: d["date"] as? String ?? "",
                     startTime: d["startTime"] as? String ?? "",
                     endTime: d["endTime"] as? String ?? "",
-                    status: d["status"] as? String ?? ""
+                    status: d["status"] as? String ?? "",
+                    cancelReason: d["cancelReason"] as? String,
+                    patientNotified: d["patientNotified"] as? Bool
                 )
             }
             await MainActor.run {
@@ -236,6 +296,31 @@ struct PatientAppointmentsView: View {
         }
     }
 
+    // MARK: - Submit Rating
+    private func submitRating(_ appointment: Appointment, rating: Int, review: String) async {
+        do {
+            try await AuthManager.shared.submitDoctorReview(
+                appointmentId: appointment.id,
+                doctorId: appointment.doctorId,
+                rating: rating,
+                review: review
+            )
+            await MainActor.run {
+                if let idx = appointments.firstIndex(where: { $0.id == appointment.id }) {
+                    appointments[idx].ratingGiven = rating
+                    appointments[idx].reviewText = review.isEmpty ? nil : review
+                }
+                triggerToast("Rating submitted successfully!", isError: false)
+                appointmentToRate = nil
+            }
+        } catch {
+            print("Submit rating error: \(error)")
+            await MainActor.run {
+                triggerToast("Failed to submit rating. Please try again.", isError: true)
+            }
+        }
+    }
+
     private func triggerToast(_ message: String, isError: Bool) {
         toastMessage = message
         toastIsError = isError
@@ -265,11 +350,102 @@ struct PatientAppointmentsView: View {
         }
     }
 
+    // MARK: - Acknowledge Cancellation
+    private func acknowledgeCancellation(_ appointment: Appointment) async {
+        let db = Firestore.firestore()
+        do {
+            try await db.collection("appointments").document(appointment.id).updateData([
+                "patientNotified": true
+            ])
+            await MainActor.run {
+                if let idx = appointments.firstIndex(where: { $0.id == appointment.id }) {
+                    appointments[idx].patientNotified = true
+                }
+            }
+        } catch {
+            print("Error acknowledging cancellation: \(error)")
+        }
+    }
+
     private func formatDate(_ dateString: String) -> String {
         let inFmt = DateFormatter(); inFmt.dateFormat = "yyyy-MM-dd"
         guard let date = inFmt.date(from: dateString) else { return dateString }
         let outFmt = DateFormatter(); outFmt.dateFormat = "MMM d, yyyy"
         return outFmt.string(from: date)
+    }
+}
+
+// MARK: - Hospital Cancelled Card
+struct HospitalCancelledCard: View {
+    let appointment: Appointment
+    let onAcknowledge: () -> Void
+    let onReschedule: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(Color.red.opacity(0.15))
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.red)
+                            .font(.system(size: 20))
+                    )
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Dr. \(appointment.doctorName)")
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                    Text("\(appointment.date) at \(appointment.startTime)")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+                Spacer()
+            }
+            .padding(16)
+            
+            Divider().padding(.horizontal, 16)
+            
+            Text("The hospital has cancelled this appointment because the doctor became unavailable on this date. Please reschedule for a new time.")
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .foregroundColor(AppTheme.textSecondary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+            
+            Divider().padding(.horizontal, 16)
+            
+            HStack(spacing: 12) {
+                Button(action: onAcknowledge) {
+                    Text("Dismiss")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundColor(AppTheme.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(12)
+                }
+                .buttonStyle(.plain)
+
+                Button(action: onReschedule) {
+                    Text("Reschedule")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background(Color.red.opacity(0.85))
+                        .cornerRadius(12)
+                        .shadow(color: Color.red.opacity(0.3), radius: 6, x: 0, y: 3)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(16)
+        }
+        .background(AppTheme.cardSurface)
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.red.opacity(0.3), lineWidth: 1)
+        )
+        .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 10, x: 0, y: 4)
     }
 }
 
@@ -279,6 +455,7 @@ struct AppointmentDetailCard: View {
     let isUpcoming: Bool
     let onCancel: () -> Void
     let onReschedule: () -> Void
+    let onRate: () -> Void
 
     /// For past appointments that still have "scheduled" status, show "missed"
     private var displayStatus: String {
@@ -414,12 +591,50 @@ struct AppointmentDetailCard: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
+            } else if !isUpcoming && appointment.status == "completed" && appointment.ratingGiven == nil {
+                Divider()
+                    .padding(.horizontal, 16)
+
+                Button(action: onRate) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Rate Doctor")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    }
+                    .foregroundColor(AppTheme.primary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+                    .background(AppTheme.primaryLight.opacity(0.25))
+                    .cornerRadius(12)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+            } else if let rating = appointment.ratingGiven {
+                Divider()
+                    .padding(.horizontal, 16)
+
+                HStack(spacing: 4) {
+                    Text("Your Rating:")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundColor(AppTheme.textSecondary)
+                    
+                    ForEach(1...5, id: \.self) { star in
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(star <= rating ? .orange : AppTheme.textSecondary.opacity(0.3))
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
             }
         }
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(20)
         .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 12, x: 0, y: 5)
     }
+
 
     private func formatDate(_ dateString: String) -> String {
         let inFmt = DateFormatter(); inFmt.dateFormat = "yyyy-MM-dd"
@@ -429,6 +644,109 @@ struct AppointmentDetailCard: View {
     }
 }
 
+#Preview {
+    NavigationStack {
+        PatientAppointmentsView()
+    }
+}
+
+// MARK: - Doctor Rating Sheet
+struct DoctorRatingSheet: View {
+    @Environment(\.dismiss) var dismiss
+    let appointment: Appointment
+    let onSubmit: (Int, String) -> Void
+    
+    @State private var rating: Int = 0
+    @State private var reviewText: String = ""
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                
+                // Doctor Info
+                VStack(spacing: 8) {
+                    Image(systemName: "person.crop.circle.badge.checkmark")
+                        .font(.system(size: 50))
+                        .foregroundColor(AppTheme.primary)
+                        .padding(.top, 20)
+                    
+                    Text("How was your consultation with")
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundColor(AppTheme.textSecondary)
+                    
+                    Text(appointment.doctorName)
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundColor(AppTheme.textPrimary)
+                }
+                
+                // Rating Stars
+                HStack(spacing: 12) {
+                    ForEach(1...5, id: \.self) { star in
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 40))
+                            .foregroundColor(star <= rating ? .orange : AppTheme.textSecondary.opacity(0.3))
+                            .onTapGesture {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                                    rating = star
+                                }
+                            }
+                    }
+                }
+                .padding(.vertical, 10)
+                
+                // Review Text
+                if rating > 0 {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Write a Review (Optional)")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundColor(AppTheme.textSecondary)
+                            .padding(.leading, 4)
+                        
+                        TextField("Share your experience...", text: $reviewText, axis: .vertical)
+                            .lineLimit(4...8)
+                            .padding(14)
+                            .background(AppTheme.background)
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.gray.opacity(0.15), lineWidth: 1)
+                            )
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
+                
+                Spacer()
+                
+                // Submit Button
+                Button {
+                    onSubmit(rating, reviewText)
+                    dismiss()
+                } label: {
+                    Text("Submit Review")
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(rating > 0 ? AppTheme.primary : AppTheme.textSecondary.opacity(0.5))
+                        .cornerRadius(16)
+                        .shadow(color: rating > 0 ? AppTheme.primary.opacity(0.3) : .clear, radius: 10, x: 0, y: 5)
+                }
+                .disabled(rating == 0)
+                .padding(.bottom, 10)
+            }
+            .padding(.horizontal, 24)
+            .background(AppTheme.cardSurface.ignoresSafeArea())
+            .navigationTitle("Rate Doctor")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+            }
+        }
+    }
+}
 #Preview {
     NavigationStack {
         PatientAppointmentsView()

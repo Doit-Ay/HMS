@@ -1,4 +1,5 @@
 import Foundation
+import FirebaseFirestore
 
 // MARK: - User Role
 enum UserRole: String, Codable, CaseIterable {
@@ -10,7 +11,7 @@ enum UserRole: String, Codable, CaseIterable {
     var displayName: String {
         switch self {
         case .patient:       return "Patient"
-        case .admin:         return "A2dmin"
+        case .admin:         return "Admin"
         case .doctor:        return "Doctor"
         case .labTechnician: return "Lab Technician"
         }
@@ -42,10 +43,13 @@ struct HMSUser: Codable, Identifiable {
     var gender: String?
     var profileImageURL: String?
     var department: String?
-    var specialization: String?   // doctors only
+    var specialization: String?    // doctors only
+    var consultationFee: Double?   // doctors only
     var employeeID: String?        // staff only
     var bloodGroup: String?        // patients only
     var defaultSlots: [String]?    // doctors only — e.g. ["morning","afternoon","17:00-22:00"]
+    var averageRating: Double?     // doctors only
+    var reviewCount: Int?          // doctors only
     var createdAt: Date?
     var isActive: Bool
 
@@ -109,6 +113,9 @@ struct DoctorProfile: Codable, Identifiable {
     var employeeID: String?
     var licenseNumber: String?
     var qualifications: [String]?
+    var consultationFee: Double?
+    var averageRating: Double?
+    var reviewCount: Int?
     var createdAt: Date?
     var isActive: Bool
 
@@ -123,6 +130,9 @@ struct DoctorProfile: Codable, Identifiable {
         self.department     = user.department
         self.specialization = user.specialization
         self.employeeID     = user.employeeID
+        self.consultationFee = user.consultationFee
+        self.averageRating  = user.averageRating
+        self.reviewCount    = user.reviewCount
         self.isActive       = true
         self.createdAt      = Date()
     }
@@ -204,7 +214,11 @@ struct Appointment: Codable, Identifiable {
     var startTime: String
     var endTime: String
     var status: String                      // "scheduled", "completed", "cancelled"
-    var createdAt: Date?
+    var cancelReason: String? = nil
+    var patientNotified: Bool? = nil
+    var ratingGiven: Int? = nil
+    var reviewText: String? = nil
+    var createdAt: Date? = nil
 }
 
 // MARK: - Firestore `doctor_unavailability` Collection
@@ -220,8 +234,15 @@ struct DoctorUnavailability: Codable, Identifiable {
     var createdAt: Date?
 }
 
+// MARK: - Firestore `medicines` Collection (legacy, kept for backwards compat)
+struct AppMedicine: Codable, Identifiable, Hashable {
+    var id: String
+    var name: String
+    var type: String?           // e.g. "tablet", "syrup"
+    var manufacturer: String?
+}
+
 // MARK: - Firestore `consultation_notes` Collection
-// Each document represents a consultation note or prescription written by a doctor for a patient.
 struct ConsultationNote: Codable, Identifiable {
     var id: String
     var appointmentId: String
@@ -235,6 +256,7 @@ struct ConsultationNote: Codable, Identifiable {
     var notes: String
     var prescription: String
     var createdAt: Date?
+    // Prescribed medicines stored in sub-collection: consultation_notes/{id}/prescribed_medicines
 }
 
 // MARK: - Firestore `lab_test_requests` Collection
@@ -250,3 +272,35 @@ struct LabTestRequest: Codable, Identifiable {
     var dateReferred: Date
 }
 
+// MARK: - Firestore `prescriptions` Collection
+// Each document represents a generated PDF prescription uploaded to Firebase Storage.
+struct PrescriptionDocument: Codable, Identifiable {
+    var id: String                      // UUID
+    var appointmentId: String
+    var doctorId: String
+    var doctorName: String
+    var patientId: String
+    var patientName: String
+    var date: String                    // "yyyy-MM-dd"
+    var startTime: String               // Slot time
+    var pdfUrl: String                  // Download URL from Firebase Storage
+    var createdAt: Date
+    var customName: String?             // User-assigned name
+}
+
+// MARK: - Firestore `documents` Collection
+// Shared document reference representing a patient's uploaded file (Medical History, Lab Results, etc.).
+struct SharedMedicalDocument: Codable, Identifiable {
+    @DocumentID var id: String?
+    var name: String
+    var fileName: String
+    var fileURL: String
+    var fileSize: Int64?       // Optional — not always stored by the upload flow
+    var fileType: String
+    var folderType: String
+    var patientId: String
+    var uploadedBy: String
+    var uploadedByName: String
+    var uploadDate: Date
+    var notes: String?
+}

@@ -97,9 +97,9 @@ struct AvailabilityOptionCard: View {
                 ZStack {
                     if isSelected {
                         // Glass effect when selected
-                        Color.white.opacity(0.7)
+                        AppTheme.cardSurface
                     } else {
-                        Color.white.opacity(0.4)
+                        AppTheme.cardSurface
                     }
                 }
             )

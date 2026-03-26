@@ -73,7 +73,7 @@ struct ForgotPasswordView: View {
                         .disabled(isLoading || email.isEmpty)
                     }
                     .padding(24)
-                    .glassCard()
+
                     .padding(.horizontal, 20)
 
                     Spacer()

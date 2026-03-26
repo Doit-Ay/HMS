@@ -4,6 +4,7 @@ struct DoctorAvailabilityView: View {
     // Optional: when admin manages a specific doctor's availability
     var overrideDoctorId: String? = nil
     var doctorName: String? = nil
+    var overrideDoctor: HMSUser? = nil
     
     @ObservedObject var session = UserSession.shared
     @State private var appearAnimation = false
@@ -33,6 +34,38 @@ struct DoctorAvailabilityView: View {
     
     private var currentDoctorId: String? {
         overrideDoctorId ?? session.currentUser?.id
+    }
+    
+    private var shiftBounds: ClosedRange<Date>? {
+        guard let date = selectedDate else { return nil }
+        
+        let targetDoc = overrideDoctor ?? session.currentUser
+        guard let slots = targetDoc?.defaultSlots, !slots.isEmpty else {
+            return nil
+        }
+        
+        let calendar = Calendar.current
+        var startHour = 24
+        var endHour = 0
+        
+        if slots.contains("morning") {
+            startHour = min(startHour, 9)
+            endHour = max(endHour, 13)
+        }
+        if slots.contains("afternoon") {
+            startHour = min(startHour, 13)
+            endHour = max(endHour, 17)
+        }
+        if slots.contains("evening") {
+            startHour = min(startHour, 17)
+            endHour = max(endHour, 22)
+        }
+        
+        if startHour == 24 { return nil }
+        
+        let start = calendar.date(bySettingHour: startHour, minute: 0, second: 0, of: date)!
+        let end = calendar.date(bySettingHour: endHour, minute: 0, second: 0, of: date)!
+        return start...end
     }
     
     private var headerTitle: String {
@@ -89,7 +122,7 @@ struct DoctorAvailabilityView: View {
                                     .padding(.vertical, 8)
                                     .background(
                                         ZStack {
-                                            Color.white.opacity(0.35)
+                                            AppTheme.cardSurface
                                             AppTheme.primary.opacity(0.08)
                                         }
                                     )
@@ -142,6 +175,15 @@ struct DoctorAvailabilityView: View {
                                 let saved = availabilityMap[startOfDay] ?? .available
                                 markAsSelection = saved
                                 originalSelection = saved
+                                
+                                if let bounds = shiftBounds {
+                                    startTime = bounds.lowerBound
+                                    endTime = Calendar.current.date(byAdding: .hour, value: 1, to: bounds.lowerBound) ?? bounds.upperBound
+                                    if endTime > bounds.upperBound { endTime = bounds.upperBound }
+                                } else {
+                                    startTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: date) ?? date
+                                    endTime = Calendar.current.date(bySettingHour: 10, minute: 0, second: 0, of: date) ?? date
+                                }
                             }
                         }
                         
@@ -157,7 +199,8 @@ struct DoctorAvailabilityView: View {
                                 if markAsSelection == .halfDay {
                                     TimeRangePickerView(
                                         startTime: $startTime,
-                                        endTime: $endTime
+                                        endTime: $endTime,
+                                        allowedRange: shiftBounds
                                     )
                                     .transition(.move(edge: .top).combined(with: .opacity))
                                 }

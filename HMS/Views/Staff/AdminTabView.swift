@@ -8,16 +8,24 @@ struct AdminTabView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             AdminDashboardView()
-                .tabItem { Label("Dashboard", systemImage: "shield.checkered") }
+                .tabItem { Label("Dashboard", systemImage: "square.grid.2x2.fill") }
                 .tag(0)
 
             StaffManagementView()
                 .tabItem { Label("Staff", systemImage: "person.3.fill") }
                 .tag(1)
-
-            AppointmentStatsView()
-                .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
+                
+            SystemActivityLogsView()
+                .tabItem { Label("Logs", systemImage: "list.bullet.rectangle") }
                 .tag(2)
+
+            InventoryManagementView()
+                .tabItem { Label("Inventory", systemImage: "cross.case.fill") }
+                .tag(3)
+
+            AdminInvoiceListView()
+                .tabItem { Label("Billing", systemImage: "doc.text.fill") }
+                .tag(4)
         }
         .tint(AppTheme.primary)
     }
@@ -28,6 +36,7 @@ struct AdminDashboardView: View {
     @ObservedObject var session = UserSession.shared
     @State private var animate    = false
     @State private var showProfileSheet = false
+    @State private var navigateToFinancials = false
 
     private var adminName: String {
         session.currentUser?.fullName ?? "Admin"
@@ -36,7 +45,7 @@ struct AdminDashboardView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .top) {
-                HMSBackground()
+                Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
 
                 Circle()
                     .fill(
@@ -94,60 +103,68 @@ struct AdminDashboardView: View {
                         .offset(y: animate ? 0 : -30)
                         .opacity(animate ? 1 : 0)
 
-                        // Hero Banner with Manage Slots button inside
-                        VStack(spacing: 0) {
+                        // Action Cards Area
+                        VStack(spacing: 16) {
                             HStack {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Hospital\nManagement")
-                                        .font(.system(size: 28, weight: .heavy, design: .rounded))
-                                        .foregroundColor(.white)
-                                        .lineSpacing(4)
-
-                                    Text("Manage your staff, appointments and hospital operations.")
-                                        .font(.system(size: 15, weight: .medium, design: .rounded))
-                                        .foregroundColor(.white.opacity(0.9))
-                                        .padding(.trailing, 40)
-                                }
+                                Text("Quick Actions")
+                                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                                    .foregroundColor(AppTheme.textPrimary)
                                 Spacer()
                             }
-                            .padding(24)
+                            .padding(.horizontal, 24)
 
                             NavigationLink(destination: ManageSlotsView()) {
-                                HStack {
-                                    Text("Manage Slots")
-                                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(AppTheme.primary.opacity(0.15))
+                                            .frame(width: 50, height: 50)
+                                        Image(systemName: "calendar.badge.clock")
+                                            .font(.system(size: 22, weight: .semibold))
+                                            .foregroundColor(AppTheme.primary)
+                                    }
+
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Manage Slots")
+                                            .font(.system(size: 17, weight: .bold, design: .rounded))
+                                            .foregroundColor(AppTheme.textPrimary)
+                                        Text("Schedule and organize doctor availability")
+                                            .font(.system(size: 13, design: .rounded))
+                                            .foregroundColor(AppTheme.textSecondary)
+                                    }
 
                                     Spacer()
 
-                                    Image(systemName: "arrow.right.circle.fill")
-                                        .font(.system(size: 24))
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(AppTheme.textSecondary.opacity(0.5))
                                 }
-                                .foregroundColor(AppTheme.primary)
-                                .padding()
-                                .background(Color.white)
-                                .cornerRadius(16)
-                                .padding(.horizontal, 24)
-                                .padding(.bottom, 24)
+                                .padding(16)
+                                .background(AppTheme.cardSurface)
+                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
                             }
                             .buttonStyle(.plain)
+                            .padding(.horizontal, 20)
                         }
-                        .background(
-                            ZStack {
-                                LinearGradient(
-                                    colors: [AppTheme.primary, AppTheme.primaryMid],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                                Image(systemName: "shield.checkered")
-                                    .font(.system(size: 180))
-                                    .foregroundColor(.white.opacity(0.1))
-                                    .offset(x: 100, y: 20)
-                                    .rotationEffect(.degrees(-15))
+                        .offset(y: animate ? 0 : 20)
+                        .opacity(animate ? 1 : 0)
+
+                        // Embedded Statistics
+                        VStack(spacing: 16) {
+                            HStack {
+                                Text("Revenue Overview")
+                                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                                    .foregroundColor(AppTheme.textPrimary)
+                                Spacer()
                             }
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-                        .shadow(color: AppTheme.primary.opacity(0.25), radius: 20, x: 0, y: 10)
-                        .padding(.horizontal, 20)
+                            .padding(.horizontal, 24)
+                            .padding(.top, 8)
+                            
+                            AppointmentStatsView(onRevenueTap: {
+                                navigateToFinancials = true
+                            })
+                        }
                         .offset(y: animate ? 0 : 30)
                         .opacity(animate ? 1 : 0)
 
@@ -157,6 +174,9 @@ struct AdminDashboardView: View {
                 }
             }
             .navigationBarHidden(true)
+            .navigationDestination(isPresented: $navigateToFinancials) {
+                AdminRevenueDashboardView()
+            }
             .sheet(isPresented: $showProfileSheet) {
                 ProfileView()
             }
@@ -169,34 +189,6 @@ struct AdminDashboardView: View {
     }
 }
 
-// MARK: - Admin Stat Card
-struct AdminStatCard: View {
-    let title: String
-    let icon: String
-    let color: Color
-
-    var body: some View {
-        VStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(color.opacity(0.15))
-                    .frame(width: 52, height: 52)
-                Image(systemName: icon)
-                    .font(.system(size: 24))
-                    .foregroundColor(color)
-            }
-            Text(title)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundColor(AppTheme.textPrimary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
-        .background(Color.white.opacity(0.85))
-        .cornerRadius(18)
-        .shadow(color: color.opacity(0.1), radius: 8, x: 0, y: 4)
-    }
-}
 
 // MARK: - Staff Management View
 struct StaffManagementView: View {
@@ -220,35 +212,14 @@ struct StaffManagementView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                HMSBackground()
+                Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     // Search bar
-                    HStack(spacing: 12) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 16))
-                            .foregroundColor(AppTheme.textSecondary)
-                        TextField("Search by name, role or department...", text: $searchText)
-                            .font(.system(size: 15, design: .rounded))
-
-                        if !searchText.isEmpty {
-                            Button {
-                                searchText = ""
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 18))
-                                    .foregroundColor(AppTheme.textSecondary.opacity(0.5))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(14)
-                    .background(Color.white)
-                    .cornerRadius(16)
-                    .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 3)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
-                    .padding(.bottom, 12)
+                    HMSSearchBar(placeholder: "Search by name, role or department...", text: $searchText)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 12)
+                        .padding(.bottom, 12)
 
                     // Staff count header
                     if !isLoading && !staffList.isEmpty {
@@ -468,7 +439,7 @@ struct StaffRowView: View {
                     .foregroundColor(AppTheme.textSecondary.opacity(0.4))
             }
             .padding(16)
-            .background(Color.white)
+            .background(AppTheme.cardSurface)
             .cornerRadius(16)
             .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 4)
         }

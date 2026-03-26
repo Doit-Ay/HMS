@@ -1,25 +1,11 @@
 import SwiftUI
 import FirebaseFirestore
 
-// MARK: - Patient Tab View
+// MARK: - Patient Tab View (Actually now just a wrapper for Home)
 struct PatientTabView: View {
-    @State private var selectedTab = 0
-
     var body: some View {
-        TabView(selection: $selectedTab) {
+        NavigationStack {
             PatientHomeView()
-                .tabItem {
-                    Label("Home", systemImage: "house.fill")
-                }
-                .tag(0)
-
-//            NavigationStack {
-//                ProfileView()
-//            }
-//            .tabItem {
-//                Label("Profile", systemImage: "person.circle.fill")
-//            }
-//            .tag(1)
         }
         .tint(AppTheme.primary)
     }
@@ -32,9 +18,11 @@ struct PatientHomeView: View {
     @State private var upcomingAppointments: [Appointment] = []
     @State private var isLoadingAppointments = true
     @State private var showProfileSheet = false
+    
+    @AppStorage("hasSeenSymptomCheckerTooltip") private var hasSeenSymptomCheckerTooltip = false
+    @State private var bounceTooltip = false
 
     var body: some View {
-        NavigationStack {
             ZStack(alignment: .top) {
 
                 AppTheme.background
@@ -94,7 +82,7 @@ struct PatientHomeView: View {
                                 }
                                 .foregroundColor(AppTheme.primary)
                                 .padding()
-                                .background(Color.white)
+                                .background(AppTheme.cardSurface)
                                 .cornerRadius(16)
                                 .padding(.horizontal, 24)
                                 .padding(.bottom, 24)
@@ -105,7 +93,7 @@ struct PatientHomeView: View {
                             ZStack {
 
                                 LinearGradient(
-                                    colors: [AppTheme.primary, AppTheme.primaryMid],
+                                    colors: [AppTheme.dashboardCardGradientStart, AppTheme.dashboardCardGradientEnd],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -118,25 +106,58 @@ struct PatientHomeView: View {
                             }
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-                        .shadow(color: AppTheme.primary.opacity(0.25), radius: 20, x: 0, y: 10)
+                        .shadow(color: AppTheme.dashboardCardGradientStart.opacity(0.25), radius: 20, x: 0, y: 10)
                         .padding(.horizontal, 20)
                         .offset(y: animate ? 0 : 30)
                         .opacity(animate ? 1 : 0)
 
                         VStack(alignment: .leading, spacing: 20) {
 
-                            Text("Top Services")
-                                .font(.system(size: 22, weight: .bold, design: .rounded))
-                                .foregroundColor(AppTheme.textPrimary)
-                                .padding(.horizontal, 24)
+//                            Text("Top Services")
+//                                .font(.system(size: 22, weight: .bold, design: .rounded))
+//                                .foregroundColor(AppTheme.textPrimary)
+//                                .padding(.horizontal, 24)
 
-                            HStack(spacing: 16) {
+//                            HStack(spacing: 16) {
+//
+//                                FeatureTile(icon: "doc.text.fill", title: "Records", color: AppTheme.primaryDark)
+//                                FeatureTile(icon: "pills.fill", title: "Lab Tests", color: AppTheme.primaryMid)
+////                                FeatureTile(icon: "waveform.path.ecg", title: "Appointments", color: AppTheme.primary)
+//                            }
+//                            .padding(.horizontal, 20)
+                            VStack(alignment: .leading, spacing: 20) {
+                                Text("Top Services")
+                                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                                    .foregroundColor(AppTheme.textPrimary)
+                                    .padding(.horizontal, 24)
 
-                                FeatureTile(icon: "doc.text.fill", title: "Records", color: AppTheme.primaryDark)
-                                FeatureTile(icon: "pills.fill", title: "Lab Tests", color: AppTheme.primaryMid)
-//                                FeatureTile(icon: "waveform.path.ecg", title: "Appointments", color: AppTheme.primary)
+                                HStack(spacing: 16) {
+                                    // Records Tile with NavigationLink
+                                    NavigationLink {
+                                        PatientRecordsMainView()
+                                    } label: {
+                                        FeatureTile(icon: "doc.text.fill", title: "Records", color: AppTheme.primaryDark)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                    
+                                    NavigationLink {
+                                        LabTestsView()
+                                    } label: {
+                                        FeatureTile(icon: "pills.fill", title: "Lab Tests", color: AppTheme.primaryMid)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+
+                                    NavigationLink {
+                                        PatientBillingView()
+                                    } label: {
+                                        FeatureTile(icon: "creditcard.fill", title: "Billing", color: AppTheme.primary)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                }
+                                .padding(.horizontal, 20)
                             }
-                            .padding(.horizontal, 20)
+                            .offset(y: animate ? 0 : 40)
+                            .opacity(animate ? 1 : 0)
                         }
                         .offset(y: animate ? 0 : 40)
                         .opacity(animate ? 1 : 0)
@@ -237,12 +258,99 @@ struct PatientHomeView: View {
                         Spacer(minLength: 40)
                     }
                 }
+                
+                // MARK: AI Symptom Checker FAB
+                // MARK: AI Symptom Checker FAB
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 0) {
+                            if !hasSeenSymptomCheckerTooltip {
+                                VStack(spacing: 0) {
+                                    HStack(alignment: .top, spacing: 10) {
+                                        Text("Not sure who to see?\nTry our AI Checker!")
+                                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                            .foregroundColor(.white)
+                                            .multilineTextAlignment(.leading)
+                                        
+                                        Button {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                hasSeenSymptomCheckerTooltip = true
+                                            }
+                                        } label: {
+                                            Image(systemName: "xmark")
+                                                .font(.system(size: 12, weight: .bold))
+                                                .foregroundColor(.white.opacity(0.8))
+                                        }
+                                    }
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 10)
+                                    .background(AppTheme.primaryDark)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    .shadow(color: AppTheme.primaryDark.opacity(0.3), radius: 8, x: 0, y: 5)
+                                    
+                                    // Pointer pointing down to FAB
+                                    HStack {
+                                        Spacer()
+                                        Path { path in
+                                            path.move(to: CGPoint(x: 0, y: 0))
+                                            path.addLine(to: CGPoint(x: 16, y: 0))
+                                            path.addLine(to: CGPoint(x: 8, y: 8))
+                                            path.addLine(to: CGPoint(x: 0, y: 0))
+                                        }
+                                        .fill(AppTheme.primaryDark)
+                                        .frame(width: 16, height: 8)
+                                        .padding(.trailing, 24) // Align with FAB center
+                                    }
+                                }
+                                .offset(y: bounceTooltip ? -2 : 4)
+                                .onAppear {
+                                    withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                                        bounceTooltip = true
+                                    }
+                                }
+                                .transition(.scale(scale: 0.8, anchor: .bottomTrailing).combined(with: .opacity))
+                                .zIndex(1) // Ensure it visually sits above the button
+                            }
+
+                            NavigationLink {
+                                AISymptomCheckerView()
+                                    .onAppear {
+                                        if !hasSeenSymptomCheckerTooltip {
+                                            hasSeenSymptomCheckerTooltip = true
+                                        }
+                                    }
+                            } label: {
+                                ZStack {
+                                    Circle()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [AppTheme.primary, AppTheme.primaryDark],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                        .frame(width: 64, height: 64)
+                                        .shadow(color: AppTheme.primary.opacity(0.4), radius: 15, x: 0, y: 8)
+                                    
+                                    Image(systemName: "brain.head.profile")
+                                        .font(.system(size: 28, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .scaleEffect(1.1)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.trailing, 24)
+                        .padding(.bottom, 24)
+                    }
+                }
             }
             .navigationBarHidden(true)
             .sheet(isPresented: $showProfileSheet) {
                 PatientProfileView()
             }
-        }
         .onAppear {
             withAnimation(.spring(response: 0.7, dampingFraction: 0.8).delay(0.1)) {
                 animate = true
@@ -379,7 +487,7 @@ struct UpcomingAppointmentCard: View {
             }
         }
         .padding(16)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 10, x: 0, y: 4)
     }
@@ -433,7 +541,7 @@ struct VitalRow: View {
             Spacer()
         }
         .padding()
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 10, x: 0, y: 4)
     }
@@ -489,41 +597,75 @@ struct HeaderProfileView: View {
 }
 
 // MARK: - Feature Tile
-struct FeatureTile: View {
+//struct FeatureTile: View {
+//
+//    let icon: String
+//    let title: String
+//    let color: Color
+//
+//    var body: some View {
+//
+//        Button {} label: {
+//
+//            VStack(spacing: 16) {
+//
+//                ZStack {
+//
+//                    Circle()
+//                        .fill(color.opacity(0.15))
+//                        .frame(width: 54, height: 54)
+//
+//                    Image(systemName: icon)
+//                        .font(.system(size: 24, weight: .semibold))
+//                        .foregroundColor(color)
+//                }
+//
+//                Text(title)
+//                    .font(.system(size: 14, weight: .bold, design: .rounded))
+//                    .foregroundColor(AppTheme.textPrimary)
+//            }
+//            .frame(maxWidth: .infinity)
+//            .padding(.vertical, 24)
+//            .background(AppTheme.cardSurface)
+//            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+//            .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 15, x: 0, y: 8)
+//        }
+//        .buttonStyle(.plain)
+//    }
+//}
 
+// MARK: - Feature Tile
+struct FeatureTile: View {
     let icon: String
     let title: String
     let color: Color
 
     var body: some View {
+        VStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.15))
+                    .frame(width: 54, height: 54)
 
-        Button {} label: {
-
-            VStack(spacing: 16) {
-
-                ZStack {
-
-                    Circle()
-                        .fill(color.opacity(0.15))
-                        .frame(width: 54, height: 54)
-
-                    Image(systemName: icon)
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundColor(color)
-                }
-
-                Text(title)
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundColor(AppTheme.textPrimary)
+                Image(systemName: icon)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundColor(color)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 24)
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 15, x: 0, y: 8)
+
+            Text(title)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundColor(AppTheme.textPrimary)
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .background(AppTheme.cardSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .shadow(color: AppTheme.textSecondary.opacity(0.08), radius: 15, x: 0, y: 8)
     }
+}
+
+#Preview {
+    PatientTabView()
 }
 
 #Preview {

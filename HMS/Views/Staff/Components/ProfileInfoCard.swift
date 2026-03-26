@@ -77,7 +77,7 @@ struct ProfileInfoCard: View {
                                     }
                                     .padding(.vertical, 12)
                                     .padding(.horizontal, 16)
-                                    .background(Color.white)
+                                    .background(AppTheme.cardSurface)
                                     .cornerRadius(12)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 12)
@@ -92,7 +92,7 @@ struct ProfileInfoCard: View {
                                     .keyboardType(fields[index].keyboardType)
                                     .padding(.vertical, 12)
                                     .padding(.horizontal, 16)
-                                    .background(Color.white)
+                                    .background(AppTheme.cardSurface)
                                     .cornerRadius(12)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 12)
@@ -126,7 +126,7 @@ struct ProfileInfoCard: View {
                 }
             }
             .padding(20)
-            .background(Color.white)
+            .background(AppTheme.cardSurface)
             .cornerRadius(20)
             .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
         }

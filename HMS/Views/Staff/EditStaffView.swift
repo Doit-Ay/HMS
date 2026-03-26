@@ -13,6 +13,7 @@ struct EditStaffView: View {
     @State private var employeeID: String
     @State private var department: String
     @State private var specialization: String
+    @State private var consultationFee: String
     @State private var isLoading      = false
     @State private var errorMessage   = ""
     @State private var showError      = false
@@ -38,6 +39,7 @@ struct EditStaffView: View {
         _employeeID = State(initialValue: staff.employeeID ?? "")
         _department = State(initialValue: staff.department ?? "")
         _specialization = State(initialValue: staff.specialization ?? "")
+        _consultationFee = State(initialValue: staff.consultationFee != nil ? String(Int(staff.consultationFee!)) : "")
 
         // Parse existing defaultSlots
         var morning = false, afternoon = false, evening = false
@@ -173,7 +175,7 @@ struct EditStaffView: View {
                             editableField("Phone Number", icon: "phone.fill", text: $phoneNumber, keyboard: .phonePad)
                         }
                         .padding(20)
-                        .background(Color.white)
+                        .background(AppTheme.cardSurface)
                         .cornerRadius(20)
                         .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
                         .padding(.horizontal, 20)
@@ -189,10 +191,11 @@ struct EditStaffView: View {
 
                             if staff.role == .doctor {
                                 editableField("Specialization", icon: "stethoscope", text: $specialization)
+                                editableField("Consultation Fee (₹)", icon: "indianrupesign", text: $consultationFee, keyboard: .numberPad)
                             }
                         }
                         .padding(20)
-                        .background(Color.white)
+                        .background(AppTheme.cardSurface)
                         .cornerRadius(20)
                         .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
                         .padding(.horizontal, 20)
@@ -207,7 +210,7 @@ struct EditStaffView: View {
                                 timeSlotSection
                             }
                             .padding(20)
-                            .background(Color.white)
+                            .background(AppTheme.cardSurface)
                             .cornerRadius(20)
                             .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
                             .padding(.horizontal, 20)
@@ -259,7 +262,7 @@ struct EditStaffView: View {
                                 .foregroundColor(Color.red.opacity(0.8))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
-                                .background(Color.white)
+                                .background(AppTheme.cardSurface)
                                 .cornerRadius(16)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 16)
@@ -297,7 +300,7 @@ struct EditStaffView: View {
                                 .foregroundColor(Color.green)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
-                                .background(Color.white)
+                                .background(AppTheme.cardSurface)
                                 .cornerRadius(16)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 16)
@@ -335,7 +338,7 @@ struct EditStaffView: View {
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(AppTheme.textPrimary)
                             .frame(width: 36, height: 36)
-                            .background(Color.white)
+                            .background(AppTheme.cardSurface)
                             .clipShape(Circle())
                             .shadow(color: Color.black.opacity(0.06), radius: 4, x: 0, y: 2)
                     }
@@ -503,7 +506,9 @@ struct EditStaffView: View {
                 department: department.isEmpty ? nil : department,
                 specialization: specialization.isEmpty ? nil : specialization,
                 employeeID: employeeID.isEmpty ? nil : employeeID,
-                defaultSlots: defaultSlotsArray
+                phoneNumber: phoneNumber.isEmpty ? nil : phoneNumber,
+                defaultSlots: defaultSlotsArray,
+                consultationFee: Double(consultationFee)
             )
             showSuccess = true
         } catch {

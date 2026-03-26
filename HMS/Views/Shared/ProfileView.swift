@@ -59,7 +59,7 @@ struct ProfileView: View {
                                             .font(.system(size: 16, weight: .bold))
                                             .foregroundColor(AppTheme.textPrimary)
                                             .frame(width: 44, height: 44)
-                                            .background(Color.white)
+                                            .background(AppTheme.cardSurface)
                                             .clipShape(Circle())
                                     }
                                 }
@@ -69,7 +69,7 @@ struct ProfileView: View {
                                         .font(.system(size: 16, weight: .bold))
                                         .foregroundColor(AppTheme.textPrimary)
                                         .frame(width: 44, height: 44)
-                                        .background(Color.white)
+                                        .background(AppTheme.cardSurface)
                                         .clipShape(Circle())
                                 }
                             }
@@ -83,7 +83,7 @@ struct ProfileView: View {
                         VStack(spacing: 8) {
                             ZStack(alignment: .bottomTrailing) {
                                 Circle()
-                                    .fill(Color.white)
+                                    .fill(AppTheme.cardSurface)
                                     .frame(width: 110, height: 110)
                                     .shadow(radius: 10)
                                     .overlay(
@@ -137,7 +137,7 @@ struct ProfileView: View {
                                 .foregroundColor(Color.red.opacity(0.8))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
-                                .background(Color.white)
+                                .background(AppTheme.cardSurface)
                                 .cornerRadius(16)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 16)
@@ -213,7 +213,8 @@ struct ProfileView: View {
     }
 
     private func saveProfile() {
-        guard let uid = session.currentUser?.id else { return }
+        guard let user = session.currentUser else { return }
+        let uid = user.id
         isSaving = true
 
         let fullName = personalFields.first(where: { $0.title == "Full Name" })?.value ?? ""
@@ -233,12 +234,35 @@ struct ProfileView: View {
         db.collection("users").document(uid).updateData(updates) { error in
             isSaving = false
             if error == nil {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                    isEditing = false
+                // Target role-specific collection mappings
+                switch user.role {
+                case .patient:
+                    db.collection("patients").document(uid).setData(updates, merge: true)
+                case .doctor:
+                    db.collection("doctors").document(uid).setData(updates, merge: true)
+                case .labTechnician:
+                    db.collection("lab_technicians").document(uid).setData(updates, merge: true)
+                default:
+                    break
                 }
-                profileName = fullName
-                profileImage = String(fullName.prefix(1))
-                triggerToast()
+                
+                DispatchQueue.main.async {
+                    var updatedUser = user
+                    updatedUser.fullName = fullName
+                    if let g = gender, g != "Not Set" { updatedUser.gender = g }
+                    if let d = dob, d != "Not Set" { updatedUser.dateOfBirth = d }
+                    if let p = safePhone { updatedUser.phoneNumber = p }
+                    session.setUser(updatedUser)
+                    
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        isEditing = false
+                    }
+                    profileName = fullName
+                    profileImage = String(fullName.prefix(1))
+                    triggerToast()
+                }
+            } else {
+                print("Error updating profile: \(error?.localizedDescription ?? "Unknown Error")")
             }
         }
     }

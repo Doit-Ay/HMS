@@ -56,7 +56,7 @@ struct MonthCalendarView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(AppTheme.textSecondary)
                             .padding(8)
-                            .background(Color.white)
+                            .background(AppTheme.cardSurface)
                             .clipShape(Circle())
                             .shadow(color: Color.black.opacity(0.04), radius: 3, x: 0, y: 2)
                     }
@@ -65,7 +65,7 @@ struct MonthCalendarView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(AppTheme.textSecondary)
                             .padding(8)
-                            .background(Color.white)
+                            .background(AppTheme.cardSurface)
                             .clipShape(Circle())
                             .shadow(color: Color.black.opacity(0.04), radius: 3, x: 0, y: 2)
                     }

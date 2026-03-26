@@ -37,12 +37,12 @@ class AuthManager {
     }
 
     // MARK: - Fetch User Profile from Firestore
-    func fetchUserProfile(uid: String) async {
+    func fetchUserProfile(uid: String, requiresOTP: Bool = false) async {
         do {
             let doc = try await db.collection("users").document(uid).getDocument()
             if let data = doc.data(), let user = try? Firestore.Decoder().decode(HMSUser.self, from: data) {
-                // Default: no OTP required (app reopen via auth listener)
-                UserSession.shared.setUser(user, requiresOTP: false)
+                // requiresOTP: true for fresh logins, false for app reopen via auth listener
+                UserSession.shared.setUser(user, requiresOTP: requiresOTP)
             } else {
                 UserSession.shared.setLoading(false)
             }
@@ -57,10 +57,8 @@ class AuthManager {
     /// AppRouter handles routing to the correct dashboard automatically.
     func login(email: String, password: String) async throws {
         let result = try await Auth.auth().signIn(withEmail: email, password: password)
-        await fetchUserProfile(uid: result.user.uid)
-        // Trigger OTP for fresh login
-        UserSession.shared.needsOTPVerification = true
-        UserSession.shared.pendingOTPEmail = email
+        await fetchUserProfile(uid: result.user.uid, requiresOTP: true)
+        await ActivityLogManager.shared.logAction(action: "User Login", details: "Logged in via Email: \(email)")
         await sendOTPForUser(email: email)
     }
 
@@ -68,7 +66,7 @@ class AuthManager {
     /// Google sign-in for any user. New Google users are auto-registered as patients.
     /// Existing users are signed in regardless of role — AppRouter routes them.
     func googleSignInUnified(presenting viewController: UIViewController) async throws {
-        let googleUser = try await googleSignIn(presenting: viewController)
+        let googleUser = try await googleSignIn(presenting: viewController, requiresOTP: true)
         if UserSession.shared.userRole == nil {
             // New Google user — create as patient
             let newUser = HMSUser(
@@ -82,42 +80,35 @@ class AuthManager {
             try await savePatientProfile(profile: patientProfile, db: nil)
             UserSession.shared.setUser(newUser, requiresOTP: true)
         }
-        // Trigger OTP for fresh Google sign-in
         let email = googleUser.email ?? UserSession.shared.currentUser?.email ?? ""
-        UserSession.shared.needsOTPVerification = true
-        UserSession.shared.pendingOTPEmail = email
         await sendOTPForUser(email: email)
     }
 
     // MARK: - Patient Email/Password Login
     func patientLogin(email: String, password: String) async throws {
         let result = try await Auth.auth().signIn(withEmail: email, password: password)
-        await fetchUserProfile(uid: result.user.uid)
+        await fetchUserProfile(uid: result.user.uid, requiresOTP: true)
         // Ensure the logged-in user is a patient
         if UserSession.shared.userRole != .patient {
             try Auth.auth().signOut()
             UserSession.shared.clearSession()
             throw AuthError.wrongRole("This account is not a patient account. Please use Staff login.")
         }
-        // Trigger OTP for fresh login
-        UserSession.shared.needsOTPVerification = true
-        UserSession.shared.pendingOTPEmail = email
+        await ActivityLogManager.shared.logAction(action: "Patient Login", details: "Patient logged in: \(email)")
         await sendOTPForUser(email: email)
     }
 
     // MARK: - Staff Email/Password Login
     func staffLogin(email: String, password: String) async throws {
         let result = try await Auth.auth().signIn(withEmail: email, password: password)
-        await fetchUserProfile(uid: result.user.uid)
+        await fetchUserProfile(uid: result.user.uid, requiresOTP: true)
         // Ensure the logged-in user is staff
         if UserSession.shared.userRole == .patient {
             try Auth.auth().signOut()
             UserSession.shared.clearSession()
             throw AuthError.wrongRole("This account is not a staff account. Please use Patient login.")
         }
-        // Trigger OTP for fresh login
-        UserSession.shared.needsOTPVerification = true
-        UserSession.shared.pendingOTPEmail = email
+        await ActivityLogManager.shared.logAction(action: "Staff Login", details: "Staff logged in: \(email)")
         await sendOTPForUser(email: email)
     }
 
@@ -144,6 +135,7 @@ class AuthManager {
         try await savePatientProfile(profile: patientProfile, db: nil)
 
         UserSession.shared.setUser(user, requiresOTP: true)
+        await ActivityLogManager.shared.logAction(action: "Patient Registration", details: "Registered new patient: \(email)")
         // Send OTP for email verification
         await sendOTPForUser(email: email)
     }
@@ -151,7 +143,7 @@ class AuthManager {
     // MARK: - Google Sign-In (Patient)
     // For new Google users: writes to both `users` and `patients` collections.
     func googleSignInPatient(presenting viewController: UIViewController) async throws {
-        let googleUser = try await googleSignIn(presenting: viewController)
+        let googleUser = try await googleSignIn(presenting: viewController, requiresOTP: true)
         if UserSession.shared.userRole == nil {
             // New Google user — create as patient in both collections
             let newUser = HMSUser(
@@ -171,16 +163,14 @@ class AuthManager {
             UserSession.shared.clearSession()
             throw AuthError.wrongRole("This Google account is registered as staff. Please use Staff login.")
         }
-        // Trigger OTP for fresh Google sign-in
         let email = googleUser.email ?? UserSession.shared.currentUser?.email ?? ""
-        UserSession.shared.needsOTPVerification = true
-        UserSession.shared.pendingOTPEmail = email
+        await ActivityLogManager.shared.logAction(action: "Google Sign-In", details: "Patient logged in via Google: \(email)")
         await sendOTPForUser(email: email)
     }
 
     // MARK: - Google Sign-In (Staff)
     func googleSignInStaff(presenting viewController: UIViewController) async throws {
-        let user = try await googleSignIn(presenting: viewController)
+        let user = try await googleSignIn(presenting: viewController, requiresOTP: true)
         if UserSession.shared.userRole == nil {
             try Auth.auth().signOut()
             UserSession.shared.clearSession()
@@ -190,15 +180,13 @@ class AuthManager {
             UserSession.shared.clearSession()
             throw AuthError.wrongRole("This Google account is registered as a patient. Please use Patient login.")
         }
-        // Trigger OTP for fresh Google sign-in
         let email = user.email ?? UserSession.shared.currentUser?.email ?? ""
-        UserSession.shared.needsOTPVerification = true
-        UserSession.shared.pendingOTPEmail = email
+        await ActivityLogManager.shared.logAction(action: "Google Sign-In", details: "Staff logged in via Google: \(email)")
         await sendOTPForUser(email: email)
     }
 
     // MARK: - Private Google Sign-In Helper
-    private func googleSignIn(presenting viewController: UIViewController) async throws -> (uid: String, email: String?, displayName: String?) {
+    private func googleSignIn(presenting viewController: UIViewController, requiresOTP: Bool = false) async throws -> (uid: String, email: String?, displayName: String?) {
         guard let clientID = FirebaseApp.app()?.options.clientID else {
             throw AuthError.configuration("Firebase client ID not found.")
         }
@@ -214,7 +202,7 @@ class AuthManager {
             accessToken: result.user.accessToken.tokenString
         )
         let authResult = try await Auth.auth().signIn(with: credential)
-        await fetchUserProfile(uid: authResult.user.uid)
+        await fetchUserProfile(uid: authResult.user.uid, requiresOTP: requiresOTP)
         return (authResult.user.uid, authResult.user.email, authResult.user.displayName)
     }
 
@@ -225,6 +213,12 @@ class AuthManager {
 
     // MARK: - Sign Out
     func signOut() throws {
+        let currentUser = UserSession.shared.currentUser
+        if let user = currentUser {
+            Task {
+                await ActivityLogManager.shared.logAction(action: "User Logout", details: "User signed out.", userOverride: user)
+            }
+        }
         try Auth.auth().signOut()
         GIDSignIn.sharedInstance.signOut()
         UserSession.shared.clearSession()
@@ -241,7 +235,8 @@ class AuthManager {
         department: String?,
         specialization: String?,
         employeeID: String?,
-        defaultSlots: [String]? = nil
+        defaultSlots: [String]? = nil,
+        consultationFee: Double? = nil
     ) async throws {
         // Step 1 — Get a secondary Firebase App to isolate auth from admin session
         let secondaryAppName = "HMSStaffCreation"
@@ -267,6 +262,11 @@ class AuthManager {
         staff.specialization = specialization
         staff.employeeID     = employeeID
         staff.defaultSlots   = defaultSlots
+        staff.consultationFee = consultationFee
+        if role == .doctor {
+            staff.averageRating = 0.0
+            staff.reviewCount = 0
+        }
         
         try await saveUserToFirestore(user: staff, db: adminDB)
 
@@ -292,6 +292,8 @@ class AuthManager {
 
         // Step 7 — Send password reset email
         try await Auth.auth().sendPasswordReset(withEmail: email)
+        
+        await ActivityLogManager.shared.logAction(action: "Add Staff", details: "Added \(role.displayName) \(fullName) (\(email))")
     }
 
     // Generates a secure random temporary password
@@ -305,11 +307,13 @@ class AuthManager {
     // MARK: - Admin: Deactivate Staff Member
     func deactivateStaff(uid: String) async throws {
         try await db.collection("users").document(uid).updateData(["isActive": false])
+        await ActivityLogManager.shared.logAction(action: "Deactivate Staff", details: "Deactivated staff member UID: \(uid)")
     }
 
     // MARK: - Admin: Reactivate Staff Member
     func reactivateStaff(uid: String) async throws {
         try await db.collection("users").document(uid).updateData(["isActive": true])
+        await ActivityLogManager.shared.logAction(action: "Reactivate Staff", details: "Reactivated staff member UID: \(uid)")
     }
 
     // MARK: - Admin: Update Staff Member
@@ -320,7 +324,9 @@ class AuthManager {
         department: String?,
         specialization: String?,
         employeeID: String?,
-        defaultSlots: [String]? = nil
+        phoneNumber: String? = nil,
+        defaultSlots: [String]? = nil,
+        consultationFee: Double? = nil
     ) async throws {
         // Step 1 — Update `users` Firestore collection
         var updates: [String: Any] = [
@@ -329,8 +335,14 @@ class AuthManager {
         updates["department"]     = department
         updates["specialization"] = specialization
         updates["employeeID"]     = employeeID
+        if let phone = phoneNumber, !phone.isEmpty {
+            updates["phoneNumber"] = phone
+        }
         if let slots = defaultSlots {
             updates["defaultSlots"] = slots
+        }
+        if let fee = consultationFee {
+            updates["consultationFee"] = fee
         }
 
         try await db.collection("users").document(uid).updateData(updates)
@@ -347,8 +359,14 @@ class AuthManager {
             doctorUpdates["department"]     = department
             doctorUpdates["specialization"] = specialization
             doctorUpdates["employeeID"]     = employeeID
+            if let phone = phoneNumber, !phone.isEmpty {
+                doctorUpdates["phoneNumber"] = phone
+            }
             if let slots = defaultSlots {
                 doctorUpdates["defaultSlots"] = slots
+            }
+            if let fee = consultationFee {
+                doctorUpdates["consultationFee"] = fee
             }
             try await db.collection("doctors").document(uid).setData(doctorUpdates, merge: true)
             
@@ -360,10 +378,15 @@ class AuthManager {
             ]
             labTechUpdates["department"] = department
             labTechUpdates["employeeID"] = employeeID
+            if let phone = phoneNumber, !phone.isEmpty {
+                labTechUpdates["phoneNumber"] = phone
+            }
             try await db.collection("lab_technicians").document(uid).setData(labTechUpdates, merge: true)
         default:
             break
         }
+        
+        await ActivityLogManager.shared.logAction(action: "Update Staff", details: "Updated profile for staff member UID: \(uid)")
     }
 
     // MARK: - Self-Serve: Update Current Doctor Profile
@@ -401,7 +424,7 @@ class AuthManager {
 
     // MARK: - Sync current doctor profile fields to doctors collection
     func syncDoctorProfileToFirestore(user: HMSUser) async {
-        let fields: [String: Any] = [
+        var fields: [String: Any] = [
             "id":             user.id,
             "email":          user.email,
             "fullName":       user.fullName,
@@ -413,6 +436,9 @@ class AuthManager {
             "specialization": user.specialization ?? "Not Set",
             "employeeID":     user.employeeID     ?? "Not Set"
         ]
+        if let fee = user.consultationFee {
+            fields["consultationFee"] = fee
+        }
         do {
             try await db.collection("doctors").document(user.id).setData(fields, merge: true)
         } catch {
@@ -509,6 +535,14 @@ class AuthManager {
         try await database.collection("lab_technicians").document(profile.id).setData(data)
     }
 
+    // MARK: - Fetch All Patients
+    func fetchPatients() async throws -> [HMSUser] {
+        let snapshot = try await db.collection("users")
+            .whereField("role", isEqualTo: UserRole.patient.rawValue)
+            .getDocuments()
+        return snapshot.documents.compactMap { try? Firestore.Decoder().decode(HMSUser.self, from: $0.data()) }
+    }
+
     // MARK: - Fetch All Doctors
     func fetchDoctors() async throws -> [HMSUser] {
         let snapshot = try await db.collection("doctors")
@@ -527,6 +561,9 @@ class AuthManager {
             user.specialization = d["specialization"] as? String
             user.employeeID = d["employeeID"] as? String
             user.defaultSlots = d["defaultSlots"] as? [String]
+            user.consultationFee = d["consultationFee"] as? Double
+            user.averageRating = d["averageRating"] as? Double ?? 0.0
+            user.reviewCount = d["reviewCount"] as? Int ?? 0
             user.isActive = d["isActive"] as? Bool ?? true
             return user
         }
@@ -594,6 +631,23 @@ class AuthManager {
     }
 
     // MARK: - Appointment Statistics
+    
+    /// Converts any future appointments marked as "completed" back to "scheduled"
+    private func sanitizeAppointments(_ appointments: [Appointment]) -> [Appointment] {
+        let currentDateTime = Date()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        
+        return appointments.map { appt in
+            var updatedAppt = appt
+            if appt.status == "completed",
+               let apptTime = formatter.date(from: "\(appt.date) \(appt.startTime)"),
+               apptTime > currentDateTime {
+                updatedAppt.status = "scheduled"
+            }
+            return updatedAppt
+        }
+    }
 
     /// Fetch all appointments (optionally filtered by date range)
     func fetchAppointments(from startDate: String? = nil, to endDate: String? = nil) async throws -> [Appointment] {
@@ -605,9 +659,10 @@ class AuthManager {
             query = query.whereField("date", isLessThanOrEqualTo: end)
         }
         let snapshot = try await query.getDocuments()
-        return snapshot.documents.compactMap {
+        let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }
+        return sanitizeAppointments(appointments)
     }
 
     /// Fetch appointments for a specific date
@@ -615,9 +670,10 @@ class AuthManager {
         let snapshot = try await db.collection("appointments")
             .whereField("date", isEqualTo: date)
             .getDocuments()
-        return snapshot.documents.compactMap {
+        let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }
+        return sanitizeAppointments(appointments)
     }
 
     /// Fetch all appointments in a given month (format: "yyyy-MM")
@@ -825,8 +881,8 @@ class AuthManager {
     /// Fetch a single appointment by ID
     func fetchAppointment(appointmentId: String) async throws -> Appointment? {
         let doc = try await db.collection("appointments").document(appointmentId).getDocument()
-        guard let data = doc.data() else { return nil }
-        return try Firestore.Decoder().decode(Appointment.self, from: data)
+        guard let data = doc.data(), let appt = try? Firestore.Decoder().decode(Appointment.self, from: data) else { return nil }
+        return sanitizeAppointments([appt]).first
     }
 
     /// Fetch appointments for a specific doctor on a given date
@@ -835,9 +891,21 @@ class AuthManager {
             .whereField("doctorId", isEqualTo: doctorId)
             .whereField("date", isEqualTo: date)
             .getDocuments()
-        return snapshot.documents.compactMap {
+        let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }.sorted { $0.startTime < $1.startTime }
+        return sanitizeAppointments(appointments)
+    }
+    
+    /// Fetch all appointments for a specific doctor
+    func fetchAllDoctorAppointments(doctorId: String) async throws -> [Appointment] {
+        let snapshot = try await db.collection("appointments")
+            .whereField("doctorId", isEqualTo: doctorId)
+            .getDocuments()
+        let appointments = snapshot.documents.compactMap {
+            try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
+        }
+        return sanitizeAppointments(appointments)
     }
 
     /// Fetch appointments for a specific doctor in a given month (format: "yyyy-MM")
@@ -853,9 +921,10 @@ class AuthManager {
         let snapshot = try await db.collection("appointments")
             .whereField("doctorId", isEqualTo: doctorId)
             .getDocuments()
-        return snapshot.documents.compactMap {
+        let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }.filter { $0.date >= startDate && $0.date <= endDate }
+        return sanitizeAppointments(appointments)
     }
 
     /// Fetch appointments for the logged-in patient
@@ -863,9 +932,10 @@ class AuthManager {
         let snapshot = try await db.collection("appointments")
             .whereField("patientId", isEqualTo: patientId)
             .getDocuments()
-        return snapshot.documents.compactMap {
+        let appointments = snapshot.documents.compactMap {
             try? Firestore.Decoder().decode(Appointment.self, from: $0.data())
         }.sorted { $0.date < $1.date }
+        return sanitizeAppointments(appointments)
     }
 
     /// Fetch a single doctor's HMSUser record
@@ -883,6 +953,37 @@ class AuthManager {
         } catch {
             print("⚠️ Failed to send OTP: \(error.localizedDescription)")
         }
+    }
+
+    // MARK: - Doctor Ratings
+    func submitDoctorReview(appointmentId: String, doctorId: String, rating: Int, review: String?) async throws {
+        // 1. Update the appointment with the given rating & review
+        var appointmentUpdates: [String: Any] = [
+            "ratingGiven": rating
+        ]
+        if let text = review, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            appointmentUpdates["reviewText"] = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        try await db.collection("appointments").document(appointmentId).updateData(appointmentUpdates)
+        
+        // 2. Evaluate new rating safely
+        let doctorRef = db.collection("users").document(doctorId)
+        let doctorDoc = try await doctorRef.getDocument()
+        
+        let currentRating = doctorDoc.data()?["averageRating"] as? Double ?? 0.0
+        let currentCount = doctorDoc.data()?["reviewCount"] as? Int ?? 0
+        
+        let newCount = currentCount + 1
+        let newRating = ((currentRating * Double(currentCount)) + Double(rating)) / Double(newCount)
+        
+        let updates: [String: Any] = [
+            "averageRating": newRating,
+            "reviewCount": newCount
+        ]
+        
+        // 3. Update both master user and role-specific doctor profiles
+        try await doctorRef.updateData(updates)
+        try await db.collection("doctors").document(doctorId).updateData(updates)
     }
 } // <-- Close AuthManager class here
 

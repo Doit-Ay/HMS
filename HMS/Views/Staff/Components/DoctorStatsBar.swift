@@ -64,7 +64,7 @@ struct StatPill: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
         .padding(.horizontal, 8)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
     }

@@ -58,7 +58,7 @@ struct AvailabilityCard: View {
             // but the prompt says this is the availability card specifically.
         }
         .padding(24)
-        .background(Color.white)
+        .background(AppTheme.cardSurface)
         .cornerRadius(28)
         // Soft, 8pt blur, ~10% opacity black as per reqs
         .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)

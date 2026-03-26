@@ -16,6 +16,7 @@
 		3FB20DA92F5C6D32008B35EC /* FirebaseStorageCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 3FB20DA82F5C6D32008B35EC /* FirebaseStorageCombine-Community */; };
 		3FB20DAC2F5C6D9A008B35EC /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 3FB20DAB2F5C6D9A008B35EC /* GoogleSignIn */; };
 		3FB20DAE2F5C6D9A008B35EC /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 3FB20DAD2F5C6D9A008B35EC /* GoogleSignInSwift */; };
+		BE5501512F729F28005AC786 /* RazorpayCheckout in Frameworks */ = {isa = PBXBuildFile; productRef = BE5501502F729F28005AC786 /* RazorpayCheckout */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -85,6 +86,7 @@
 				3FB20D9D2F5C6D32008B35EC /* FirebaseAuth in Frameworks */,
 				3FB20DA12F5C6D32008B35EC /* FirebaseFirestore in Frameworks */,
 				3FB20DA52F5C6D32008B35EC /* FirebaseInstallations in Frameworks */,
+				BE5501512F729F28005AC786 /* RazorpayCheckout in Frameworks */,
 				3FB20DA72F5C6D32008B35EC /* FirebaseStorage in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -155,6 +157,7 @@
 				3FB20DA82F5C6D32008B35EC /* FirebaseStorageCombine-Community */,
 				3FB20DAB2F5C6D9A008B35EC /* GoogleSignIn */,
 				3FB20DAD2F5C6D9A008B35EC /* GoogleSignInSwift */,
+				BE5501502F729F28005AC786 /* RazorpayCheckout */,
 			);
 			productName = HMS;
 			productReference = 3FB20D3F2F5BEF56008B35EC /* HMS.app */;
@@ -241,6 +244,7 @@
 			packageReferences = (
 				3FB20D9B2F5C6C65008B35EC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				3FB20DAA2F5C6D9A008B35EC /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				BE55014F2F729F28005AC786 /* XCRemoteSwiftPackageReference "razorpay-pod" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3FB20D402F5BEF56008B35EC /* Products */;
@@ -442,7 +446,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 2XF95KUMBG;
+				DEVELOPMENT_TEAM = 6B5VBRCK47;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = HMS/Info.plist;
@@ -476,7 +480,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 2XF95KUMBG;
+				DEVELOPMENT_TEAM = 6B5VBRCK47;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = HMS/Info.plist;
@@ -641,6 +645,14 @@
 				minimumVersion = 9.1.0;
 			};
 		};
+		BE55014F2F729F28005AC786 /* XCRemoteSwiftPackageReference "razorpay-pod" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/razorpay/razorpay-pod";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.5.3;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -688,6 +700,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 3FB20DAA2F5C6D9A008B35EC /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignInSwift;
+		};
+		BE5501502F729F28005AC786 /* RazorpayCheckout */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BE55014F2F729F28005AC786 /* XCRemoteSwiftPackageReference "razorpay-pod" */;
+			productName = RazorpayCheckout;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
