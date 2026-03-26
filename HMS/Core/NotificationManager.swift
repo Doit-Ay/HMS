@@ -14,7 +14,11 @@ class NotificationManager: NSObject, ObservableObject {
     private var listener: ListenerRegistration?
 
     @Published var notifications: [AppNotification] = []
-    @Published var unreadCount: Int = 0
+    @Published var unreadCount: Int = 0 {
+        didSet {
+            UNUserNotificationCenter.current().setBadgeCount(unreadCount) { _ in }
+        }
+    }
 
     private override init() {
         super.init()
@@ -145,8 +149,6 @@ class NotificationManager: NSObject, ObservableObject {
                 }
                 unreadCount = 0
             }
-            // Clear badge
-            UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
         } catch {
             print("⚠️ Failed to mark all as read: \(error.localizedDescription)")
         }
