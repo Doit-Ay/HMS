@@ -26,11 +26,47 @@ final class InventoryRepository {
     }
 
     func fetchInventory(category: InventoryCategory) async throws -> [InventoryItem] {
+        // Fetch from the 'inventory' collection
         let snapshot = try await db.collection("inventory")
             .whereField("category", isEqualTo: category.rawValue)
             .whereField("isActive", isEqualTo: true)
             .getDocuments()
-        return try snapshot.documents.compactMap { try $0.data(as: InventoryItem.self) }
+        var items = try snapshot.documents.compactMap { try $0.data(as: InventoryItem.self) }
+
+        // For medicines, also fetch from the legacy 'medicines' collection
+        if category == .medicines {
+            let medSnapshot = try await db.collection("medicines").getDocuments()
+            let legacyMeds: [InventoryItem] = medSnapshot.documents.compactMap { doc in
+                let d = doc.data()
+                let name = d["name"] as? String ?? ""
+                let quantity = d["quantity"] as? Int ?? 0
+                let typeStr = d["type"] as? String ?? "Tablets"
+                let medType: MedicineType = typeStr.lowercased().contains("liquid") || typeStr.lowercased().contains("injection") || typeStr.lowercased().contains("syrup") ? .liquid : .tablet
+                let medCategory = d["category"] as? String  // e.g. "Antivirals", "Analgesics"
+
+                // Skip if an inventory item with the same name already exists
+                if items.contains(where: { $0.name.lowercased() == name.lowercased() }) {
+                    return nil
+                }
+
+                return InventoryItem(
+                    id: doc.documentID,
+                    name: name,
+                    category: .medicines,
+                    medicineType: medType,
+                    department: medCategory,
+                    quantity: quantity,
+                    unitPrice: 0,
+                    unit: medType == .liquid ? "ml" : "tablet",
+                    isActive: true,
+                    createdAt: nil,
+                    updatedAt: nil
+                )
+            }
+            items.append(contentsOf: legacyMeds)
+        }
+
+        return items
     }
 
     /// Doctor-side: return medicines filtered to a specific department (or all medicines if nil)
