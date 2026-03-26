@@ -34,6 +34,7 @@ class LabTechnicianRepository: ObservableObject {
     // MARK: - Role Guard
     
     /// Ensures the current user is a lab technician before performing mutations.
+    @MainActor
     private func ensureLabTechnician() throws {
 //        guard UserSession.shared.currentUser?.role == .labTechnician else {
 //            throw LabTechError.unauthorized("Only Lab Technicians can perform this action.")
@@ -88,7 +89,11 @@ class LabTechnicianRepository: ObservableObject {
                 }
                 
                 print("LabTechRepo: Fetched \(documents.count) pending documents")
+                let currentUserId = UserSession.shared.currentUser?.id
                 let parsed = documents.compactMap { self.parseLabRequest(from: $0) }
+                    .filter { req in
+                        req.status == "pending" || (req.status == "in_progress" && req.assignedLabTechId == currentUserId)
+                    }
                     .sorted { $0.dateRequested > $1.dateRequested }
                 print("LabTechRepo: Parsed \(parsed.count) pending requests")
                 
@@ -142,10 +147,18 @@ class LabTechnicianRepository: ObservableObject {
     
     /// Approves a lab request by changing its status from "pending" to "in_progress".
     func approveRequest(requestId: String) async throws {
-        try ensureLabTechnician()
+        try await ensureLabTechnician()
+        
+        guard let currentUser = UserSession.shared.currentUser else {
+            throw LabTechError.unauthorized("User session not found")
+        }
         
         let docRef = db.collection("patient_lab_requests").document(requestId)
-        try await docRef.updateData(["status": "in_progress"])
+        try await docRef.updateData([
+            "status": "in_progress",
+            "assignedLabTechId": currentUser.id,
+            "assignedLabTechName": currentUser.fullName
+        ])
     }
     
     // MARK: - One-shot Fetchers (for manual refresh)
@@ -180,7 +193,7 @@ class LabTechnicianRepository: ObservableObject {
     ///   - image: The UIImage to upload.
     /// - Returns: The download URL string of the uploaded image.
     func uploadReport(requestId: String, testIndex: Int, image: UIImage) async throws -> String {
-        try ensureLabTechnician()
+        try await ensureLabTechnician()
         
         guard let imageData = image.jpegData(compressionQuality: 0.8) else {
             throw LabTechError.uploadFailed("Failed to convert image to JPEG data.")
@@ -208,7 +221,7 @@ class LabTechnicianRepository: ObservableObject {
     ///   - fileURL: The local URL of the file to upload.
     /// - Returns: The download URL string of the uploaded file.
     func uploadReport(requestId: String, testIndex: Int, fileURL: URL) async throws -> String {
-        try ensureLabTechnician()
+        try await ensureLabTechnician()
         
         let fileData = try Data(contentsOf: fileURL)
         let originalName = fileURL.lastPathComponent
@@ -234,7 +247,7 @@ class LabTechnicianRepository: ObservableObject {
     ///   - reportURL: The Firebase Storage download URL for the uploaded report.
     ///   - fileName: The display name of the uploaded file.
     func markAllTestsCompleted(requestId: String, reportURL: String, fileName: String) async throws {
-        try ensureLabTechnician()
+        try await ensureLabTechnician()
         
         let docRef = db.collection("patient_lab_requests").document(requestId)
         let snapshot = try await docRef.getDocument()
@@ -322,7 +335,9 @@ class LabTechnicianRepository: ObservableObject {
             dateRequested: timestamp.dateValue(),
             status: data["status"] as? String ?? "pending",
             customName: data["customName"] as? String,
-            collectionName: "patient_lab_requests"
+            collectionName: "patient_lab_requests",
+            assignedLabTechId: data["assignedLabTechId"] as? String,
+            assignedLabTechName: data["assignedLabTechName"] as? String
         )
     }
     

@@ -17,8 +17,7 @@ struct AdminPatientSearchView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
+        ZStack {
                 Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
 
                 VStack(spacing: 0) {
@@ -97,8 +96,7 @@ struct AdminPatientSearchView: View {
                     }
                 }
             }
-            .toolbar(.hidden, for: .tabBar)
-        }
+        .toolbar(.hidden, for: .tabBar)
     }
 
     private func fetchPatients() {

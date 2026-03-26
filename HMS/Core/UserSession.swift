@@ -31,7 +31,6 @@ class UserSession: ObservableObject {
         self.isLoading = false
     }
 
-    /// Called after OTP is successfully verified — clears the OTP gate.
     func confirmOTPVerification() {
         self.needsOTPVerification = false
         self.pendingOTPEmail = nil

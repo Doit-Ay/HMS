@@ -250,14 +250,17 @@ struct AdminRevenueDashboardView: View {
 
                 let dtFormatter = DateFormatter()
                 dtFormatter.dateFormat = "yyyy-MM-dd"
-                let date = dtFormatter.date(from: dateStr) ?? Date()
+                let scheduledDate = dtFormatter.date(from: dateStr) ?? Date()
+                
+                let createdAtTS = d["createdAt"] as? Timestamp
+                let paymentDate = createdAtTS?.dateValue() ?? scheduledDate
 
                 all.append(RevenueTransaction(
                     id: doc.documentID, type: .appointment,
                     patientName: name,
                     description: "Consultation – Dr. \(doctor)",
                     amount: feeMap[doctorId] ?? 499.0,
-                    date: date
+                    date: paymentDate
                 ))
             }
         } catch { print("⚠️ Revenue (appointments): \(error)") }

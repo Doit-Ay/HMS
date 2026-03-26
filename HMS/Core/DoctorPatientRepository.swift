@@ -142,6 +142,23 @@ class DoctorPatientRepository {
         return notes.sorted { ($0.createdAt ?? Date.distantPast) > ($1.createdAt ?? Date.distantPast) }
     }
 
+    // MARK: - Medicines
+
+    /// Fetches all medicines from the `medicines` collection
+    func fetchMedicines() async throws -> [AppMedicine] {
+        let snapshot = try await db.collection("medicines").getDocuments()
+        return snapshot.documents.compactMap { doc -> AppMedicine? in
+            let data = doc.data()
+            guard let name = data["name"] as? String else { return nil }
+            return AppMedicine(
+                id: doc.documentID,
+                name: name,
+                type: data["type"] as? String,
+                manufacturer: data["manufacturer"] as? String
+            )
+        }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+    
     // MARK: - Lab Test Requests
 
     /// Saves a referred lab test request to Firestore

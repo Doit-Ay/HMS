@@ -2,20 +2,23 @@ import Foundation
 import UIKit
 import PDFKit
 
-class RevenuePDFGenerator {
+class InvoicePDFGenerator {
     
     // Page dimensions (A4 size)
     private let pageWidth: CGFloat = 595.2
     private let pageHeight: CGFloat = 841.8
     private let margin: CGFloat = 40.0
     
-    func generatePDF(transaction: RevenueTransaction) -> URL? {
-        let safeName = transaction.patientName.replacingOccurrences(of: " ", with: "_")
-        let outputFileURL = FileManager.default.temporaryDirectory.appendingPathComponent("Receipt_\(safeName)_\(transaction.id.prefix(6)).pdf")
+    private let primaryColor = UIColor(red: 0.1, green: 0.35, blue: 0.65, alpha: 1.0)
+    
+    func generatePDF(invoice: HMSInvoice) -> URL? {
+        let safeName = invoice.patientName.replacingOccurrences(of: " ", with: "_")
+        let invoiceID = String(invoice.firestoreId.prefix(8)).uppercased()
+        let outputFileURL = FileManager.default.temporaryDirectory.appendingPathComponent("Receipt_\(safeName)_\(invoiceID).pdf")
         
         let format = UIGraphicsPDFRendererFormat()
         let metadata = [
-            kCGPDFContextTitle: "Payment Receipt - \(transaction.patientName)",
+            kCGPDFContextTitle: "Payment Receipt - \(invoice.patientName)",
             kCGPDFContextAuthor: "CureIt Hospital"
         ]
         format.documentInfo = metadata as [String: Any]
@@ -34,18 +37,18 @@ class RevenuePDFGenerator {
                 // 2. Receipt Title
                 currentY = drawReceiptTitle(currentY: currentY, context: context)
                 
-                // 3. Transaction Details
-                currentY = drawDetails(currentY: currentY, transaction: transaction, context: context)
+                // 3. Invoice Details
+                currentY = drawDetails(currentY: currentY, invoice: invoice, invoiceID: invoiceID, context: context)
                 
-                // 4. Amount Breakdown
-                currentY = drawAmountSection(currentY: currentY, transaction: transaction, context: context)
+                // 4. Amount Breakdown (Table of items + Subtotal/Tax + Total Paid)
+                currentY = drawAmountSection(currentY: currentY, invoice: invoice, context: context)
                 
                 // 5. Footer
                 drawFooter(context: context)
             }
             return outputFileURL
         } catch {
-            print("Failed to generate Revenue PDF: \(error)")
+            print("Failed to generate PDF: \(error)")
             return nil
         }
     }
@@ -58,7 +61,6 @@ class RevenuePDFGenerator {
         
         let headerFont = UIFont.systemFont(ofSize: 28, weight: .heavy)
         let addressFont = UIFont.systemFont(ofSize: 11, weight: .medium)
-        let primaryColor = UIColor(red: 0.1, green: 0.35, blue: 0.65, alpha: 1.0)
         
         // Logo
         if let logo = UIImage(named: "CureIt_logo") {
@@ -78,8 +80,19 @@ class RevenuePDFGenerator {
             addressString.draw(at: CGPoint(x: nameX, y: currentY + 34))
             
             return currentY + logoHeight + 30
+        } else {
+            let hospitalNameString = NSAttributedString(string: hospitalName, attributes: [
+                .font: headerFont, .foregroundColor: primaryColor
+            ])
+            hospitalNameString.draw(at: CGPoint(x: margin, y: currentY))
+            
+            let addressString = NSAttributedString(string: hospitalAddress, attributes: [
+                .font: addressFont, .foregroundColor: UIColor.darkGray
+            ])
+            addressString.draw(at: CGPoint(x: margin, y: currentY + 34))
+            
+            return currentY + 60
         }
-        return currentY
     }
     
     private func drawReceiptTitle(currentY: CGFloat, context: UIGraphicsPDFRendererContext) -> CGFloat {
@@ -100,7 +113,7 @@ class RevenuePDFGenerator {
         return lineY + 20
     }
     
-    private func drawDetails(currentY: CGFloat, transaction: RevenueTransaction, context: UIGraphicsPDFRendererContext) -> CGFloat {
+    private func drawDetails(currentY: CGFloat, invoice: HMSInvoice, invoiceID: String, context: UIGraphicsPDFRendererContext) -> CGFloat {
         let labelFont = UIFont.systemFont(ofSize: 11, weight: .bold)
         let valueFont = UIFont.systemFont(ofSize: 12, weight: .regular)
         let labelColor = UIColor.darkGray
@@ -110,11 +123,13 @@ class RevenuePDFGenerator {
         dateFormatter.dateStyle = .long
         dateFormatter.timeStyle = .short
         
+        let dateToUse = invoice.paidAt ?? invoice.date
+        
         let details = [
-            ("Receipt No:", transaction.id.uppercased()),
-            ("Date:", dateFormatter.string(from: transaction.date)),
-            ("Patient Name:", transaction.patientName),
-            ("Payment Type:", transaction.type.label)
+            ("Receipt No:", invoiceID),
+            ("Date:", dateFormatter.string(from: dateToUse)),
+            ("Patient Name:", invoice.patientName),
+            ("Payment Type:", "Hospital Bill")
         ]
         
         var y = currentY
@@ -136,7 +151,7 @@ class RevenuePDFGenerator {
         return y + 20
     }
     
-    private func drawAmountSection(currentY: CGFloat, transaction: RevenueTransaction, context: UIGraphicsPDFRendererContext) -> CGFloat {
+    private func drawAmountSection(currentY: CGFloat, invoice: HMSInvoice, context: UIGraphicsPDFRendererContext) -> CGFloat {
         let headerFont = UIFont.systemFont(ofSize: 12, weight: .bold)
         let rowFont = UIFont.systemFont(ofSize: 12, weight: .regular)
         let totalFont = UIFont.systemFont(ofSize: 18, weight: .bold)
@@ -154,23 +169,55 @@ class RevenuePDFGenerator {
         
         var y = currentY + 24
         
-        // The item row
-        let descStr = NSAttributedString(string: transaction.description, attributes: [.font: rowFont])
-        let amtStr = NSAttributedString(string: formatCurrency(transaction.amount), attributes: [.font: rowFont])
+        // Loop over items
+        for item in invoice.items {
+            if y > pageHeight - 150 {
+                context.beginPage()
+                y = margin
+            }
+            
+            let quantityStr = item.quantity > 1 ? "\(item.quantity)x " : ""
+            let descStr = NSAttributedString(string: quantityStr + item.name, attributes: [.font: rowFont])
+            let amtStr = NSAttributedString(string: formatCurrency(item.amount), attributes: [.font: rowFont])
+            
+            descStr.draw(in: CGRect(x: margin, y: y, width: pageWidth - margin * 2 - 80, height: 40))
+            
+            let amtStrSize = amtStr.size()
+            amtStr.draw(at: CGPoint(x: rightMargin - amtStrSize.width, y: y))
+            
+            y += 24
+        }
         
-        descStr.draw(in: CGRect(x: margin, y: y, width: pageWidth - margin * 2 - 80, height: 40))
+        // Subtotal and Tax
+        if invoice.tax > 0 {
+            y += 10
+            let subtotalStr = NSAttributedString(string: "Subtotal:", attributes: [.font: rowFont, .foregroundColor: UIColor.gray])
+            let subtotalAmt = NSAttributedString(string: formatCurrency(invoice.subTotal), attributes: [.font: rowFont, .foregroundColor: UIColor.gray])
+            subtotalStr.draw(at: CGPoint(x: rightMargin - 150, y: y))
+            subtotalAmt.draw(at: CGPoint(x: rightMargin - subtotalAmt.size().width, y: y))
+            
+            y += 20
+            let taxStr = NSAttributedString(string: "Tax (5%):", attributes: [.font: rowFont, .foregroundColor: UIColor.gray])
+            let taxAmt = NSAttributedString(string: formatCurrency(invoice.tax), attributes: [.font: rowFont, .foregroundColor: UIColor.gray])
+            taxStr.draw(at: CGPoint(x: rightMargin - 150, y: y))
+            taxAmt.draw(at: CGPoint(x: rightMargin - taxAmt.size().width, y: y))
+            y += 20
+        } else {
+            y += 16
+        }
         
-        let amtStrSize = amtStr.size()
-        amtStr.draw(at: CGPoint(x: rightMargin - amtStrSize.width, y: y))
-        
-        y += 40
         drawLine(y: y, context: context)
         
         y += 20
         
+        if y > pageHeight - 100 {
+            context.beginPage()
+            y = margin
+        }
+        
         // Total row
         let totalLabel = NSAttributedString(string: "Total Paid:", attributes: [.font: totalFont])
-        let totalValue = NSAttributedString(string: formatCurrency(transaction.amount), attributes: [.font: totalFont, .foregroundColor: UIColor(red: 0.1, green: 0.35, blue: 0.65, alpha: 1.0)])
+        let totalValue = NSAttributedString(string: formatCurrency(invoice.totalAmount), attributes: [.font: totalFont, .foregroundColor: primaryColor])
         
         let totalValSize = totalValue.size()
         let totalLabelSize = totalLabel.size()

@@ -34,6 +34,19 @@ struct ConsultationNotesView: View {
     @State private var textBeforeDictation: String = ""
     @State private var dictationStartDate: Date? = nil
     
+    // Medicine State
+    @State private var allMedicines: [AppMedicine] = []
+    @State private var prescribedMedicines: [PrescribedMedicine] = []
+    @State private var medicineSearchText: String = ""
+    @State private var showMedicineDropdown: Bool = false
+    @State private var isLoadingMedicines: Bool = false
+    @State private var showMedicineSheet: Bool = false
+    
+    // Currently ConsultationNotesView doesn't pass doctor department directly,
+    // so we'll pass nil to MedicinePrescriptionSheet to show all initially,
+    // or we can fetch it if needed. For now, nil is fine.
+    var doctorDepartment: String? = nil
+    
     enum DictationField {
         case notes, prescription
     }
@@ -110,6 +123,41 @@ struct ConsultationNotesView: View {
                                             .stroke(AppTheme.textSecondary.opacity(0.2), lineWidth: 1)
                                     )
                                     .shadow(color: Color.black.opacity(0.02), radius: 4, x: 0, y: 2)
+                            }
+                            
+                            // MARK: Prescribed Medicines Section
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    Label("Prescribed Medicines", systemImage: "pills.circle.fill")
+                                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                        .foregroundColor(AppTheme.textPrimary)
+                                    Spacer()
+                                    Button {
+                                        showMedicineSheet = true
+                                    } label: {
+                                        Image(systemName: "plus.circle.fill")
+                                            .foregroundColor(AppTheme.primary)
+                                            .font(.system(size: 20))
+                                    }
+                                }
+                                
+                                // Prescribed Medicine Cards
+                                if !prescribedMedicines.isEmpty {
+                                    VStack(spacing: 12) {
+                                        ForEach($prescribedMedicines) { $med in
+                                            PrescribedMedicineCard(medicine: med) {
+                                                withAnimation(.spring(response: 0.3)) {
+                                                    prescribedMedicines.removeAll { $0.id == med.id }
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Text("No medicines prescribed yet.")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(AppTheme.textSecondary)
+                                        .padding(.vertical, 8)
+                                }
                             }
                             
                             if let error = errorMessage {
@@ -191,6 +239,13 @@ struct ConsultationNotesView: View {
             .sheet(isPresented: $showPDFPreview) {
                 if let url = generatedPDFURL {
                     PDFViewerSheet(pdfURL: url)
+                }
+            }
+            .sheet(isPresented: $showMedicineSheet) {
+                MedicinePrescriptionSheet(doctorDepartment: doctorDepartment) { med in
+                    withAnimation(.spring(response: 0.3)) {
+                        prescribedMedicines.append(med)
+                    }
                 }
             }
             .onChange(of: speechRecognizer.transcript) { newTranscript in
@@ -295,12 +350,12 @@ struct ConsultationNotesView: View {
                     startTime: startTime,
                     endTime: endTime,
                     notes: notes,
-                    prescription: prescription, // Use live text
+                    prescription: prescription,
                     createdAt: Date()
                 )
                 
                 let generator = PrescriptionPDFGenerator()
-                if let url = generator.generatePDF(note: note, labTests: labTests, patientAge: nil, patientGender: nil) {
+                if let url = generator.generatePDF(note: note, labTests: [], prescribedMedicines: prescribedMedicines, patientAge: nil, patientGender: nil) {
                     await MainActor.run {
                         self.generatedPDFURL = url
                         self.showPDFPreview = true
@@ -328,6 +383,8 @@ struct ConsultationNotesView: View {
                 existingNoteId = note.id
                 notes = note.notes
                 prescription = note.prescription
+                // Fetch medicines from the sub-collection
+                prescribedMedicines = try await InventoryRepository.shared.fetchPrescribedMedicines(noteId: note.id)
             }
             isLoading = false
         } catch {
@@ -354,15 +411,15 @@ struct ConsultationNotesView: View {
                     endTime: endTime,
                     notes: notes,
                     prescription: prescription,
-                    createdAt: existingNoteId == nil ? Date() : nil // preserve existing if possible, or omit
+                    createdAt: existingNoteId == nil ? Date() : nil
                 )
                 
                 // 1. If a prescription was written, generate and upload the PDF silently
-                if !prescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if !prescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !prescribedMedicines.isEmpty {
                     let labTests = try? await DoctorPatientRepository.shared.fetchLabTestRequests(patientId: patientId, doctorId: doctorId)
                     
                     let generator = PrescriptionPDFGenerator()
-                    if let rawPdfURL = generator.generatePDF(note: note, labTests: labTests ?? [], patientAge: nil, patientGender: nil) {
+                    if let rawPdfURL = generator.generatePDF(note: note, labTests: [], prescribedMedicines: prescribedMedicines, patientAge: nil, patientGender: nil) {
                         // 2. Upload to Firebase Storage
                         let remoteUrl = try await DoctorPatientRepository.shared.uploadPrescriptionPDF(localURL: rawPdfURL, appointmentId: appointmentId)
                         
@@ -380,13 +437,22 @@ struct ConsultationNotesView: View {
                             createdAt: Date()
                         )
                         try await DoctorPatientRepository.shared.savePrescriptionDocument(prescriptionDoc)
-                        
-                        print("Saved Prescription to Database completely!")
                     }
                 }
                 
-                // 4. Finally, save the core consultation note
+                // 4. Save the core consultation note
                 try await DoctorPatientRepository.shared.saveConsultationNote(note)
+                
+                // 5. Save the prescribed medicines to sub-collection
+                if !prescribedMedicines.isEmpty {
+                    try await InventoryRepository.shared.savePrescribedMedicines(noteId: noteId, medicines: prescribedMedicines)
+                    
+                    // Deduct stock for medicines
+                    for med in prescribedMedicines {
+                        let quantityToDeduct = med.timesPerDay * med.durationDays
+                        try? await InventoryRepository.shared.deductStock(itemId: med.medicineId, quantity: quantityToDeduct)
+                    }
+                }
                 
                 await MainActor.run {
                     isSaving = false
@@ -402,6 +468,86 @@ struct ConsultationNotesView: View {
     }
 }
 
+// MARK: - Prescribed Medicine Card
+struct PrescribedMedicineCard: View {
+    let medicine: PrescribedMedicine
+    let onRemove: () -> Void
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                ZStack {
+                    Circle()
+                        .fill(AppTheme.primary.opacity(0.12))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: medicine.medicineType.sfSymbol)
+                        .font(.system(size: 14))
+                        .foregroundColor(AppTheme.primary)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(medicine.medicineName)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                    Text(medicine.medicineType.displayName)
+                        .font(.system(size: 11))
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+                Spacer()
+                Button(action: onRemove) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.red.opacity(0.7))
+                        .font(.system(size: 20))
+                }
+                .buttonStyle(.plain)
+            }
+            
+            Divider()
+            
+            HStack {
+                // Frequency
+                HStack(spacing: 6) {
+                    Image(systemName: "clock.fill")
+                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 12))
+                    Text(medicine.timesPerDay == 1 ? "Once daily" : medicine.timesPerDay == 2 ? "Twice daily" : "\(medicine.timesPerDay)x daily")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                // Duration
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar")
+                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 12))
+                    Text("For \(medicine.durationDays) day\(medicine.durationDays == 1 ? "" : "s")")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            
+            if let notes = medicine.notes, !notes.isEmpty {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "text.bubble.fill")
+                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 12))
+                        .padding(.top, 2)
+                    Text(notes)
+                        .font(.system(size: 12))
+                        .foregroundColor(AppTheme.textSecondary)
+                        .italic()
+                }
+            }
+        }
+        .padding(14)
+        .background(AppTheme.cardSurface)
+        .cornerRadius(14)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(AppTheme.primary.opacity(0.15), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 3)
+    }
+}
+
 #Preview {
     ConsultationNotesView(
         appointmentId: "test_appt",
@@ -414,4 +560,3 @@ struct ConsultationNotesView: View {
         endTime: "10:30"
     )
 }
-

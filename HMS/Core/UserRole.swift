@@ -232,6 +232,14 @@ struct DoctorUnavailability: Codable, Identifiable {
     var createdAt: Date?
 }
 
+// MARK: - Firestore `medicines` Collection (legacy, kept for backwards compat)
+struct AppMedicine: Codable, Identifiable, Hashable {
+    var id: String
+    var name: String
+    var type: String?           // e.g. "tablet", "syrup"
+    var manufacturer: String?
+}
+
 // MARK: - Firestore `consultation_notes` Collection
 // Each document represents a consultation note or prescription written by a doctor for a patient.
 struct ConsultationNote: Codable, Identifiable {

@@ -19,8 +19,8 @@ struct AdminTabView: View {
                 .tabItem { Label("Logs", systemImage: "list.bullet.rectangle") }
                 .tag(2)
 
-            AdminRevenueDashboardView()
-                .tabItem { Label("Financials", systemImage: "dollarsign.circle.fill") }
+            InventoryManagementView()
+                .tabItem { Label("Inventory", systemImage: "cross.case.fill") }
                 .tag(3)
         }
         .tint(AppTheme.primary)
@@ -32,6 +32,8 @@ struct AdminDashboardView: View {
     @ObservedObject var session = UserSession.shared
     @State private var animate    = false
     @State private var showProfileSheet = false
+    @State private var navigateToFinancials = false
+    @State private var showBillingSheet = false
 
     private var adminName: String {
         session.currentUser?.fullName ?? "Admin"
@@ -98,7 +100,7 @@ struct AdminDashboardView: View {
                         .offset(y: animate ? 0 : -30)
                         .opacity(animate ? 1 : 0)
 
-                        // Action Cards Area
+                        // Quick Actions Area
                         VStack(spacing: 16) {
                             HStack {
                                 Text("Quick Actions")
@@ -108,38 +110,39 @@ struct AdminDashboardView: View {
                             }
                             .padding(.horizontal, 24)
 
-                            NavigationLink(destination: ManageSlotsView()) {
-                                HStack(spacing: 16) {
-                                    ZStack {
-                                        Circle()
-                                            .fill(AppTheme.primary.opacity(0.15))
-                                            .frame(width: 50, height: 50)
-                                        Image(systemName: "calendar.badge.clock")
-                                            .font(.system(size: 22, weight: .semibold))
-                                            .foregroundColor(AppTheme.primary)
-                                    }
-
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Manage Slots")
-                                            .font(.system(size: 17, weight: .bold, design: .rounded))
-                                            .foregroundColor(AppTheme.textPrimary)
-                                        Text("Schedule and organize doctor availability")
-                                            .font(.system(size: 13, design: .rounded))
-                                            .foregroundColor(AppTheme.textSecondary)
-                                    }
-
-                                    Spacer()
-
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundColor(AppTheme.textSecondary.opacity(0.5))
+                            HStack(spacing: 12) {
+                                // Manage Slots
+                                NavigationLink(destination: ManageSlotsView()) {
+                                    AdminQuickActionButton(
+                                        icon: "calendar.badge.clock",
+                                        title: "Manage\nSlots",
+                                        color: AppTheme.primary
+                                    )
                                 }
-                                .padding(16)
-                                .background(AppTheme.cardSurface)
-                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                                .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+                                .buttonStyle(.plain)
+
+                                // Manage Patients
+                                NavigationLink(destination: AdminPatientSearchView()) {
+                                    AdminQuickActionButton(
+                                        icon: "person.2.fill",
+                                        title: "Manage\nPatients",
+                                        color: Color(hex: "#8B5CF6")
+                                    )
+                                }
+                                .buttonStyle(.plain)
+
+                                // Billing
+                                Button {
+                                    showBillingSheet = true
+                                } label: {
+                                    AdminQuickActionButton(
+                                        icon: "doc.text.fill",
+                                        title: "Generate\nBill",
+                                        color: Color(red: 0.27, green: 0.49, blue: 0.96)
+                                    )
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                             .padding(.horizontal, 20)
                         }
                         .offset(y: animate ? 0 : 20)
@@ -148,7 +151,7 @@ struct AdminDashboardView: View {
                         // Embedded Statistics
                         VStack(spacing: 16) {
                             HStack {
-                                Text("Statistics Overview")
+                                Text("Revenue Overview")
                                     .font(.system(size: 18, weight: .bold, design: .rounded))
                                     .foregroundColor(AppTheme.textPrimary)
                                 Spacer()
@@ -156,7 +159,9 @@ struct AdminDashboardView: View {
                             .padding(.horizontal, 24)
                             .padding(.top, 8)
                             
-                            AppointmentStatsView()
+                            AppointmentStatsView(onRevenueTap: {
+                                navigateToFinancials = true
+                            })
                         }
                         .offset(y: animate ? 0 : 30)
                         .opacity(animate ? 1 : 0)
@@ -167,8 +172,14 @@ struct AdminDashboardView: View {
                 }
             }
             .navigationBarHidden(true)
+            .navigationDestination(isPresented: $navigateToFinancials) {
+                AdminRevenueDashboardView()
+            }
             .sheet(isPresented: $showProfileSheet) {
                 ProfileView()
+            }
+            .sheet(isPresented: $showBillingSheet) {
+                AdminInvoiceListView()
             }
         }
         .onAppear {
@@ -442,5 +453,37 @@ struct StaffRowView: View {
                 onUpdate: { onUpdate() }
             )
         }
+    }
+}
+
+// MARK: - Admin Quick Action Button
+struct AdminQuickActionButton: View {
+    let icon: String
+    let title: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.15))
+                    .frame(width: 50, height: 50)
+                Image(systemName: icon)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(color)
+            }
+
+            Text(title)
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundColor(AppTheme.textPrimary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 18)
+        .background(AppTheme.cardSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
     }
 }
