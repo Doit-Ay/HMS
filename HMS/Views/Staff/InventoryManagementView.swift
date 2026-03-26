@@ -32,6 +32,35 @@ struct InventoryManagementView: View {
                         }
                     }
                     .animation(.easeInOut(duration: 0.2), value: selectedTab)
+                    
+                    // Super Prominent AI Planner Button
+                    NavigationLink {
+                        InventoryAIPlannerView()
+                            .navigationTitle("AI Planner")
+                            .navigationBarTitleDisplayMode(.inline)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 18, weight: .bold))
+                            Text("AI Inventory Planner")
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            LinearGradient(
+                                colors: [AppTheme.primary, AppTheme.primary.opacity(0.8)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .cornerRadius(16)
+                        .shadow(color: AppTheme.primary.opacity(0.3), radius: 10, x: 0, y: 5)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(AppTheme.background.ignoresSafeArea(edges: .bottom))
                 }
             }
             .navigationTitle("Inventory")
