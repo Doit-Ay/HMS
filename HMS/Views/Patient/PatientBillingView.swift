@@ -5,12 +5,13 @@ import FirebaseFirestore
 struct PatientBillingView: View {
     @ObservedObject var session = UserSession.shared
     @State private var invoices: [HMSInvoice] = []
+    @State private var unifiedPaidInvoices: [HMSInvoice] = []
     @State private var isLoading = true
     @State private var showPaymentSheet = false
     @State private var selectedInvoice: HMSInvoice?
 
     var pendingInvoices: [HMSInvoice] { invoices.filter { $0.status == .pending } }
-    var paidInvoices:    [HMSInvoice] { invoices.filter { $0.status == .paid    } }
+    var paidInvoices:    [HMSInvoice] { unifiedPaidInvoices }
 
     var body: some View {
         ZStack {
@@ -20,24 +21,16 @@ struct PatientBillingView: View {
                 ProgressView()
                     .scaleEffect(1.5)
                     .tint(AppTheme.primary)
-            } else if invoices.isEmpty {
-                emptyState
+            } else if pendingInvoices.isEmpty {
+                noPendingBillsState
             } else {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
-                        if !pendingInvoices.isEmpty {
-                            sectionHeader("Pending Bills", color: .orange)
-                            ForEach(pendingInvoices) { invoice in
-                                InvoiceBillCard(invoice: invoice) {
-                                    selectedInvoice = invoice
-                                    showPaymentSheet = true
-                                }
-                            }
-                        }
-                        if !paidInvoices.isEmpty {
-                            sectionHeader("Payment History", color: .green)
-                            ForEach(paidInvoices) { invoice in
-                                InvoiceBillCard(invoice: invoice, onPay: nil)
+                        sectionHeader("Pending Bills", color: .orange)
+                        ForEach(pendingInvoices) { invoice in
+                            InvoiceBillCard(invoice: invoice) {
+                                selectedInvoice = invoice
+                                showPaymentSheet = true
                             }
                         }
                     }
@@ -48,6 +41,14 @@ struct PatientBillingView: View {
         }
         .navigationTitle("Billing & Invoices")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                NavigationLink(destination: PatientPaidBillsView(paidInvoices: paidInvoices)) {
+                    Image(systemName: "doc.text")
+                        .foregroundColor(AppTheme.primary)
+                }
+            }
+        }
         .onAppear {
             Task { await fetchInvoices() }
         }
@@ -85,6 +86,17 @@ struct PatientBillingView: View {
         }
     }
 
+    private var noPendingBillsState: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            Text("You have no pending bills to pay right now.")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(AppTheme.textSecondary)
+                .multilineTextAlignment(.center)
+            Spacer()
+        }
+    }
+
     @ViewBuilder
     private func sectionHeader(_ title: String, color: Color) -> some View {
         HStack {
@@ -106,9 +118,14 @@ struct PatientBillingView: View {
         }
         
         do {
-            let fetched = try await InventoryRepository.shared.fetchInvoices(patientId: patientId)
+            async let fetchInvoicesTask = InventoryRepository.shared.fetchInvoices(patientId: patientId)
+            async let fetchPaidTask = InventoryRepository.shared.fetchUnifiedPaidTransactions(patientId: patientId)
+            
+            let (fetchedInvoices, unifiedPaid) = try await (fetchInvoicesTask, fetchPaidTask)
+            
             await MainActor.run {
-                self.invoices = fetched   // already ordered by date desc from Firestore
+                self.invoices = fetchedInvoices
+                self.unifiedPaidInvoices = unifiedPaid
                 self.isLoading = false
             }
         } catch {
@@ -151,7 +168,8 @@ struct PatientBillingView: View {
 
 struct InvoiceBillCard: View {
     let invoice: HMSInvoice
-    var onPay: (() -> Void)?
+    var onPay: (() -> Void)? = nil
+    var onViewPDF: (() -> Void)? = nil
 
     private var statusColor: Color { invoice.status == .paid ? .green : .orange }
 
@@ -243,6 +261,21 @@ struct InvoiceBillCard: View {
                     )
                     .cornerRadius(14)
                     .shadow(color: AppTheme.primary.opacity(0.3), radius: 8, x: 0, y: 4)
+                }
+            }
+            
+            if let onViewPDF = onViewPDF {
+                Button(action: onViewPDF) {
+                    HStack {
+                        Image(systemName: "doc.text.fill")
+                        Text("View / Download PDF")
+                            .fontWeight(.bold)
+                    }
+                    .foregroundColor(AppTheme.primary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(AppTheme.primary.opacity(0.1))
+                    .cornerRadius(14)
                 }
             }
         }
