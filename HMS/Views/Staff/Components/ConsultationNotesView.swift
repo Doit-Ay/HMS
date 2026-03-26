@@ -388,7 +388,9 @@ struct ConsultationNotesView: View {
             }
             isLoading = false
         } catch {
+            #if DEBUG
             print("Failed to fetch existing notes: \(error)")
+            #endif
             isLoading = false
         }
     }

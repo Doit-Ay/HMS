@@ -288,7 +288,9 @@ struct PatientPrescriptionPDFView: View {
             try FileManager.default.copyItem(at: localURL, to: newURL)
             self.shareURL = newURL
         } catch {
+            #if DEBUG
             print("❌ Failed to create shareable file:", error)
+            #endif
             self.shareURL = localURL
         }
     }
@@ -305,7 +307,9 @@ struct PatientPrescriptionPDFView: View {
                 self.prescription = updatedDoc
             }
         } catch {
+            #if DEBUG
             print("Failed to rename prescription: \(error)")
+            #endif
         }
     }
     

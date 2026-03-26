@@ -43,7 +43,9 @@ class PatientDetailViewModel: ObservableObject {
             }
             
         } catch {
+            #if DEBUG
             print("⚠️ Failed to load patient data: \(error.localizedDescription)")
+            #endif
             withAnimation {
                 self.errorMessage = "Unable to load patient data. Please try again."
                 self.isLoading = false

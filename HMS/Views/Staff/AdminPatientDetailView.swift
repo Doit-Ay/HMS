@@ -203,7 +203,9 @@ struct AdminPatientDetailView: View {
                 self.isLoading = false
             }
         } catch {
+            #if DEBUG
             print("Failed to fetch patient profile: \(error.localizedDescription)")
+            #endif
             withAnimation {
                 self.isLoading = false
             }
@@ -238,7 +240,9 @@ struct AdminPatientDetailView: View {
                 withAnimation { self.isLoadingAppointments = false }
             }
         } catch {
+            #if DEBUG
             print("Error fetching patient appointments: \(error)")
+            #endif
             await MainActor.run { withAnimation { self.isLoadingAppointments = false } }
         }
     }

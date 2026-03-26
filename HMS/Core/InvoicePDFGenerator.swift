@@ -48,7 +48,9 @@ class InvoicePDFGenerator {
             }
             return outputFileURL
         } catch {
+            #if DEBUG
             print("Failed to generate PDF: \(error)")
+            #endif
             return nil
         }
     }

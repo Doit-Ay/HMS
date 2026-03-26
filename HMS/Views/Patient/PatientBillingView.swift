@@ -129,7 +129,9 @@ struct PatientBillingView: View {
                 self.isLoading = false
             }
         } catch {
+            #if DEBUG
             print("⚠️ fetchInvoices error: \(error)")
+            #endif
             await MainActor.run { self.isLoading = false }
         }
     }
@@ -154,7 +156,9 @@ struct PatientBillingView: View {
     private func handlePaymentResult(_ result: RazorpayPaymentResult) {
         guard let invoice = selectedInvoice else { return }
         if case .success(let paymentId) = result {
+            #if DEBUG
             print("✅ Payment success: \(paymentId)")
+            #endif
             Task {
                 try? await InventoryRepository.shared.markInvoicePaid(id: invoice.firestoreId, razorpayPaymentId: paymentId)
                 await fetchInvoices()

@@ -309,11 +309,15 @@ func seedLabTestsToFirebase(completion: @escaping (Bool, String) -> Void) {
             do {
                 try db.collection("labTests").addDocument(from: test) { error in
                     if let error = error {
+                        #if DEBUG
                         print("Error adding \(test.name): \(error)")
+                        #endif
                     }
                 }
             } catch {
+                #if DEBUG
                 print("Error encoding \(test.name): \(error)")
+                #endif
             }
         }
         

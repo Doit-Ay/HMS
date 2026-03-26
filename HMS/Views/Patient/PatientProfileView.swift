@@ -212,7 +212,9 @@ struct PatientProfileView: View {
                         selectedPhotoItem = nil
                     }
                 } catch {
+                    #if DEBUG
                     print("❌ Photo upload failed: \(error)")
+                    #endif
                     await MainActor.run {
                         isUploadingPhoto = false
                         selectedPhotoItem = nil

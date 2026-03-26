@@ -366,7 +366,9 @@ struct PatientHomeView: View {
                 }
             }
         } catch {
+            #if DEBUG
             print("Error fetching appointments: \(error)")
+            #endif
             await MainActor.run {
                 withAnimation {
                     self.isLoadingAppointments = false

@@ -108,7 +108,9 @@ struct PatientLabRequestsView: View {
                 guard let pId = data["patientId"] as? String,
                       let pName = data["patientName"] as? String,
                       let timestamp = data["dateRequested"] as? Timestamp else {
+                    #if DEBUG
                     print("⚠️ Missing basic fields for lab request doc: \(doc.documentID)")
+                    #endif
                     continue
                 }
                 
@@ -153,7 +155,9 @@ struct PatientLabRequestsView: View {
                 ))
             }
         } catch {
+            #if DEBUG
             print("⚠️ fetchLabRequests (patient_lab_requests) error: \(error)")
+            #endif
         }
         
         // 2) Fetch from lab_test_requests (created via doctor referral)
@@ -200,7 +204,9 @@ struct PatientLabRequestsView: View {
                 ))
             }
         } catch {
+            #if DEBUG
             print("⚠️ fetchLabRequests (lab_test_requests) error: \(error)")
+            #endif
         }
         
         // 3) Sort and update UI
@@ -610,7 +616,9 @@ struct CachedFileViewerView: View {
             try FileManager.default.copyItem(at: localURL, to: newURL)
             self.shareURL = newURL
         } catch {
+            #if DEBUG
             print("❌ Failed to create shareable file:", error)
+            #endif
             self.shareURL = localURL
         }
     }

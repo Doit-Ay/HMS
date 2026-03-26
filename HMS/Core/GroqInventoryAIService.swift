@@ -47,7 +47,9 @@ class GroqInventoryAIService {
            let key = dict["GROQ_INVENTORY_API_KEY"] as? String {
             return key
         }
+        #if DEBUG
         print("⚠️ Missing GROQ_INVENTORY_API_KEY in Secrets.plist")
+        #endif
         return "YOUR_GROQ_INVENTORY_API_KEY_HERE"
     }
     

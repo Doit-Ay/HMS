@@ -36,9 +36,10 @@ class LabTechnicianRepository: ObservableObject {
     /// Ensures the current user is a lab technician before performing mutations.
     @MainActor
     private func ensureLabTechnician() throws {
-//        guard UserSession.shared.currentUser?.role == .labTechnician else {
-//            throw LabTechError.unauthorized("Only Lab Technicians can perform this action.")
-//        }
+        guard let role = UserSession.shared.currentUser?.role,
+              role == .labTechnician || role == .admin else {
+            throw LabTechError.unauthorized("Only Lab Technicians can perform this action.")
+        }
     }
     
     // MARK: - Real-time Listeners
@@ -71,7 +72,9 @@ class LabTechnicianRepository: ObservableObject {
                 guard let self = self else { return }
                 
                 if let error = error {
+                    #if DEBUG
                     print("LabTechRepo: Error fetching pending requests: \(error)")
+                    #endif
                     DispatchQueue.main.async {
                         self.isLoadingPending = false
                         self.errorMessage = "Failed to fetch pending requests: \(error.localizedDescription)"
@@ -80,7 +83,9 @@ class LabTechnicianRepository: ObservableObject {
                 }
                 
                 guard let documents = snapshot?.documents else {
-                    print("LabTechRepo: No pending documents found (nil snapshot)")
+                    #if DEBUG
+                print("LabTechRepo: No pending documents found (nil snapshot)")
+                #endif
                     DispatchQueue.main.async {
                         self.isLoadingPending = false
                         self.pendingRequests = []
@@ -88,14 +93,12 @@ class LabTechnicianRepository: ObservableObject {
                     return
                 }
                 
-                print("LabTechRepo: Fetched \(documents.count) pending documents")
                 let currentUserId = UserSession.shared.currentUser?.id
                 let parsed = documents.compactMap { self.parseLabRequest(from: $0) }
                     .filter { req in
                         req.status == "pending" || (req.status == "in_progress" && req.assignedLabTechId == currentUserId)
                     }
                     .sorted { $0.dateRequested > $1.dateRequested }
-                print("LabTechRepo: Parsed \(parsed.count) pending requests")
                 
                 DispatchQueue.main.async {
                     self.isLoadingPending = false
@@ -114,7 +117,9 @@ class LabTechnicianRepository: ObservableObject {
                 guard let self = self else { return }
                 
                 if let error = error {
+                    #if DEBUG
                     print("LabTechRepo: Error fetching completed requests: \(error)")
+                    #endif
                     DispatchQueue.main.async {
                         self.isLoadingCompleted = false
                         self.errorMessage = "Failed to fetch completed requests: \(error.localizedDescription)"
@@ -123,7 +128,9 @@ class LabTechnicianRepository: ObservableObject {
                 }
                 
                 guard let documents = snapshot?.documents else {
-                    print("LabTechRepo: No completed documents found (nil snapshot)")
+                    #if DEBUG
+                print("LabTechRepo: No completed documents found (nil snapshot)")
+                #endif
                     DispatchQueue.main.async {
                         self.isLoadingCompleted = false
                         self.completedRequests = []
@@ -131,10 +138,8 @@ class LabTechnicianRepository: ObservableObject {
                     return
                 }
                 
-                print("LabTechRepo: Fetched \(documents.count) completed documents")
                 let parsed = documents.compactMap { self.parseLabRequest(from: $0) }
                     .sorted { $0.dateRequested > $1.dateRequested }
-                print("LabTechRepo: Parsed \(parsed.count) completed requests")
                 
                 DispatchQueue.main.async {
                     self.isLoadingCompleted = false

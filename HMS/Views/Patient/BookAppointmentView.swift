@@ -355,7 +355,9 @@ struct BookAppointmentView: View {
                 }
                 withAnimation { availabilityMap = map }
             } catch {
+                #if DEBUG
                 print("⚠️ Error loading unavailability: \(error)")
+                #endif
             }
         }
     }
@@ -419,7 +421,9 @@ struct BookAppointmentView: View {
                     withAnimation { timeSlots = slots }
                 }
             } catch {
+                #if DEBUG
                 print("⚠️ Error loading slots: \(error)")
+                #endif
                 withAnimation { timeSlots = [] }
             }
             isLoadingSlots = false
@@ -483,7 +487,9 @@ struct BookAppointmentView: View {
                 await MainActor.run {
                     withAnimation { errorMessage = "Reschedule failed. Please try again." }
                 }
+                #if DEBUG
                 print("⚠️ Reschedule error: \(error)")
+                #endif
             }
             await MainActor.run { isBooking = false }
         }
@@ -539,7 +545,9 @@ struct BookAppointmentView: View {
                 withAnimation { showSuccess = true }
             } catch {
                 withAnimation { errorMessage = "Booking failed. Please try again." }
+                #if DEBUG
                 print("⚠️ Booking error: \(error)")
+                #endif
             }
             isBooking = false
         }

@@ -21,7 +21,9 @@ class SpeechRecognizer: ObservableObject {
     static func requestAuthorization() {
         SFSpeechRecognizer.requestAuthorization { status in
             // Handle if needed
+            #if DEBUG
             print("Speech Recognition Status: \(status.rawValue)")
+            #endif
         }
     }
     
@@ -31,7 +33,9 @@ class SpeechRecognizer: ObservableObject {
         self.stopTranscribing() // Ensure previous runs are stopped gracefully
         
         guard let recognizer = recognizer, recognizer.isAvailable else {
+            #if DEBUG
             print("Speech recognizer is not available")
+            #endif
             return
         }
         
@@ -72,7 +76,9 @@ class SpeechRecognizer: ObservableObject {
                 }
             }
         } catch {
+            #if DEBUG
             print("Error starting speech recognition: \(error)")
+            #endif
             stopTranscribing()
         }
     }

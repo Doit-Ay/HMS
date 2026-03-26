@@ -43,6 +43,9 @@ class UserSession: ObservableObject {
         self.isLoading = false
         self.needsOTPVerification = false
         self.pendingOTPEmail = nil
+        // Clear ALL cached data to prevent data leaks between user sessions
+        CacheManager.shared.invalidateAll()
+        PDFCacheManager.shared.clearCache()
     }
 
     func setLoading(_ loading: Bool) {

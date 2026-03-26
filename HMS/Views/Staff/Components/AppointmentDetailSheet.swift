@@ -285,7 +285,9 @@ struct AppointmentDetailSheet: View {
                 self.isLoading = false
             }
         } catch {
+            #if DEBUG
             print("⚠️ Could not fetch patient profile: \(error.localizedDescription)")
+            #endif
             // Still dismiss loading — show what we have from the appointment
             withAnimation {
                 self.isLoading = false
@@ -306,7 +308,9 @@ struct AppointmentDetailSheet: View {
                 withAnimation { self.isLoadingStatus = false }
             }
         } catch {
+            #if DEBUG
             print("⚠️ Could not fetch appointment status: \(error.localizedDescription)")
+            #endif
             withAnimation { self.isLoadingStatus = false }
         }
     }
@@ -322,7 +326,9 @@ struct AppointmentDetailSheet: View {
                     firestoreAppointment?.status = "completed"
                 }
             } catch {
+                #if DEBUG
                 print("⚠️ Failed to update appointment status: \(error.localizedDescription)")
+                #endif
             }
             isUpdatingStatus = false
         }
@@ -337,7 +343,9 @@ struct AppointmentDetailSheet: View {
                 }
             }
         } catch {
+            #if DEBUG
             print("⚠️ Could not check existing notes: \(error.localizedDescription)")
+            #endif
         }
     }
 }

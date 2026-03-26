@@ -371,7 +371,9 @@ struct DoctorAvailabilityView: View {
                     selectedUnavailableSlots = Set(storedUnavailableSlots[startOfDay] ?? [])
                 }
             } catch {
+                #if DEBUG
                 print("⚠️ Availability fetch error: \(error.localizedDescription)")
+                #endif
                 // Don't show raw Firestore index errors to users
                 withAnimation { errorMessage = "Unable to load availability. Please try again." }
             }
@@ -559,10 +561,14 @@ struct DoctorAvailabilityView: View {
             }
             
             if !conflicting.isEmpty {
+                #if DEBUG
                 print("📬 Sent \(conflicting.count) reschedule notification(s) to affected patients")
+                #endif
             }
         } catch {
+            #if DEBUG
             print("⚠️ Failed to notify conflicting patients: \(error.localizedDescription)")
+            #endif
         }
     }
     
@@ -610,10 +616,14 @@ struct DoctorAvailabilityView: View {
                     createdAt: Date()
                 )
                 try await AuthManager.shared.saveNotification(notification)
+                #if DEBUG
                 print("📬 Cancelled appointment \(appointment.id) and notified patient \(appointment.patientId)")
+                #endif
             }
         } catch {
+            #if DEBUG
             print("⚠️ Failed to cancel booked slot appointment: \(error.localizedDescription)")
+            #endif
         }
     }
 

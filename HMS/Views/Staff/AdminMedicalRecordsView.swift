@@ -122,7 +122,9 @@ struct AdminMedicalRecordsView: View {
                 self.isLoading = false
             }
         } catch {
+            #if DEBUG
             print("Failed to fetch medical records: \(error)")
+            #endif
             withAnimation { isLoading = false }
         }
     }

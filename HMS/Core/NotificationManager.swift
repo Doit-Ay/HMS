@@ -27,9 +27,13 @@ class NotificationManager: NSObject, ObservableObject {
         let center = UNUserNotificationCenter.current()
         center.requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
             if let error = error {
+                #if DEBUG
                 print("⚠️ Notification permission error: \(error.localizedDescription)")
+                #endif
             }
+            #if DEBUG
             print("🔔 Notification permission granted: \(granted)")
+            #endif
         }
         // Set delegate so notifications show even while app is in foreground
         center.delegate = self
@@ -58,9 +62,11 @@ class NotificationManager: NSObject, ObservableObject {
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
 
         UNUserNotificationCenter.current().add(request) { error in
+            #if DEBUG
             if let error = error {
                 print("⚠️ Failed to schedule notification: \(error.localizedDescription)")
             }
+            #endif
         }
     }
 
@@ -75,7 +81,9 @@ class NotificationManager: NSObject, ObservableObject {
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
                 if let error = error {
+                    #if DEBUG
                     print("⚠️ Notification listener error: \(error.localizedDescription)")
+                    #endif
                     return
                 }
                 guard let documents = snapshot?.documents else { return }
@@ -125,7 +133,9 @@ class NotificationManager: NSObject, ObservableObject {
                 "isRead": true
             ])
         } catch {
+            #if DEBUG
             print("⚠️ Failed to mark notification as read: \(error.localizedDescription)")
+            #endif
         }
     }
 
@@ -148,7 +158,9 @@ class NotificationManager: NSObject, ObservableObject {
             // Clear badge
             UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
         } catch {
+            #if DEBUG
             print("⚠️ Failed to mark all as read: \(error.localizedDescription)")
+            #endif
         }
     }
 }

@@ -179,7 +179,9 @@ struct NotificationsView: View {
                 isFetchingReschedule = false
             }
         } catch {
+            #if DEBUG
             print("Error loading reschedule data: \(error)")
+            #endif
             await MainActor.run { isFetchingReschedule = false }
         }
     }

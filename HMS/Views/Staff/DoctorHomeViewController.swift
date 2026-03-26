@@ -273,7 +273,9 @@ struct DoctorHomeViewController: View {
                     self.monthAppointments = month.filter { $0.status != "cancelled" }
                 }
             } catch {
+                #if DEBUG
                 print("⚠️ Error loading appointments: \(error)")
+                #endif
             }
             isLoadingAppointments = false
         }

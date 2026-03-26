@@ -646,3 +646,90 @@ struct DoctorUnavailabilityTests {
         #expect(entry.endTime == "13:00")
     }
 }
+
+// MARK: - Data Leak Prevention Tests
+@MainActor
+struct DataLeakTests {
+
+    @Test func clearSessionResetsAllFields() {
+        let session = UserSession.shared
+        let user = HMSUser(id: "leak-test", email: "leak@test.com", fullName: "Leak Test", role: .patient)
+        session.setUser(user, requiresOTP: false)
+
+        // Verify user is set
+        #expect(session.currentUser != nil)
+        #expect(session.isLoggedIn == true)
+
+        // Clear session (this should also clear caches)
+        session.clearSession()
+
+        // Verify everything is reset
+        #expect(session.currentUser == nil)
+        #expect(session.userRole == nil)
+        #expect(session.isLoggedIn == false)
+        #expect(session.isLoading == false)
+        #expect(session.needsOTPVerification == false)
+        #expect(session.pendingOTPEmail == nil)
+    }
+
+    @Test func cacheInvalidateAllClearsCache() {
+        let cache = CacheManager.shared
+
+        // Add an item to cache
+        cache.set("sensitive-data", forKey: "test_key")
+
+        // Verify it's cached
+        let beforeClear: String? = cache.get(forKey: "test_key")
+        #expect(beforeClear == "sensitive-data")
+
+        // Invalidate all
+        cache.invalidateAll()
+
+        // Verify it's gone
+        let afterClear: String? = cache.get(forKey: "test_key")
+        #expect(afterClear == nil)
+    }
+
+    @Test func cacheInvalidateByPrefixOnlyClearsMatchingKeys() {
+        let cache = CacheManager.shared
+        cache.invalidateAll() // clean start
+
+        cache.set("patient-123-data", forKey: "patient_123")
+        cache.set("inventory-data", forKey: "inventory_all")
+
+        // Invalidate only patient keys
+        cache.invalidate(prefix: "patient_")
+
+        let patientData: String? = cache.get(forKey: "patient_123")
+        let inventoryData: String? = cache.get(forKey: "inventory_all")
+        #expect(patientData == nil)
+        #expect(inventoryData == "inventory-data")
+
+        // Cleanup
+        cache.invalidateAll()
+    }
+
+    @Test func clearSessionPreventsCrossSessionDataLeak() {
+        let session = UserSession.shared
+        let cache = CacheManager.shared
+
+        // Simulate User A session
+        let userA = HMSUser(id: "user-a", email: "a@test.com", fullName: "User A", role: .doctor)
+        session.setUser(userA, requiresOTP: false)
+        cache.set("User A's patient list", forKey: "doctor_patients")
+
+        // User A logs out (clearSession clears caches)
+        session.clearSession()
+
+        // User B logs in
+        let userB = HMSUser(id: "user-b", email: "b@test.com", fullName: "User B", role: .doctor)
+        session.setUser(userB, requiresOTP: false)
+
+        // User B should NOT see User A's cached data
+        let cachedData: String? = cache.get(forKey: "doctor_patients")
+        #expect(cachedData == nil)
+
+        // Cleanup
+        session.clearSession()
+    }
+}

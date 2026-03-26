@@ -30,7 +30,9 @@ final class AITriageService {
     /// Returns nil if the input is not a valid medical symptom.
     func analyzeSymptoms(_ symptoms: String) async -> TriageResult? {
         if apiKey == "YOUR_GROQ_API_KEY_HERE" {
+            #if DEBUG
             print("API Key missing! Returning fallback.")
+            #endif
             return fallback()
         }
 
@@ -86,11 +88,13 @@ final class AITriageService {
             let (data, response) = try await URLSession.shared.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                #if DEBUG
                 if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                     print("Groq API Error Response: \(errorJson)")
                 } else {
                     print("Groq API HTTP Error: \( (response as? HTTPURLResponse)?.statusCode ?? 0 )")
                 }
+                #endif
                 return fallback()
             }
             
@@ -107,7 +111,9 @@ final class AITriageService {
             }
             
         } catch {
+            #if DEBUG
             print("⚠️ AITriageService error: \(error.localizedDescription)")
+            #endif
             return nil
         }
     }
@@ -133,7 +139,9 @@ final class AITriageService {
             }
             return finalResult
         } catch {
+            #if DEBUG
             print("Failed to decode JSON from Groq: \(error)")
+            #endif
             return nil
         }
     }

@@ -9,12 +9,28 @@ class DoctorPatientRepository {
     private let storage = Storage.storage()
     
     private init() {}
+
+    // MARK: - Authorization Guard
+    /// Ensures the current user is authorized to access patient data.
+    /// Doctors, admins, and the patient themselves can access patient records.
+    private func ensureAuthorizedForPatient(_ patientId: String) throws {
+        guard let currentUser = UserSession.shared.currentUser else {
+            throw NSError(domain: "DoctorPatientRepository", code: 401,
+                          userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
+        }
+        let role = currentUser.role
+        guard role == .doctor || role == .admin || role == .labTechnician || currentUser.id == patientId else {
+            throw NSError(domain: "DoctorPatientRepository", code: 403,
+                          userInfo: [NSLocalizedDescriptionKey: "Unauthorized access to patient data"])
+        }
+    }
     
     /// Fetches the profile of a specific patient from the `patients` collection.
     /// Uses MANUAL decoding because PatientProfileView saves some fields as Int
     /// (height, weight, age) while the PatientProfile struct expects String?.
     /// Also, allergies is saved as a single String, not [String].
     func fetchPatientProfile(patientId: String) async throws -> PatientProfile {
+        try ensureAuthorizedForPatient(patientId)
         let docRef = db.collection("patients").document(patientId)
         let snapshot = try await docRef.getDocument()
         
@@ -240,6 +256,7 @@ class DoctorPatientRepository {
     
     /// Fetches the patient's medical history: uploaded documents + prescription PDFs
     func fetchPatientMedicalHistory(patientId: String) async throws -> [SharedMedicalDocument] {
+        try ensureAuthorizedForPatient(patientId)
         var allDocs: [SharedMedicalDocument] = []
         
         // 1) Fetch uploaded documents from `documents` collection (all folder types)

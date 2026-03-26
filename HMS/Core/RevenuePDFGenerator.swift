@@ -45,7 +45,9 @@ class RevenuePDFGenerator {
             }
             return outputFileURL
         } catch {
+            #if DEBUG
             print("Failed to generate Revenue PDF: \(error)")
+            #endif
             return nil
         }
     }

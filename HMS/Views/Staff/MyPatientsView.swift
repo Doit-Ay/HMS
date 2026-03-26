@@ -151,7 +151,9 @@ struct MyPatientsView: View {
                 self.allAppointments = appointments.filter { $0.status != "cancelled" }
             }
         } catch {
+            #if DEBUG
             print("Error reloading patients: \(error)")
+            #endif
         }
     }
     
@@ -167,7 +169,9 @@ struct MyPatientsView: View {
                     withAnimation { self.isLoading = false }
                 }
             } catch {
+                #if DEBUG
                 print("Error loading patients: \(error)")
+                #endif
                 await MainActor.run { self.isLoading = false }
             }
         }

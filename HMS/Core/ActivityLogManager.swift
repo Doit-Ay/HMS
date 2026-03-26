@@ -29,12 +29,19 @@ class ActivityLogManager {
             let data = try Firestore.Encoder().encode(log)
             try await db.collection("activity_logs").document(log.id).setData(data)
         } catch {
+            #if DEBUG
             print("Failed to save activity log: \(error.localizedDescription)")
+            #endif
         }
     }
     
     /// Fetches the recent system activity logs, sorted by timestamp descending.
     func fetchLogs(limit: Int = 100) async throws -> [SystemActivityLog] {
+        // Only admins can view system activity logs
+        guard let role = UserSession.shared.currentUser?.role,
+              role == .admin else {
+            return []
+        }
         let snapshot = try await db.collection("activity_logs")
             .order(by: "timestamp", descending: true)
             .limit(to: limit)

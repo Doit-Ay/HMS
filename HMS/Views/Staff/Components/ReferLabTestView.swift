@@ -57,7 +57,9 @@ final class LabTestCacheManager {
             
             return tests
         } catch {
+            #if DEBUG
             print("❌ LabTestCacheManager fetch error:", error)
+            #endif
             return loadCachedTests() // fallback to cache
         }
     }

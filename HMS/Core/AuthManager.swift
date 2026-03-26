@@ -47,7 +47,9 @@ class AuthManager {
                 UserSession.shared.setLoading(false)
             }
         } catch {
+            #if DEBUG
             print("Error fetching user profile: \(error)")
+            #endif
             UserSession.shared.setLoading(false)
         }
     }
@@ -219,6 +221,10 @@ class AuthManager {
                 await ActivityLogManager.shared.logAction(action: "User Logout", details: "User signed out.", userOverride: user)
             }
         }
+        // Clear ALL cached data to prevent data leaks between sessions
+        CacheManager.shared.invalidateAll()
+        PDFCacheManager.shared.clearCache()
+        
         try Auth.auth().signOut()
         GIDSignIn.sharedInstance.signOut()
         UserSession.shared.clearSession()
@@ -442,7 +448,9 @@ class AuthManager {
         do {
             try await db.collection("doctors").document(user.id).setData(fields, merge: true)
         } catch {
+            #if DEBUG
             print("syncDoctorProfileToFirestore error: \(error)")
+            #endif
         }
     }
 
@@ -467,12 +475,18 @@ class AuthManager {
 
                 if !updates.isEmpty {
                     try await db.collection("doctors").document(doc.documentID).updateData(updates)
+                    #if DEBUG
                     print("Backfilled doctor \(doc.documentID): \(updates.keys.joined(separator: ", "))")
+                    #endif
                 }
             }
+            #if DEBUG
             print("backfillAllDoctorsInFirestore: complete for \(snapshot.documents.count) doctors")
+            #endif
         } catch {
+            #if DEBUG
             print("backfillAllDoctorsInFirestore error: \(error)")
+            #endif
         }
     }
 
@@ -1025,7 +1039,9 @@ class AuthManager {
         do {
             try await EmailOTPManager.shared.sendOTP(to: email)
         } catch {
+            #if DEBUG
             print("⚠️ Failed to send OTP: \(error.localizedDescription)")
+            #endif
         }
     }
 

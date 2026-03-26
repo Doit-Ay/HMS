@@ -50,7 +50,9 @@ class ProfilePhotoManager: ObservableObject {
             UserSession.shared.currentUser?.profileImageURL = urlString
         }
         
-        print("✅ Profile photo uploaded: \(urlString)")
+        #if DEBUG
+        print("✅ Profile photo uploaded successfully")
+        #endif
         return urlString
     }
 }

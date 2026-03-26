@@ -344,7 +344,9 @@ struct MedicinePrescriptionSheet: View {
                 isLoading = false
             }
         } catch {
+            #if DEBUG
             print("❌ loadMedicines error: \(error)")
+            #endif
             await MainActor.run { isLoading = false }
         }
     }

@@ -230,7 +230,9 @@ struct DoctorProfileView: View {
                         selectedPhotoItem = nil
                     }
                 } catch {
+                    #if DEBUG
                     print("❌ Photo upload failed: \(error)")
+                    #endif
                     await MainActor.run {
                         isUploadingPhoto = false
                         selectedPhotoItem = nil
@@ -315,7 +317,9 @@ struct DoctorProfileView: View {
                 ]
             }
         } catch {
+            #if DEBUG
             print("Error loading doctor profile: \(error)")
+            #endif
             await populateFromSession(user: user)
         }
     }
@@ -377,7 +381,9 @@ struct DoctorProfileView: View {
                 self.totalPatients = "\(uniquePatientIds.count)"
             }
         } catch {
+            #if DEBUG
             print("Error fetching dynamic doctor stats: \(error)")
+            #endif
             await MainActor.run {
                 self.totalAppointments = "0"
                 self.totalPatients = "0"
@@ -428,7 +434,9 @@ struct DoctorProfileView: View {
                         self.triggerToast()
                     }
                 } catch {
+                    #if DEBUG
                     print("Error saving profile: \(error.localizedDescription)")
+                    #endif
                     await MainActor.run {
                         self.isSaving = false
                     }

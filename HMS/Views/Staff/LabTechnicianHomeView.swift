@@ -325,7 +325,9 @@ struct LabRequestCard: View {
             do {
                 try await LabTechnicianRepository.shared.approveRequest(requestId: request.id)
             } catch {
+                #if DEBUG
                 print("Failed to approve request: \(error)")
+                #endif
             }
             await MainActor.run {
                 isApproving = false
@@ -1096,7 +1098,9 @@ struct ReportViewerView: UIViewRepresentable {
                     }
                 }
             } catch {
+                #if DEBUG
                 print("ReportViewerView: Error loading report: \(error)")
+                #endif
             }
         }
 

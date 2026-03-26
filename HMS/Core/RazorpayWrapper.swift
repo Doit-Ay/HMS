@@ -1,9 +1,18 @@
 import SwiftUI
 import Razorpay
 
-// MARK: - Razorpay Test Key
-// TODO: Replace with your actual test key from https://dashboard.razorpay.com/app/keys
-private let kRazorpayTestKey = "rzp_test_SUAB0mTWqbFbXu"
+// MARK: - Razorpay Key (loaded from Secrets.plist)
+private var kRazorpayKey: String {
+    if let path = Bundle.main.path(forResource: "Secrets", ofType: "plist"),
+       let dict = NSDictionary(contentsOfFile: path),
+       let key = dict["RAZORPAY_KEY"] as? String {
+        return key
+    }
+    #if DEBUG
+    print("⚠️ Missing RAZORPAY_KEY in Secrets.plist")
+    #endif
+    return ""
+}
 
 // MARK: - Payment Result
 enum RazorpayPaymentResult {
@@ -89,7 +98,7 @@ struct RazorpayCheckoutView: UIViewControllerRepresentable {
         coordinator.completion = onResult
 
         let razorpay = RazorpayCheckout.initWithKey(
-            kRazorpayTestKey,
+            kRazorpayKey,
             andDelegateWithData: coordinator
         )
         coordinator.razorpay = razorpay

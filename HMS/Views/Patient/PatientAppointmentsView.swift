@@ -262,7 +262,9 @@ struct PatientAppointmentsView: View {
                 withAnimation { self.isLoading = false }
             }
         } catch {
+            #if DEBUG
             print("Error fetching appointments: \(error)")
+            #endif
             await MainActor.run { withAnimation { self.isLoading = false } }
         }
     }
@@ -290,7 +292,9 @@ struct PatientAppointmentsView: View {
                 triggerToast("Appointment cancelled successfully", isError: false)
             }
         } catch {
+            #if DEBUG
             print("Cancel error: \(error)")
+            #endif
             await MainActor.run {
                 triggerToast("Failed to cancel. Please try again.", isError: true)
             }
@@ -315,7 +319,9 @@ struct PatientAppointmentsView: View {
                 appointmentToRate = nil
             }
         } catch {
+            #if DEBUG
             print("Submit rating error: \(error)")
+            #endif
             await MainActor.run {
                 triggerToast("Failed to submit rating. Please try again.", isError: true)
             }
@@ -343,7 +349,9 @@ struct PatientAppointmentsView: View {
                 isFetchingDoctor = false
             }
         } catch {
+            #if DEBUG
             print("Error fetching doctor for reschedule: \(error)")
+            #endif
             await MainActor.run {
                 isFetchingDoctor = false
                 triggerToast("Could not load doctor info. Please try again.", isError: true)
@@ -364,7 +372,9 @@ struct PatientAppointmentsView: View {
                 }
             }
         } catch {
+            #if DEBUG
             print("Error acknowledging cancellation: \(error)")
+            #endif
         }
     }
 

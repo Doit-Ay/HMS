@@ -93,7 +93,9 @@ struct AdminPrescriptionsView: View {
                 self.isLoading = false
             }
         } catch {
+            #if DEBUG
             print("Error fetching prescriptions: \(error)")
+            #endif
             withAnimation { isLoading = false }
         }
     }

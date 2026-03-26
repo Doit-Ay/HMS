@@ -56,7 +56,9 @@ final class PDFCacheManager {
         } catch let error as NSError where error.code == NSURLErrorCancelled {
             return nil
         } catch {
+            #if DEBUG
             print("❌ PDFCacheManager download error:", error)
+            #endif
             return nil
         }
     }
@@ -88,7 +90,9 @@ final class PDFCacheManager {
         } catch let error as NSError where error.code == NSURLErrorCancelled {
             return false
         } catch {
+            #if DEBUG
             print("❌ PDFCacheManager refresh error:", error)
+            #endif
             return false
         }
     }
@@ -117,7 +121,9 @@ final class PDFCacheManager {
         } catch let error as NSError where error.code == NSURLErrorCancelled {
             return nil
         } catch {
+            #if DEBUG
             print("❌ PDFCacheManager image download error:", error)
+            #endif
             return nil
         }
     }
@@ -146,7 +152,9 @@ final class PDFCacheManager {
         } catch let error as NSError where error.code == NSURLErrorCancelled {
             return false
         } catch {
+            #if DEBUG
             print("❌ PDFCacheManager image refresh error:", error)
+            #endif
             return false
         }
     }

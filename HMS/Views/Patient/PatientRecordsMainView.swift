@@ -37,7 +37,9 @@ struct PatientRecordsMainView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
+            #if DEBUG
             print("📱 PatientRecordsMainView appeared")
+            #endif
 
             withAnimation(.easeOut(duration: 0.5)) {
                 animate = true
@@ -314,12 +316,16 @@ extension FolderDetailView {
     private func loadDocuments() async {
 
         guard let userId = session.currentUser?.id else {
+            #if DEBUG
             print("❌ No user ID")
+            #endif
             await MainActor.run { isLoading = false }
             return
         }
 
+        #if DEBUG
         print("📥 Loading docs for:", userId)
+        #endif
 
         let db = Firestore.firestore()
 
@@ -329,7 +335,9 @@ extension FolderDetailView {
                 .whereField("folderType", isEqualTo: folder.rawValue)
                 .getDocuments()
 
+            #if DEBUG
             print("✅ Documents fetched:", snapshot.documents.count)
+            #endif
 
             let fetchedDocs = snapshot.documents.map {
                 MedicalDocument(
@@ -357,17 +365,23 @@ extension FolderDetailView {
             }
 
         } catch {
+            #if DEBUG
             print("❌ Firestore error:", error)
+            #endif
             await MainActor.run { isLoading = false }
         }
     }
 
     private func handlePickedDocument(_ url: URL) {
 
+        #if DEBUG
         print("📂 Picked:", url)
+        #endif
 
         guard let user = session.currentUser else {
+            #if DEBUG
             print("❌ No user")
+            #endif
             return
         }
 
@@ -392,7 +406,9 @@ extension FolderDetailView {
         uploadedByName: String
     ) async {
 
+        #if DEBUG
         print("⬆️ Upload started")
+        #endif
 
         let storage = Storage.storage()
         let db = Firestore.firestore()
@@ -404,11 +420,15 @@ extension FolderDetailView {
 
         do {
 
+            #if DEBUG
             print("📤 Upload path:", storageRef.fullPath)
+            #endif
 
             // Read file data into memory to avoid background upload task issues
             guard fileURL.startAccessingSecurityScopedResource() else {
+                #if DEBUG
                 print("❌ Cannot access file")
+                #endif
                 return
             }
             defer { fileURL.stopAccessingSecurityScopedResource() }
@@ -433,11 +453,15 @@ extension FolderDetailView {
 
             _ = try await storageRef.putDataAsync(fileData, metadata: metadata)
 
+            #if DEBUG
             print("✅ Upload success")
+            #endif
 
             let downloadURL = try await storageRef.downloadURL()
 
+            #if DEBUG
             print("🌐 Download URL:", downloadURL.absoluteString)
+            #endif
 
             try await db.collection("documents").addDocument(data: [
                 "name": fileURL.lastPathComponent,
@@ -451,7 +475,9 @@ extension FolderDetailView {
                 "uploadDate": Timestamp(date: Date())
             ])
 
+            #if DEBUG
             print("✅ Firestore saved")
+            #endif
 
             await MainActor.run {
                 isUploading = false
@@ -460,7 +486,9 @@ extension FolderDetailView {
             await loadDocuments()
 
         } catch {
+            #if DEBUG
             print("❌ Upload failed:", error)
+            #endif
 
             await MainActor.run {
                 isUploading = false
@@ -641,7 +669,9 @@ struct DocumentPicker: UIViewControllerRepresentable {
 
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
             if let url = urls.first {
+                #if DEBUG
                 print("📂 File picked:", url)
+                #endif
                 onPick(url)
             }
         }
@@ -680,7 +710,9 @@ struct ImagePicker: UIViewControllerRepresentable {
                                    didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
 
             guard let image = info[.originalImage] as? UIImage else {
+                #if DEBUG
                 print("❌ No image")
+                #endif
                 return
             }
 
@@ -690,10 +722,14 @@ struct ImagePicker: UIViewControllerRepresentable {
             if let data = image.jpegData(compressionQuality: 0.8) {
                 do {
                     try data.write(to: url, options: .atomic)
+                    #if DEBUG
                     print("📸 Image saved:", url)
+                    #endif
                     onPick(url)
                 } catch {
+                    #if DEBUG
                     print("❌ Save failed:", error)
+                    #endif
                 }
             }
 
@@ -839,7 +875,9 @@ struct DocumentViewerView: View {
             try FileManager.default.copyItem(at: localURL, to: newURL)
             self.shareURL = newURL
         } catch {
+            #if DEBUG
             print("❌ Failed to create shareable file:", error)
+            #endif
             self.shareURL = localURL
         }
     }

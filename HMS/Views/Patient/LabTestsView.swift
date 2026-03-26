@@ -192,7 +192,9 @@ struct LabTestsView: View {
         
         db.collection("labTests").getDocuments { snapshot, error in
             if let error = error {
+                #if DEBUG
                 print("Error fetching lab tests: \(error)")
+                #endif
                 return
             }
             
@@ -206,7 +208,9 @@ struct LabTestsView: View {
     
     private func fetchRequestedTests() {
         guard let patientId = UserSession.shared.currentUser?.id else {
+            #if DEBUG
             print("No patient ID found")
+            #endif
             isLoading = false
             return
         }
@@ -241,7 +245,9 @@ struct LabTestsView: View {
                         self.isLoading = false
                         
                         if let error = error {
+                            #if DEBUG
                             print("Error fetching requested tests: \(error)")
+                            #endif
                             return
                         }
                         

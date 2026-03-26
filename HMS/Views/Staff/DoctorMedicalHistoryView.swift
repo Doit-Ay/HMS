@@ -321,7 +321,9 @@ struct InteractiveImageViewer: View {
                 try FileManager.default.moveItem(at: tempURL, to: newURL)
                 self.shareURL = newURL
             } catch {
+                #if DEBUG
                 print("❌ Failed to download for share:", error)
+                #endif
             }
         }
     }

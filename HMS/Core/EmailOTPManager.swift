@@ -88,7 +88,9 @@ class EmailOTPManager {
         ]
         try await db.collection("mail").document(docId).setData(mailData)
 
-        print("📧 OTP \(code) sent to \(email) [doc: \(docId)]")
+        #if DEBUG
+        print("📧 OTP sent to \(email) [doc: \(docId)]")
+        #endif
         return docId
     }
 
@@ -176,7 +178,9 @@ class EmailOTPManager {
                 try? await doc.reference.delete()
             }
         } catch {
+            #if DEBUG
             print("OTP cleanup error: \(error)")
+            #endif
         }
     }
 }

@@ -72,7 +72,9 @@ class PrescriptionPDFGenerator {
             }
             return outputFileURL
         } catch {
+            #if DEBUG
             print("Failed to generate PDF: \(error)")
+            #endif
             return nil
         }
     }

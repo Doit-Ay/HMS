@@ -167,7 +167,9 @@ struct DoctorSearchView: View {
 
             } catch {
 
+                #if DEBUG
                 print(error.localizedDescription)
+                #endif
             }
 
             isLoading = false

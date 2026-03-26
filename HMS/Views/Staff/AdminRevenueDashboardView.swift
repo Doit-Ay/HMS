@@ -238,7 +238,11 @@ struct AdminRevenueDashboardView: View {
                     amount: amount, date: dateTS.dateValue()
                 ))
             }
-        } catch { print("⚠️ Revenue (invoices): \(error)") }
+        } catch {
+            #if DEBUG
+            print("⚠️ Revenue (invoices): \(error)")
+            #endif
+        }
 
         // ── 2. Completed Appointments ───────────────────────────────────────
         do {
@@ -277,7 +281,11 @@ struct AdminRevenueDashboardView: View {
                     date: paymentDate
                 ))
             }
-        } catch { print("⚠️ Revenue (appointments): \(error)") }
+        } catch {
+            #if DEBUG
+            print("⚠️ Revenue (appointments): \(error)")
+            #endif
+        }
 
         // ── 3. Lab Test Payments ────────────────────────────────────────────
         do {
@@ -301,7 +309,11 @@ struct AdminRevenueDashboardView: View {
                     amount: amount, date: dateTS.dateValue()
                 ))
             }
-        } catch { print("⚠️ Revenue (lab tests): \(error)") }
+        } catch {
+            #if DEBUG
+            print("⚠️ Revenue (lab tests): \(error)")
+            #endif
+        }
 
         let sorted = all.sorted { $0.date > $1.date }
         await MainActor.run {

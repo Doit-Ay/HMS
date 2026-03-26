@@ -172,7 +172,9 @@ struct ProfileView: View {
                         selectedPhotoItem = nil
                     }
                 } catch {
+                    #if DEBUG
                     print("❌ Photo upload failed: \(error)")
+                    #endif
                     await MainActor.run {
                         isUploadingPhoto = false
                         selectedPhotoItem = nil
@@ -264,7 +266,9 @@ struct ProfileView: View {
                     triggerToast()
                 }
             } else {
+                #if DEBUG
                 print("Error updating profile: \(error?.localizedDescription ?? "Unknown Error")")
+                #endif
             }
         }
     }

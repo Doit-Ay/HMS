@@ -195,7 +195,9 @@ struct CartView: View {
             isCheckingOut = false
 
             if let error = error {
+                #if DEBUG
                 print("Error creating lab request: \(error)")
+                #endif
             } else {
                 showSuccessAlert = true
             }

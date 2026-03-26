@@ -16,6 +16,15 @@ final class InventoryRepository {
 
     private init() {}
 
+    // MARK: - Role Guard
+    private func ensureAdmin() throws {
+        guard let role = UserSession.shared.currentUser?.role,
+              role == .admin else {
+            throw NSError(domain: "InventoryRepository", code: 403,
+                          userInfo: [NSLocalizedDescriptionKey: "Only admins can perform this action."])
+        }
+    }
+
     // MARK: - Inventory Items
 
     func fetchAllInventory(forceRefresh: Bool = false) async throws -> [InventoryItem] {
@@ -87,19 +96,25 @@ final class InventoryRepository {
             .whereField("category", isEqualTo: InventoryCategory.medicines.rawValue)
             .getDocuments()
         
+        #if DEBUG
         print("📦 fetchMedicines: found \(snapshot.documents.count) raw inventory documents (dept=\(department ?? "nil"))")
+        #endif
         var items: [InventoryItem] = snapshot.documents.compactMap { doc in
             do {
                 return try doc.data(as: InventoryItem.self)
             } catch {
+                #if DEBUG
                 print("⚠️ Failed to decode inventory doc \(doc.documentID): \(error)")
+                #endif
                 return nil
             }
         }
         
         // Also fetch from legacy 'medicines' collection
         let medSnapshot = try await db.collection("medicines").getDocuments()
+        #if DEBUG
         print("📦 fetchMedicines: found \(medSnapshot.documents.count) legacy medicine documents")
+        #endif
         let legacyMeds: [InventoryItem] = medSnapshot.documents.compactMap { doc in
             let d = doc.data()
             let name = d["name"] as? String ?? ""
@@ -134,11 +149,14 @@ final class InventoryRepository {
         if let dept = department, !dept.isEmpty {
             items = items.filter { $0.department == dept }
         }
+        #if DEBUG
         print("📦 fetchMedicines: total \(items.count) medicines after filtering")
+        #endif
         return items
     }
 
     func addInventoryItem(_ item: InventoryItem) async throws {
+        try ensureAdmin()
         let ref = db.collection("inventory").document()
         var data = try Firestore.Encoder().encode(item)
         data["createdAt"] = Timestamp(date: Date())
@@ -148,6 +166,7 @@ final class InventoryRepository {
     }
 
     func updateInventoryItem(_ item: InventoryItem) async throws {
+        try ensureAdmin()
         guard let id = item.id else { return }
         var data = try Firestore.Encoder().encode(item)
         data["updatedAt"] = Timestamp(date: Date())
@@ -156,6 +175,7 @@ final class InventoryRepository {
     }
 
     func deleteInventoryItem(id: String) async throws {
+        try ensureAdmin()
         try await db.collection("inventory").document(id).updateData(["isActive": false])
         CacheManager.shared.invalidate(prefix: "inventory_")
     }
@@ -248,7 +268,11 @@ final class InventoryRepository {
                 )
                 all.append(pseudoInvoice)
             }
-        } catch { print("Appt fetch failed: \(error)") }
+        } catch {
+            #if DEBUG
+            print("Appt fetch failed: \(error)")
+            #endif
+        }
         
         do {
             let snap = try await db.collection("patient_lab_requests")
@@ -293,12 +317,17 @@ final class InventoryRepository {
                 )
                 all.append(pseudoInvoice)
             }
-        } catch { print("Lab fetch failed: \(error)") }
+        } catch {
+            #if DEBUG
+            print("Lab fetch failed: \(error)")
+            #endif
+        }
         
         return all.sorted { $0.date > $1.date }
     }
 
     func fetchAllInvoices() async throws -> [HMSInvoice] {
+        try ensureAdmin()
         let snapshot = try await db.collection("invoices")
             .getDocuments()
         return snapshot.documents
