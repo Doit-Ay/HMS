@@ -190,7 +190,10 @@ struct AppointmentDetailSheet: View {
                     
                     if appointmentStatus == "completed" {
                         // After consultation: show "Edit" if notes exist, otherwise "Write"
-                        Button(action: { showConsultationNotes = true }) {
+                        Button(action: {
+                            guard firestoreAppointment != nil else { return }
+                            showConsultationNotes = true
+                        }) {
                             HStack {
                                 Image(systemName: hasExistingNotes ? "pencil.line" : "pencil.and.list.clipboard")
                                 Text(hasExistingNotes ? "Edit Prescription" : "Write Prescription")
@@ -239,6 +242,14 @@ struct AppointmentDetailSheet: View {
                     startTime: appt.startTime,
                     endTime: appt.endTime
                 )
+            } else {
+                VStack {
+                    Text("Unable to load appointment data.")
+                        .foregroundColor(AppTheme.textSecondary)
+                    Button("Dismiss") { showConsultationNotes = false }
+                        .padding(.top, 8)
+                }
+                .padding()
             }
         }
         .sheet(isPresented: $showReferLabTest) {

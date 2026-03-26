@@ -223,24 +223,6 @@ struct DoctorAvailabilityView: View {
                     .padding(.bottom, 8)
                     .transition(.opacity)
             }
-            
-            // 6. Success Toast
-            if showToast {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.white)
-                    Text("Availability updated")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white)
-                }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
-                .background(Color.green)
-                .clipShape(Capsule())
-                .shadow(color: Color.green.opacity(0.4), radius: 8, x: 0, y: 4)
-                .padding(.bottom, 40)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
         }
         .onAppear {
             withAnimation(.easeOut(duration: 0.6)) {
@@ -251,6 +233,12 @@ struct DoctorAvailabilityView: View {
             if let date = selectedDate {
                 fetchSlotsForDate(date)
             }
+        }
+        .refreshable { loadUnavailability() }
+        .alert("Success", isPresented: $showToast) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Availability updated")
         }
         // Conflict Alert Modal
         .alert(isPresented: $showConflictAlert) {
@@ -472,15 +460,10 @@ struct DoctorAvailabilityView: View {
                     }
                 }
                 
-                // Show success toast
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    showToast = true
-                }
+                // Show success alert
+                showToast = true
                 // Sync original so Save button hides
                 originalSelection = markAsSelection
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                    withAnimation { showToast = false }
-                }
             } catch {
                 withAnimation { errorMessage = error.localizedDescription }
             }

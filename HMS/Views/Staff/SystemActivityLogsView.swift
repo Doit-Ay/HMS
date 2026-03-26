@@ -118,6 +118,7 @@ struct SystemActivityLogsView: View {
                     }
                 }
             }
+            .refreshable { viewModel.fetchLogs() }
             .alert("Error", isPresented: Binding<Bool>(
                 get: { viewModel.errorMessage != nil },
                 set: { if !$0 { viewModel.errorMessage = nil } }

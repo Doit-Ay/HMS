@@ -154,23 +154,14 @@ struct ProfileView: View {
                 }
             }
 
-            // Save toast
-            if showSaveToast {
-                HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.white)
-                    Text("Profile updated successfully")
-                        .foregroundColor(.white)
-                }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
-                .background(Color.green)
-                .clipShape(Capsule())
-                .padding(.bottom, 40)
-            }
         }
         .navigationBarHidden(true)
         .onAppear { loadUserData() }
+        .alert("Success", isPresented: $showSaveToast) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Profile updated successfully")
+        }
         .alert("Sign Out", isPresented: $showLogoutAlert) {
             Button("Cancel", role: .cancel) {}
             Button("Sign Out", role: .destructive) {
@@ -192,7 +183,7 @@ struct ProfileView: View {
         personalFields = [
             ProfileInfoField(title: "Full Name", value: user.fullName),
             ProfileInfoField(title: "Gender", value: user.gender ?? "Not Set", options: ["Male", "Female", "Other"]),
-            ProfileInfoField(title: "Date of Birth", value: user.dateOfBirth ?? "Not Set")
+            ProfileInfoField(title: "Date of Birth", value: user.dateOfBirth ?? "Not Set", isDateField: true)
         ]
 
         contactFields = [
@@ -268,10 +259,7 @@ struct ProfileView: View {
     }
 
     private func triggerToast() {
-        withAnimation { showSaveToast = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-            withAnimation { showSaveToast = false }
-        }
+        showSaveToast = true
     }
 }
 

@@ -80,6 +80,7 @@ struct PatientPrescriptionsView: View {
                 withAnimation { animate = true }
             }
         }
+        .refreshable { await fetchPrescriptions() }
         .toolbar(.hidden, for: .tabBar)
     }
     

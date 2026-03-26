@@ -18,14 +18,24 @@ final class InventoryRepository {
 
     // MARK: - Inventory Items
 
-    func fetchAllInventory() async throws -> [InventoryItem] {
+    func fetchAllInventory(forceRefresh: Bool = false) async throws -> [InventoryItem] {
+        let cacheKey = "inventory_all"
+        if !forceRefresh, let cached: [InventoryItem] = CacheManager.shared.get(forKey: cacheKey) {
+            return cached
+        }
         let snapshot = try await db.collection("inventory")
             .whereField("isActive", isEqualTo: true)
             .getDocuments()
-        return try snapshot.documents.compactMap { try $0.data(as: InventoryItem.self) }
+        let result = try snapshot.documents.compactMap { try $0.data(as: InventoryItem.self) }
+        CacheManager.shared.set(result, forKey: cacheKey, ttl: 2)
+        return result
     }
 
-    func fetchInventory(category: InventoryCategory) async throws -> [InventoryItem] {
+    func fetchInventory(category: InventoryCategory, forceRefresh: Bool = false) async throws -> [InventoryItem] {
+        let cacheKey = "inventory_\(category.rawValue)"
+        if !forceRefresh, let cached: [InventoryItem] = CacheManager.shared.get(forKey: cacheKey) {
+            return cached
+        }
         // Fetch from the 'inventory' collection
         let snapshot = try await db.collection("inventory")
             .whereField("category", isEqualTo: category.rawValue)
@@ -66,19 +76,66 @@ final class InventoryRepository {
             items.append(contentsOf: legacyMeds)
         }
 
+        CacheManager.shared.set(items, forKey: cacheKey, ttl: 2)
         return items
     }
 
     /// Doctor-side: return medicines filtered to a specific department (or all medicines if nil)
     func fetchMedicines(forDepartment department: String?) async throws -> [InventoryItem] {
-        var query: Query = db.collection("inventory")
+        // Use a single whereField to avoid composite index requirement
+        let snapshot = try await db.collection("inventory")
             .whereField("category", isEqualTo: InventoryCategory.medicines.rawValue)
-            .whereField("isActive", isEqualTo: true)
-        if let dept = department, !dept.isEmpty {
-            query = query.whereField("department", isEqualTo: dept)
+            .getDocuments()
+        
+        print("📦 fetchMedicines: found \(snapshot.documents.count) raw inventory documents (dept=\(department ?? "nil"))")
+        var items: [InventoryItem] = snapshot.documents.compactMap { doc in
+            do {
+                return try doc.data(as: InventoryItem.self)
+            } catch {
+                print("⚠️ Failed to decode inventory doc \(doc.documentID): \(error)")
+                return nil
+            }
         }
-        let snapshot = try await query.getDocuments()
-        return try snapshot.documents.compactMap { try $0.data(as: InventoryItem.self) }
+        
+        // Also fetch from legacy 'medicines' collection
+        let medSnapshot = try await db.collection("medicines").getDocuments()
+        print("📦 fetchMedicines: found \(medSnapshot.documents.count) legacy medicine documents")
+        let legacyMeds: [InventoryItem] = medSnapshot.documents.compactMap { doc in
+            let d = doc.data()
+            let name = d["name"] as? String ?? ""
+            let quantity = d["quantity"] as? Int ?? 0
+            let typeStr = d["type"] as? String ?? "Tablets"
+            let medType: MedicineType = typeStr.lowercased().contains("liquid") || typeStr.lowercased().contains("injection") || typeStr.lowercased().contains("syrup") ? .liquid : .tablet
+            let medCategory = d["category"] as? String
+            
+            // Skip if an inventory item with the same name already exists
+            if items.contains(where: { $0.name.lowercased() == name.lowercased() }) {
+                return nil
+            }
+            
+            return InventoryItem(
+                id: doc.documentID,
+                name: name,
+                category: .medicines,
+                medicineType: medType,
+                department: medCategory,
+                quantity: quantity,
+                unitPrice: 0,
+                unit: medType == .liquid ? "ml" : "tablet",
+                isActive: true,
+                createdAt: nil,
+                updatedAt: nil
+            )
+        }
+        items.append(contentsOf: legacyMeds)
+        
+        // Client-side filtering for isActive and department
+        items = items.filter { $0.isActive }
+        if let dept = department, !dept.isEmpty {
+            items = items.filter { $0.department == dept }
+        }
+        print("📦 fetchMedicines: total \(items.count) medicines after filtering")
+        return items
     }
 
     func addInventoryItem(_ item: InventoryItem) async throws {
@@ -87,6 +144,7 @@ final class InventoryRepository {
         data["createdAt"] = Timestamp(date: Date())
         data["updatedAt"] = Timestamp(date: Date())
         try await ref.setData(data)
+        CacheManager.shared.invalidate(prefix: "inventory_")
     }
 
     func updateInventoryItem(_ item: InventoryItem) async throws {
@@ -94,10 +152,12 @@ final class InventoryRepository {
         var data = try Firestore.Encoder().encode(item)
         data["updatedAt"] = Timestamp(date: Date())
         try await db.collection("inventory").document(id).setData(data, merge: true)
+        CacheManager.shared.invalidate(prefix: "inventory_")
     }
 
     func deleteInventoryItem(id: String) async throws {
         try await db.collection("inventory").document(id).updateData(["isActive": false])
+        CacheManager.shared.invalidate(prefix: "inventory_")
     }
 
     func deductStock(itemId: String, quantity: Int) async throws {
@@ -111,6 +171,7 @@ final class InventoryRepository {
             transaction.updateData(["quantity": max(0, current - quantity), "updatedAt": Timestamp(date: Date())], forDocument: ref)
             return nil
         }
+        CacheManager.shared.invalidate(prefix: "inventory_")
     }
 
     // MARK: - Invoices

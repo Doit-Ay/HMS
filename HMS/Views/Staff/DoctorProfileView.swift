@@ -225,28 +225,15 @@ struct DoctorProfileView: View {
             }
             
             // 4. Removed Bottom CTA
-            
-            // 5. Success Toast
-            if showSaveToast {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.white)
-                    Text("Profile updated successfully")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white)
-                }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
-                .background(Color.green)
-                .clipShape(Capsule())
-                .shadow(color: Color.green.opacity(0.4), radius: 8, x: 0, y: 4)
-                .padding(.bottom, 40)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
         }
         .navigationBarHidden(true)
         .task {
             await loadAllProfileData()
+        }
+        .alert("Success", isPresented: $showSaveToast) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Profile updated successfully")
         }
     }
     
@@ -275,12 +262,6 @@ struct DoctorProfileView: View {
                 appearAnimation = true
             }
         }
-        
-        // Background sync (non-UI-blocking, runs after profile is visible)
-        await AuthManager.shared.backfillAllDoctorsInFirestore()
-        if let currentUser = UserSession.shared.currentUser {
-            await AuthManager.shared.syncDoctorProfileToFirestore(user: currentUser)
-        }
     }
     
     private func loadDoctorProfile(db: Firestore, user: HMSUser) async {
@@ -308,7 +289,7 @@ struct DoctorProfileView: View {
                 
                 personalFields = [
                     ProfileInfoField(title: "Full Name", value: fullName),
-                    ProfileInfoField(title: "Date of Birth", value: dob),
+                    ProfileInfoField(title: "Date of Birth", value: dob, isDateField: true),
                     ProfileInfoField(title: "Gender", value: gender, options: ["Male", "Female", "Other"])
                 ]
                 
@@ -336,7 +317,7 @@ struct DoctorProfileView: View {
             
             personalFields = [
                 ProfileInfoField(title: "Full Name", value: user.fullName),
-                ProfileInfoField(title: "Date of Birth", value: user.dateOfBirth ?? "Not Set"),
+                ProfileInfoField(title: "Date of Birth", value: user.dateOfBirth ?? "Not Set", isDateField: true),
                 ProfileInfoField(title: "Gender", value: user.gender ?? "Not Set", options: ["Male", "Female", "Other"])
             ]
             professionalFields = [
@@ -444,14 +425,7 @@ struct DoctorProfileView: View {
     }
     
     private func triggerToast() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-            showSaveToast = true
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-            withAnimation {
-                showSaveToast = false
-            }
-        }
+        showSaveToast = true
     }
 }
 

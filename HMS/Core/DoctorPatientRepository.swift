@@ -116,6 +116,7 @@ class DoctorPatientRepository {
     func saveConsultationNote(_ note: ConsultationNote) async throws {
         let data = try Firestore.Encoder().encode(note)
         try await db.collection("consultation_notes").document(note.id).setData(data)
+        CacheManager.shared.invalidate(prefix: "consult_notes_")
     }
     
     /// Fetches a consultation note for a specific appointment
@@ -133,21 +134,31 @@ class DoctorPatientRepository {
     }
 
     /// Fetches all consultation notes for a specific patient
-    func fetchPatientConsultationNotes(patientId: String) async throws -> [ConsultationNote] {
+    func fetchPatientConsultationNotes(patientId: String, forceRefresh: Bool = false) async throws -> [ConsultationNote] {
+        let cacheKey = "consult_notes_\(patientId)"
+        if !forceRefresh, let cached: [ConsultationNote] = CacheManager.shared.get(forKey: cacheKey) {
+            return cached
+        }
         let snapshot = try await db.collection("consultation_notes")
             .whereField("patientId", isEqualTo: patientId)
             .getDocuments()
         
         let notes = snapshot.documents.compactMap { try? $0.data(as: ConsultationNote.self) }
-        return notes.sorted { ($0.createdAt ?? Date.distantPast) > ($1.createdAt ?? Date.distantPast) }
+        let result = notes.sorted { ($0.createdAt ?? Date.distantPast) > ($1.createdAt ?? Date.distantPast) }
+        CacheManager.shared.set(result, forKey: cacheKey, ttl: 2)
+        return result
     }
 
     // MARK: - Medicines
 
     /// Fetches all medicines from the `medicines` collection
-    func fetchMedicines() async throws -> [AppMedicine] {
+    func fetchMedicines(forceRefresh: Bool = false) async throws -> [AppMedicine] {
+        let cacheKey = "all_medicines"
+        if !forceRefresh, let cached: [AppMedicine] = CacheManager.shared.get(forKey: cacheKey) {
+            return cached
+        }
         let snapshot = try await db.collection("medicines").getDocuments()
-        return snapshot.documents.compactMap { doc -> AppMedicine? in
+        let result = snapshot.documents.compactMap { doc -> AppMedicine? in
             let data = doc.data()
             guard let name = data["name"] as? String else { return nil }
             return AppMedicine(
@@ -157,6 +168,8 @@ class DoctorPatientRepository {
                 manufacturer: data["manufacturer"] as? String
             )
         }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        CacheManager.shared.set(result, forKey: cacheKey, ttl: 2)
+        return result
     }
     
     // MARK: - Lab Test Requests
@@ -201,16 +214,23 @@ class DoctorPatientRepository {
     func savePrescriptionDocument(_ doc: PrescriptionDocument) async throws {
         let data = try Firestore.Encoder().encode(doc)
         try await db.collection("prescriptions").document(doc.id).setData(data)
+        CacheManager.shared.invalidate(prefix: "prescriptions_")
     }
     
     /// Fetches all prescriptions for a specific patient
-    func fetchPatientPrescriptions(patientId: String) async throws -> [PrescriptionDocument] {
+    func fetchPatientPrescriptions(patientId: String, forceRefresh: Bool = false) async throws -> [PrescriptionDocument] {
+        let cacheKey = "prescriptions_\(patientId)"
+        if !forceRefresh, let cached: [PrescriptionDocument] = CacheManager.shared.get(forKey: cacheKey) {
+            return cached
+        }
         let snapshot = try await db.collection("prescriptions")
             .whereField("patientId", isEqualTo: patientId)
             .getDocuments()
             
         let docs = snapshot.documents.compactMap { try? $0.data(as: PrescriptionDocument.self) }
-        return docs.sorted { $0.createdAt > $1.createdAt }
+        let result = docs.sorted { $0.createdAt > $1.createdAt }
+        CacheManager.shared.set(result, forKey: cacheKey, ttl: 2)
+        return result
     }
     
     // MARK: - Medical Documents

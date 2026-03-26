@@ -198,24 +198,6 @@ struct PatientProfileView: View {
                 }
             }
 
-            if showSaveToast {
-
-                HStack {
-
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.white)
-
-                    Text("Profile updated successfully")
-                        .foregroundColor(.white)
-
-                }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
-                .background(Color.green)
-                .clipShape(Capsule())
-                .padding(.bottom, 40)
-
-            }
         }
         .navigationBarHidden(true)
         .onAppear {
@@ -226,6 +208,11 @@ struct PatientProfileView: View {
 
                 appearAnimation = true
             }
+        }
+        .alert("Success", isPresented: $showSaveToast) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Profile updated successfully")
         }
     }
 
@@ -324,17 +311,7 @@ struct PatientProfileView: View {
     }
 
     private func triggerToast() {
-
-        withAnimation {
-            showSaveToast = true
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-
-            withAnimation {
-                showSaveToast = false
-            }
-        }
+        showSaveToast = true
     }
 }
 
