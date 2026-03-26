@@ -214,11 +214,9 @@ struct Appointment: Codable, Identifiable {
     var startTime: String
     var endTime: String
     var status: String                      // "scheduled", "completed", "cancelled"
-    var cancelReason: String? = nil
-    var patientNotified: Bool? = nil
-    var ratingGiven: Int? = nil
-    var reviewText: String? = nil
-    var createdAt: Date? = nil
+    var ratingGiven: Int?
+    var reviewText: String?
+    var createdAt: Date?
 }
 
 // MARK: - Firestore `doctor_unavailability` Collection
@@ -243,6 +241,7 @@ struct AppMedicine: Codable, Identifiable, Hashable {
 }
 
 // MARK: - Firestore `consultation_notes` Collection
+// Each document represents a consultation note or prescription written by a doctor for a patient.
 struct ConsultationNote: Codable, Identifiable {
     var id: String
     var appointmentId: String
@@ -256,7 +255,6 @@ struct ConsultationNote: Codable, Identifiable {
     var notes: String
     var prescription: String
     var createdAt: Date?
-    // Prescribed medicines stored in sub-collection: consultation_notes/{id}/prescribed_medicines
 }
 
 // MARK: - Firestore `lab_test_requests` Collection
@@ -304,3 +302,19 @@ struct SharedMedicalDocument: Codable, Identifiable {
     var uploadDate: Date
     var notes: String?
 }
+
+// MARK: - Firestore `notifications` Collection
+// Each document represents a notification sent to a user (e.g. reschedule request).
+// Document ID = auto-generated UUID
+struct AppNotification: Codable, Identifiable {
+    var id: String
+    var recipientId: String          // FK → users/{uid} — the patient to notify
+    var title: String
+    var message: String
+    var type: String                 // "reschedule_request"
+    var appointmentId: String?       // FK → appointments/{id}
+    var doctorId: String?            // FK → users/{uid}
+    var isRead: Bool
+    var createdAt: Date
+}
+

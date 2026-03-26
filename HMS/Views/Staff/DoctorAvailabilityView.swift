@@ -345,6 +345,9 @@ struct DoctorAvailabilityView: View {
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let dateString = dateFormatter.string(from: date)
         
+        // Get doctor name for notification messages
+        let docName = doctorName ?? session.currentUser?.fullName ?? "Your doctor"
+        
         isSaving = true
         
         Task {
@@ -377,17 +380,29 @@ struct DoctorAvailabilityView: View {
                         unavailabilityIDs[startOfDay] = entryId
                     }
                     
+                    // Notify patients with conflicting appointments
+                    await notifyConflictingPatients(
+                        doctorId: doctorId,
+                        doctorName: docName,
+                        date: dateString,
+                        type: "unavailable",
+                        startTime: nil,
+                        endTime: nil
+                    )
+                    
                 case .halfDay:
                     let timeFormatter = DateFormatter()
                     timeFormatter.dateFormat = "HH:mm"
                     let entryId = unavailabilityIDs[startOfDay] ?? UUID().uuidString
+                    let startTimeStr = timeFormatter.string(from: startTime)
+                    let endTimeStr = timeFormatter.string(from: endTime)
                     let entry = DoctorUnavailability(
                         id: entryId,
                         doctorId: doctorId,
                         date: dateString,
                         type: "halfDay",
-                        startTime: timeFormatter.string(from: startTime),
-                        endTime: timeFormatter.string(from: endTime),
+                        startTime: startTimeStr,
+                        endTime: endTimeStr,
                         createdAt: Date()
                     )
                     try await AuthManager.shared.saveUnavailability(entry)
@@ -395,6 +410,16 @@ struct DoctorAvailabilityView: View {
                         availabilityMap[startOfDay] = .halfDay
                         unavailabilityIDs[startOfDay] = entryId
                     }
+                    
+                    // Notify patients with conflicting appointments
+                    await notifyConflictingPatients(
+                        doctorId: doctorId,
+                        doctorName: docName,
+                        date: dateString,
+                        type: "halfDay",
+                        startTime: startTimeStr,
+                        endTime: endTimeStr
+                    )
                 }
                 
                 // Show success toast
@@ -412,6 +437,59 @@ struct DoctorAvailabilityView: View {
             isSaving = false
         }
     }
+    
+    // MARK: - Notify Conflicting Patients
+    
+    /// Finds all scheduled appointments that conflict with the new unavailability
+    /// and creates notification records for each affected patient.
+    private func notifyConflictingPatients(
+        doctorId: String,
+        doctorName: String,
+        date: String,
+        type: String,
+        startTime: String?,
+        endTime: String?
+    ) async {
+        do {
+            let conflicting = try await AuthManager.shared.fetchConflictingAppointments(
+                doctorId: doctorId,
+                date: date,
+                unavailabilityType: type,
+                unavailStartTime: startTime,
+                unavailEndTime: endTime
+            )
+            
+            // Format date for display
+            let displayDate: String = {
+                let inFmt = DateFormatter(); inFmt.dateFormat = "yyyy-MM-dd"
+                guard let d = inFmt.date(from: date) else { return date }
+                let outFmt = DateFormatter(); outFmt.dateFormat = "MMM d, yyyy"
+                return outFmt.string(from: d)
+            }()
+            
+            for appointment in conflicting {
+                let notification = AppNotification(
+                    id: UUID().uuidString,
+                    recipientId: appointment.patientId,
+                    title: "Appointment Reschedule Required",
+                    message: "Dr. \(doctorName) is no longer available on \(displayDate) at \(appointment.startTime). Please reschedule your appointment.",
+                    type: "reschedule_request",
+                    appointmentId: appointment.id,
+                    doctorId: doctorId,
+                    isRead: false,
+                    createdAt: Date()
+                )
+                try await AuthManager.shared.saveNotification(notification)
+            }
+            
+            if !conflicting.isEmpty {
+                print("📬 Sent \(conflicting.count) reschedule notification(s) to affected patients")
+            }
+        } catch {
+            print("⚠️ Failed to notify conflicting patients: \(error.localizedDescription)")
+        }
+    }
+
 }
 
 #Preview {
