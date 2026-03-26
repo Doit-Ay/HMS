@@ -171,27 +171,40 @@ struct AdminRevenueDashboardView: View {
 
     // MARK: - Total Revenue Hero
     private var totalRevenueCard: some View {
-        VStack(spacing: 6) {
-            Text("Total Revenue Collected")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundColor(.white.opacity(0.8))
-            Text(String(format: "₹%.2f", totalRevenue))
-                .font(.system(size: 42, weight: .heavy, design: .rounded))
-                .foregroundColor(.white)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Total Revenue Collected")
+                        .font(.system(size: 14, design: .rounded))
+                        .foregroundColor(.white.opacity(0.85))
+                    Text(String(format: "₹%.2f", totalRevenue))
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                }
+                Spacer()
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.2))
+                        .frame(width: 64, height: 64)
+                    Image(systemName: "indianrupeesign.circle.fill")
+                        .font(.system(size: 28))
+                        .foregroundColor(.white)
+                }
+            }
             Text("\(transactions.count) transactions")
-                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .font(.system(size: 13, design: .rounded))
                 .foregroundColor(.white.opacity(0.7))
         }
+        .padding(24)
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 28)
         .background(
             LinearGradient(
-                colors: [AppTheme.primaryDark, AppTheme.primaryMid],
+                colors: [AppTheme.dashboardCardGradientStart, AppTheme.dashboardCardGradientEnd],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
         )
-        .cornerRadius(20)
-        .shadow(color: AppTheme.primary.opacity(0.35), radius: 14, x: 0, y: 7)
+        .cornerRadius(24)
+        .shadow(color: AppTheme.primary.opacity(0.25), radius: 14, x: 0, y: 7)
         .padding(.horizontal, 16)
     }
 
