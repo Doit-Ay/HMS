@@ -15,6 +15,7 @@ struct InventoryAIPlannerView: View {
     @State private var searchText = ""
     @State private var activeFilter: StatusFilter = .all
     @State private var expandAll = false
+    @State private var isLocalFallback = false
     
     enum PlannerSection: String, CaseIterable {
         case overview = "Overview"
@@ -47,12 +48,14 @@ struct InventoryAIPlannerView: View {
                     // Analyzed timestamp
                     if let time = analyzedAt {
                         HStack(spacing: 5) {
-                            Image(systemName: "clock")
+                            Image(systemName: isLocalFallback ? "cpu" : "sparkles")
                                 .font(.system(size: 10, weight: .semibold))
-                            Text("Analyzed at \(time.formatted(date: .omitted, time: .shortened))")
+                            Text(isLocalFallback
+                                 ? "Local analysis at \(time.formatted(date: .omitted, time: .shortened))"
+                                 : "AI analyzed at \(time.formatted(date: .omitted, time: .shortened))")
                                 .font(.system(size: 11, weight: .semibold, design: .rounded))
                         }
-                        .foregroundColor(AppTheme.textSecondary.opacity(0.6))
+                        .foregroundColor(isLocalFallback ? AppTheme.warning.opacity(0.8) : AppTheme.textSecondary.opacity(0.6))
                         .padding(.bottom, 6)
                     }
                     
@@ -85,6 +88,7 @@ struct InventoryAIPlannerView: View {
                     errorMessage = nil
                     animate = false
                     healthRingProgress = 0
+                    isLocalFallback = false
                     Task { await fetchAndAnalyze() }
                 } label: {
                     Image(systemName: "arrow.clockwise")
@@ -921,47 +925,99 @@ struct InventoryAIPlannerView: View {
     }
     
     private func fetchAndAnalyze() async {
+        let maxRetries = 3
+        var lastError: Error?
+        
+        for attempt in 1...maxRetries {
+            do {
+                let beds = try await InventoryRepository.shared.fetchInventory(category: .beds)
+                let meds = try await InventoryRepository.shared.fetchInventory(category: .medicines)
+                let adds = try await InventoryRepository.shared.fetchInventory(category: .additionals)
+                let total = beds + meds + adds
+                
+                var result = try await GroqInventoryAIService.shared.generateInsights(from: total)
+                
+                // MATH CORRECTION: LLMs are notoriously bad at math.
+                // We intercept the response and strictly calculate costs client-side using accurate unit prices.
+                var exactTotalCost: Double = 0
+                
+                for i in 0..<result.actionableInsights.count {
+                    let insight = result.actionableInsights[i]
+                    let accuratePrice = total.first(where: { $0.name == insight.itemName })?.unitPrice ?? 0
+                    let calculatedCost = Double(insight.recommendedOrder) * accuratePrice
+                    result.actionableInsights[i].estimatedCost = calculatedCost
+                    exactTotalCost += calculatedCost
+                }
+                
+                result.totalEstimatedRestockCost = exactTotalCost
+                
+                await MainActor.run {
+                    self.allItems = total
+                    self.insights = result
+                    self.analyzedAt = Date()
+                    self.isLoading = false
+                    
+                    // Trigger entrance animations
+                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
+                        animate = true
+                    }
+                    // Animate health ring
+                    withAnimation(.easeOut(duration: 1.0).delay(0.3)) {
+                        healthRingProgress = CGFloat(result.overallHealthScore) / 100.0
+                    }
+                }
+                return // Success — exit immediately
+            } catch {
+                lastError = error
+                
+                // Don't retry on rate limit errors — retrying just wastes tokens
+                let nsError = error as NSError
+                if nsError.code == 429 || nsError.userInfo["isRateLimit"] as? Bool == true {
+                    break
+                }
+                
+                // If not the last attempt, wait before retrying (exponential backoff: 1s, 2s)
+                if attempt < maxRetries {
+                    try? await Task.sleep(nanoseconds: UInt64(attempt) * 1_000_000_000)
+                }
+            }
+        }
+        
+        // All API retries exhausted — fall back to local analysis
+        #if DEBUG
+        print("⚠️ AI API failed after retries. Using local fallback. Last error: \(lastError?.localizedDescription ?? "unknown")")
+        #endif
+        
+        // Fetch inventory locally if we don't have it yet
+        var total: [InventoryItem] = []
         do {
             let beds = try await InventoryRepository.shared.fetchInventory(category: .beds)
             let meds = try await InventoryRepository.shared.fetchInventory(category: .medicines)
             let adds = try await InventoryRepository.shared.fetchInventory(category: .additionals)
-            let total = beds + meds + adds
-            
-            var result = try await GroqInventoryAIService.shared.generateInsights(from: total)
-            
-            // MATH CORRECTION: LLMs are notoriously bad at math.
-            // We intercept the response and strictly calculate costs client-side using accurate unit prices.
-            var exactTotalCost: Double = 0
-            
-            for i in 0..<result.actionableInsights.count {
-                let insight = result.actionableInsights[i]
-                let accuratePrice = total.first(where: { $0.name == insight.itemName })?.unitPrice ?? 0
-                let calculatedCost = Double(insight.recommendedOrder) * accuratePrice
-                result.actionableInsights[i].estimatedCost = calculatedCost
-                exactTotalCost += calculatedCost
-            }
-            
-            result.totalEstimatedRestockCost = exactTotalCost
-            
-            await MainActor.run {
-                self.allItems = total
-                self.insights = result
-                self.analyzedAt = Date()
-                self.isLoading = false
-                
-                // Trigger entrance animations
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
-                    animate = true
-                }
-                // Animate health ring
-                withAnimation(.easeOut(duration: 1.0).delay(0.3)) {
-                    healthRingProgress = CGFloat(result.overallHealthScore) / 100.0
-                }
-            }
+            total = beds + meds + adds
         } catch {
+            // Even inventory fetch failed — show error
             await MainActor.run {
-                self.errorMessage = error.localizedDescription
+                self.errorMessage = "Unable to load inventory data. Check your connection."
                 self.isLoading = false
+            }
+            return
+        }
+        
+        let result = LocalInventoryAnalyzer.analyze(total)
+        
+        await MainActor.run {
+            self.allItems = total
+            self.insights = result
+            self.analyzedAt = Date()
+            self.isLocalFallback = true
+            self.isLoading = false
+            
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
+                animate = true
+            }
+            withAnimation(.easeOut(duration: 1.0).delay(0.3)) {
+                healthRingProgress = CGFloat(result.overallHealthScore) / 100.0
             }
         }
     }
