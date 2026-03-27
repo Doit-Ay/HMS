@@ -63,6 +63,7 @@ struct BookAppointmentView: View {
     var rescheduleAppointmentId: String? = nil
     var rescheduleOldSlotId: String? = nil
     var rescheduleDate: String? = nil
+    var rescheduleNotificationId: String? = nil
     
     // Calendar State
     @State private var selectedDate: Date? = Date()
@@ -82,6 +83,7 @@ struct BookAppointmentView: View {
     @State private var errorMessage: String? = nil
     @State private var animate = false
     @State private var showAppointmentsAfterBooking = false
+    @State private var bookedTimeString: String = ""
 
     // Payment State
     @State private var showPaymentSheet = false
@@ -287,7 +289,7 @@ struct BookAppointmentView: View {
             BookingSuccessSheet(
                 doctorName: doctor.fullName,
                 date: selectedDateString ?? "",
-                time: selectedSlot.map { "\($0.start) – \($0.end)" } ?? "",
+                time: bookedTimeString,
                 isReschedule: isRescheduleMode,
                 onDismiss: {
                     showSuccess = false
@@ -440,6 +442,7 @@ struct BookAppointmentView: View {
         
         isBooking = true
         errorMessage = nil
+        bookedTimeString = "\(slot.start) – \(slot.end)"
         
         let newSlotId = UUID().uuidString
         let db = Firestore.firestore()
@@ -480,6 +483,13 @@ struct BookAppointmentView: View {
                 let slotData = try Firestore.Encoder().encode(newSlot)
                 try await db.collection("doctor_slots").document(newSlotId).setData(slotData)
                 
+                // 4. Mark notification as completed so button disappears
+                if let notifId = rescheduleNotificationId {
+                    try? await db.collection("notifications").document(notifId).updateData([
+                        "type": "reschedule_completed"
+                    ])
+                }
+                
                 await MainActor.run {
                     withAnimation { showSuccess = true }
                 }
@@ -505,6 +515,9 @@ struct BookAppointmentView: View {
 
         isBooking = true
         errorMessage = nil
+        if let slot = selectedSlot {
+            bookedTimeString = "\(slot.start) – \(slot.end)"
+        }
 
         // Build payment options
         let options = RazorpayOptions(

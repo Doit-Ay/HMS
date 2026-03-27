@@ -9,9 +9,12 @@ struct NotificationsView: View {
     @State private var selectedTab = 0 // 0 = Unread, 1 = Read
     
     // Reschedule navigation state
+    @State private var navigateToReschedule = false
     @State private var rescheduleDoctor: HMSUser? = nil
     @State private var rescheduleAppointment: Appointment? = nil
-    @State private var isFetchingReschedule = false
+    @State private var rescheduleNotificationId: String? = nil
+    @State private var loadingNotificationId: String? = nil
+    @State private var errorMessage: String? = nil
 
     private var unreadNotifications: [AppNotification] {
         notificationManager.notifications.filter { !$0.isRead }
@@ -28,23 +31,6 @@ struct NotificationsView: View {
     var body: some View {
         ZStack(alignment: .top) {
             AppTheme.background.ignoresSafeArea()
-            
-            // Hidden NavigationLink for reschedule
-            if let doctor = rescheduleDoctor, let appt = rescheduleAppointment {
-                NavigationLink(
-                    destination: BookAppointmentView(
-                        doctor: doctor,
-                        rescheduleAppointmentId: appt.id,
-                        rescheduleOldSlotId: appt.slotId,
-                        rescheduleDate: appt.date
-                    ),
-                    isActive: Binding(
-                        get: { rescheduleDoctor != nil },
-                        set: { if !$0 { rescheduleDoctor = nil; rescheduleAppointment = nil } }
-                    )
-                ) { EmptyView() }
-                .hidden()
-            }
 
             VStack(spacing: 0) {
                 // Segmented Control
@@ -85,18 +71,22 @@ struct NotificationsView: View {
                             ForEach(displayedNotifications) { notification in
                                 NotificationCard(
                                     notification: notification,
-                                    isLoadingReschedule: isFetchingReschedule
+                                    isLoadingReschedule: loadingNotificationId == notification.id,
+                                    onRescheduleTap: {
+                                        Task {
+                                            // Mark as read first
+                                            if !notification.isRead {
+                                                await notificationManager.markAsRead(notificationId: notification.id)
+                                            }
+                                            await handleRescheduleTap(notification)
+                                        }
+                                    }
                                 )
                                 .onTapGesture {
+                                    // Only mark as read on general tap — don't navigate
                                     if !notification.isRead {
                                         Task {
                                             await notificationManager.markAsRead(notificationId: notification.id)
-                                        }
-                                    }
-                                    // Navigate for reschedule notifications
-                                    if notification.type == "reschedule_request" {
-                                        Task {
-                                            await handleRescheduleTap(notification)
                                         }
                                     }
                                 }
@@ -108,6 +98,30 @@ struct NotificationsView: View {
                     }
                     .offset(y: appearAnimation ? 0 : 20)
                     .opacity(appearAnimation ? 1 : 0)
+                }
+                
+                // Error banner
+                if let error = errorMessage {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text(error)
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(AppTheme.textPrimary)
+                        Spacer()
+                        Button {
+                            withAnimation { errorMessage = nil }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(AppTheme.textSecondary)
+                        }
+                    }
+                    .padding(12)
+                    .background(AppTheme.cardSurface)
+                    .cornerRadius(12)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
         }
@@ -136,22 +150,39 @@ struct NotificationsView: View {
             }
         }
         .toolbar(.hidden, for: .tabBar)
+        .navigationDestination(isPresented: $navigateToReschedule) {
+            if let doctor = rescheduleDoctor, let appt = rescheduleAppointment {
+                BookAppointmentView(
+                    doctor: doctor,
+                    rescheduleAppointmentId: appt.id,
+                    rescheduleOldSlotId: appt.slotId,
+                    rescheduleDate: appt.date,
+                    rescheduleNotificationId: rescheduleNotificationId
+                )
+            }
+        }
     }
     
     // MARK: - Handle Reschedule Notification Tap
     private func handleRescheduleTap(_ notification: AppNotification) async {
         guard let appointmentId = notification.appointmentId,
               let doctorId = notification.doctorId,
-              !isFetchingReschedule else { return }
+              loadingNotificationId == nil else { return }
         
-        await MainActor.run { isFetchingReschedule = true }
+        await MainActor.run {
+            loadingNotificationId = notification.id
+            errorMessage = nil
+        }
         
         do {
             // Fetch appointment details
             let db = Firestore.firestore()
             let apptDoc = try await db.collection("appointments").document(appointmentId).getDocument()
             guard let data = apptDoc.data() else {
-                await MainActor.run { isFetchingReschedule = false }
+                await MainActor.run {
+                    loadingNotificationId = nil
+                    withAnimation { errorMessage = "Appointment not found." }
+                }
                 return
             }
             
@@ -171,18 +202,29 @@ struct NotificationsView: View {
             )
             
             // Fetch doctor
-            let doctor = try await AuthManager.shared.fetchDoctor(id: doctorId)
+            guard let doctor = try await AuthManager.shared.fetchDoctor(id: doctorId) else {
+                await MainActor.run {
+                    loadingNotificationId = nil
+                    withAnimation { errorMessage = "Doctor profile not found." }
+                }
+                return
+            }
             
             await MainActor.run {
                 rescheduleAppointment = appointment
                 rescheduleDoctor = doctor
-                isFetchingReschedule = false
+                rescheduleNotificationId = notification.id
+                loadingNotificationId = nil
+                navigateToReschedule = true
             }
         } catch {
             #if DEBUG
             print("Error loading reschedule data: \(error)")
             #endif
-            await MainActor.run { isFetchingReschedule = false }
+            await MainActor.run {
+                loadingNotificationId = nil
+                withAnimation { errorMessage = "Could not load appointment details." }
+            }
         }
     }
 }
@@ -191,6 +233,7 @@ struct NotificationsView: View {
 struct NotificationCard: View {
     let notification: AppNotification
     var isLoadingReschedule: Bool = false
+    var onRescheduleTap: (() -> Void)? = nil
 
     private var timeAgoString: String {
         let interval = Date().timeIntervalSince(notification.createdAt)
@@ -208,6 +251,7 @@ struct NotificationCard: View {
     private var iconName: String {
         switch notification.type {
         case "reschedule_request": return "calendar.badge.exclamationmark"
+        case "reschedule_completed": return "checkmark.circle.fill"
         default: return "bell.fill"
         }
     }
@@ -215,6 +259,7 @@ struct NotificationCard: View {
     private var iconColor: Color {
         switch notification.type {
         case "reschedule_request": return .orange
+        case "reschedule_completed": return .green
         default: return AppTheme.primary
         }
     }
@@ -257,24 +302,53 @@ struct NotificationCard: View {
 
                 // Reschedule action button
                 if notification.type == "reschedule_request" && notification.appointmentId != nil {
-                    HStack(spacing: 6) {
-                        if isLoadingReschedule {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                        } else {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                                .font(.system(size: 12, weight: .bold))
-                            Text("Reschedule Now")
-                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                    Button {
+                        onRescheduleTap?()
+                    } label: {
+                        HStack(spacing: 8) {
+                            if isLoadingReschedule {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .tint(.white)
+                                Text("Loading…")
+                                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                            } else {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                    .font(.system(size: 12, weight: .bold))
+                                Text("Reschedule Now")
+                                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 10, weight: .bold))
+                            }
                         }
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            isLoadingReschedule
+                                ? AnyShapeStyle(AppTheme.primary.opacity(0.7))
+                                : AnyShapeStyle(LinearGradient(
+                                    colors: [AppTheme.primary, AppTheme.primaryMid],
+                                    startPoint: .leading, endPoint: .trailing
+                                  ))
+                        )
+                        .clipShape(Capsule())
+                        .opacity(isLoadingReschedule ? 0.85 : 1)
                     }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(AppTheme.primary)
-                    .clipShape(Capsule())
+                    .buttonStyle(.plain)
+                    .disabled(isLoadingReschedule)
+                    .padding(.top, 4)
+                }
+                
+                // Rescheduled badge
+                if notification.type == "reschedule_completed" {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 13, weight: .bold))
+                        Text("Rescheduled")
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                    }
+                    .foregroundColor(.green)
                     .padding(.top, 4)
                 }
 
