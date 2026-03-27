@@ -140,6 +140,7 @@ struct LabTestsView: View {
                                                 )
                                             }
                                         )
+                                        .id("\(request.id)_\(testName)")
                                     }
                                 }
                             }
