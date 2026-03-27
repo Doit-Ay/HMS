@@ -16,6 +16,12 @@ struct AdminGenerateInvoiceView: View {
     @State private var errorMessage: String? = nil
     @State private var showItemPicker = false
 
+    // Custom item alert states
+    @State private var showCustomItemAlert = false
+    @State private var customItemName = ""
+    @State private var customItemQty = ""
+    @State private var customItemPrice = ""
+
     private var selectedPatient: HMSUser? { patients.first { $0.id == selectedPatientId } }
 
     private let taxRate: Double = 0.05
@@ -77,14 +83,10 @@ struct AdminGenerateInvoiceView: View {
                     }
 
                     Button {
-                        showItemPicker = true
-                    } label: {
-                        Label("Add Inventory Item", systemImage: "plus.circle.fill")
-                            .foregroundColor(AppTheme.primary)
-                    }
-
-                    Button {
-                        lineItems.append(InvoiceLineItem(name: "Consultation", unitPrice: 500, quantity: 1))
+                        customItemName = ""
+                        customItemQty = "1"
+                        customItemPrice = ""
+                        showCustomItemAlert = true
                     } label: {
                         Label("Add Custom Item", systemImage: "pencil.circle")
                             .foregroundColor(AppTheme.textSecondary)
@@ -153,6 +155,26 @@ struct AdminGenerateInvoiceView: View {
                     ))
                 }
             }
+            .alert("Add Custom Item", isPresented: $showCustomItemAlert) {
+                TextField("Item Name", text: $customItemName)
+                TextField("Quantity", text: $customItemQty)
+                    .keyboardType(.numberPad)
+                TextField("Unit Price (₹)", text: $customItemPrice)
+                    .keyboardType(.decimalPad)
+                Button("Add") {
+                    let qty = Int(customItemQty) ?? 1
+                    let price = Double(customItemPrice) ?? 0
+                    guard !customItemName.trimmingCharacters(in: .whitespaces).isEmpty, price > 0 else { return }
+                    lineItems.append(InvoiceLineItem(
+                        name: customItemName.trimmingCharacters(in: .whitespaces),
+                        unitPrice: price,
+                        quantity: max(1, qty)
+                    ))
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("Enter the item details")
+            }
             .task { await loadData() }
         }
     }
@@ -170,6 +192,17 @@ struct AdminGenerateInvoiceView: View {
                 patients = p
                 inventoryItems = inv
                 isLoading = false
+
+                // Auto-populate bed items from inventory
+                let bedItems = inv.filter { $0.category == .beds }
+                for bed in bedItems {
+                    lineItems.append(InvoiceLineItem(
+                        inventoryItemId: bed.firestoreId,
+                        name: bed.name,
+                        unitPrice: bed.unitPrice,
+                        quantity: 1
+                    ))
+                }
             }
         } catch {
             await MainActor.run {
