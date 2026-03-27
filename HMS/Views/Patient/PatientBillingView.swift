@@ -28,10 +28,10 @@ struct PatientBillingView: View {
                     VStack(spacing: 24) {
                         sectionHeader("Pending Bills", color: .orange)
                         ForEach(pendingInvoices) { invoice in
-                            InvoiceBillCard(invoice: invoice) {
+                            InvoiceBillCard(invoice: invoice, onPay: {
                                 selectedInvoice = invoice
                                 showPaymentSheet = true
-                            }
+                            })
                         }
                     }
                     .padding(.horizontal, 20)
