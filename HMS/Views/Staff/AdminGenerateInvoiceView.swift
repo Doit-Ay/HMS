@@ -15,6 +15,7 @@ struct AdminGenerateInvoiceView: View {
     @State private var isLoading = true
     @State private var errorMessage: String? = nil
     @State private var showItemPicker = false
+    @State private var showPatientPicker = false
 
     // Custom item alert states
     @State private var showCustomItemAlert = false
@@ -40,13 +41,28 @@ struct AdminGenerateInvoiceView: View {
                             Text("Loading…").foregroundColor(AppTheme.textSecondary)
                         }
                     } else {
-                        Picker("Select Patient", selection: $selectedPatientId) {
-                            Text("Choose a patient…").tag("")
-                            ForEach(patients, id: \.id) { p in
-                                Text(p.fullName).tag(p.id)
+                        Button {
+                            showPatientPicker = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "magnifyingglass")
+                                    .foregroundColor(AppTheme.primary)
+                                    .font(.system(size: 14))
+                                Text(selectedPatient?.fullName ?? "Search patient…")
+                                    .foregroundColor(selectedPatient == nil ? AppTheme.textSecondary : AppTheme.textPrimary)
+                                Spacer()
+                                if selectedPatient != nil {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(AppTheme.primary)
+                                        .font(.system(size: 16))
+                                } else {
+                                    Image(systemName: "chevron.right")
+                                        .foregroundColor(AppTheme.textSecondary.opacity(0.4))
+                                        .font(.system(size: 13))
+                                }
                             }
                         }
-                        .pickerStyle(.navigationLink)
+                        .buttonStyle(.plain)
                     }
                 }
 
@@ -146,6 +162,9 @@ struct AdminGenerateInvoiceView: View {
                 InvoiceAddItemSheet(bedItems: inventoryItems.filter { $0.category == .beds }) { item in
                     lineItems.append(item)
                 }
+            }
+            .sheet(isPresented: $showPatientPicker) {
+                PatientSearchPickerSheet(patients: patients, selectedPatientId: $selectedPatientId)
             }
             .task { await loadData() }
         }
@@ -362,4 +381,94 @@ struct InvoiceLineItem: Identifiable {
     var unitPrice: Double
     var quantity: Int
     var amount: Double { unitPrice * Double(quantity) }
+}
+
+// MARK: - Patient Search Picker Sheet
+struct PatientSearchPickerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let patients: [HMSUser]
+    @Binding var selectedPatientId: String
+    @State private var searchText = ""
+
+    private var filtered: [HMSUser] {
+        if searchText.isEmpty { return patients }
+        return patients.filter {
+            $0.fullName.localizedCaseInsensitiveContains(searchText) ||
+            $0.email.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Manual search bar (avoids sheet-dismiss bug with .searchable)
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(AppTheme.textSecondary)
+                    TextField("Search by name or email…", text: $searchText)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                    if !searchText.isEmpty {
+                        Button { searchText = "" } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(AppTheme.textSecondary)
+                        }
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(Color(uiColor: .secondarySystemBackground))
+                .cornerRadius(12)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+
+                Divider()
+
+                List {
+                    ForEach(filtered) { patient in
+                        Button {
+                            selectedPatientId = patient.id
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 14) {
+                                ZStack {
+                                    Circle()
+                                        .fill(AppTheme.primary.opacity(0.12))
+                                        .frame(width: 40, height: 40)
+                                    Text(String(patient.fullName.prefix(1)))
+                                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                                        .foregroundColor(AppTheme.primary)
+                                }
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(patient.fullName)
+                                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                        .foregroundColor(AppTheme.textPrimary)
+                                    Text(patient.email)
+                                        .font(.system(size: 12, design: .rounded))
+                                        .foregroundColor(AppTheme.textSecondary)
+                                }
+                                Spacer()
+                                if selectedPatientId == patient.id {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(AppTheme.primary)
+                                        .font(.system(size: 18))
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .listStyle(.plain)
+            }
+            .navigationTitle("Select Patient")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(AppTheme.primary)
+                }
+            }
+        }
+    }
 }

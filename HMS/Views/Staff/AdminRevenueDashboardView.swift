@@ -120,20 +120,20 @@ struct AdminRevenueDashboardView: View {
                                             .font(.system(size: 13, weight: .semibold, design: .rounded))
                                             .foregroundColor(AppTheme.primary)
                                     }
-                                    NavigationLink(destination: AdminGenerateInvoiceView {
-                                        Task { await loadAllRevenue() }
-                                    }) {
-                                        HStack(spacing: 4) {
-                                            Image(systemName: "plus")
-                                            Text("New Invoice")
-                                        }
-                                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                                        .foregroundColor(.white)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 7)
-                                        .background(AppTheme.primary)
-                                        .cornerRadius(9)
-                                    }
+//                                    NavigationLink(destination: AdminGenerateInvoiceView {
+//                                        Task { await loadAllRevenue() }
+//                                    }) {
+//                                        HStack(spacing: 4) {
+//                                            Image(systemName: "plus")
+//                                            Text("New Invoice")
+//                                        }
+//                                        .font(.system(size: 12, weight: .bold, design: .rounded))
+//                                        .foregroundColor(.white)
+//                                        .padding(.horizontal, 12)
+//                                        .padding(.vertical, 7)
+//                                        .background(AppTheme.primary)
+//                                        .cornerRadius(9)
+//                                    }
                                 }
                                 .padding(.horizontal, 16)
 
