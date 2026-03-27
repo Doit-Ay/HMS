@@ -83,13 +83,10 @@ struct AdminGenerateInvoiceView: View {
                     }
 
                     Button {
-                        customItemName = ""
-                        customItemQty = "1"
-                        customItemPrice = ""
-                        showCustomItemAlert = true
+                        showItemPicker = true
                     } label: {
-                        Label("Add Custom Item", systemImage: "pencil.circle")
-                            .foregroundColor(AppTheme.textSecondary)
+                        Label("Add Item", systemImage: "plus.circle.fill")
+                            .foregroundColor(AppTheme.primary)
                     }
                 }
 
@@ -146,34 +143,9 @@ struct AdminGenerateInvoiceView: View {
                 }
             }
             .sheet(isPresented: $showItemPicker) {
-                InventoryItemPickerSheet(items: inventoryItems) { item, qty in
-                    lineItems.append(InvoiceLineItem(
-                        inventoryItemId: item.firestoreId,
-                        name: item.name,
-                        unitPrice: item.unitPrice,
-                        quantity: qty
-                    ))
+                InvoiceAddItemSheet(bedItems: inventoryItems.filter { $0.category == .beds }) { item in
+                    lineItems.append(item)
                 }
-            }
-            .alert("Add Custom Item", isPresented: $showCustomItemAlert) {
-                TextField("Item Name", text: $customItemName)
-                TextField("Quantity", text: $customItemQty)
-                    .keyboardType(.numberPad)
-                TextField("Unit Price (₹)", text: $customItemPrice)
-                    .keyboardType(.decimalPad)
-                Button("Add") {
-                    let qty = Int(customItemQty) ?? 1
-                    let price = Double(customItemPrice) ?? 0
-                    guard !customItemName.trimmingCharacters(in: .whitespaces).isEmpty, price > 0 else { return }
-                    lineItems.append(InvoiceLineItem(
-                        name: customItemName.trimmingCharacters(in: .whitespaces),
-                        unitPrice: price,
-                        quantity: max(1, qty)
-                    ))
-                }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                Text("Enter the item details")
             }
             .task { await loadData() }
         }
@@ -192,17 +164,6 @@ struct AdminGenerateInvoiceView: View {
                 patients = p
                 inventoryItems = inv
                 isLoading = false
-
-                // Auto-populate bed items from inventory
-                let bedItems = inv.filter { $0.category == .beds }
-                for bed in bedItems {
-                    lineItems.append(InvoiceLineItem(
-                        inventoryItemId: bed.firestoreId,
-                        name: bed.name,
-                        unitPrice: bed.unitPrice,
-                        quantity: 1
-                    ))
-                }
             }
         } catch {
             await MainActor.run {
@@ -263,70 +224,125 @@ struct AdminGenerateInvoiceView: View {
     }
 }
 
-// MARK: - Inventory Item Picker Sheet
-struct InventoryItemPickerSheet: View {
+// MARK: - Invoice Add Item Sheet (Beds + Custom Item)
+struct InvoiceAddItemSheet: View {
     @Environment(\.dismiss) private var dismiss
-    let items: [InventoryItem]
-    let onSelect: (InventoryItem, Int) -> Void
+    let bedItems: [InventoryItem]
+    let onAdd: (InvoiceLineItem) -> Void
 
     @State private var quantities: [String: Int] = [:]
-    @State private var categoryFilter: InventoryCategory? = nil
 
-    private var filtered: [InventoryItem] {
-        if let cat = categoryFilter { return items.filter { $0.category == cat } }
-        return items
-    }
+    // Custom item states
+    @State private var showCustomItemForm = false
+    @State private var customName = ""
+    @State private var customQty = "1"
+    @State private var customPrice = ""
 
     var body: some View {
         NavigationStack {
             List {
-                // Category filter
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        categoryChip(nil, label: "All")
-                        ForEach(InventoryCategory.allCases, id: \.self) { cat in
-                            categoryChip(cat, label: cat.displayName)
+                // Beds Section
+                Section(header: Label("Beds", systemImage: "bed.double.fill")) {
+                    if bedItems.isEmpty {
+                        Text("No beds available in inventory")
+                            .font(.system(size: 13))
+                            .foregroundColor(AppTheme.textSecondary)
+                    } else {
+                        ForEach(bedItems) { bed in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(bed.name)
+                                        .font(.system(size: 15, weight: .semibold))
+                                    Text("₹\(String(format: "%.0f", bed.unitPrice))/\(bed.unit) · \(bed.quantity) available")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(AppTheme.textSecondary)
+                                }
+                                Spacer()
+                                Stepper("\(quantities[bed.firestoreId, default: 1])",
+                                        value: Binding(
+                                            get: { quantities[bed.firestoreId, default: 1] },
+                                            set: { quantities[bed.firestoreId] = $0 }
+                                        ),
+                                        in: 1...max(1, bed.quantity))
+                                .labelsHidden()
+                                .font(.system(size: 13))
+
+                                Button {
+                                    let qty = quantities[bed.firestoreId, default: 1]
+                                    onAdd(InvoiceLineItem(
+                                        inventoryItemId: bed.firestoreId,
+                                        name: bed.name,
+                                        unitPrice: bed.unitPrice,
+                                        quantity: qty
+                                    ))
+                                    dismiss()
+                                } label: {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.system(size: 24))
+                                        .foregroundColor(AppTheme.primary)
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
                     }
-                    .padding(.horizontal, 4)
                 }
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
-                .padding(.vertical, 8)
 
-                ForEach(filtered) { item in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(item.name)
-                                .font(.system(size: 15, weight: .semibold))
-                            Text("₹\(String(format: "%.0f", item.unitPrice))/\(item.unit) · \(item.quantity) available")
-                                .font(.system(size: 12))
+                // Custom Item Section
+                Section(header: Label("Custom Item", systemImage: "pencil.circle")) {
+                    if showCustomItemForm {
+                        TextField("Item Name", text: $customName)
+                            .font(.system(size: 15))
+                        HStack {
+                            Text("Quantity")
                                 .foregroundColor(AppTheme.textSecondary)
+                            Spacer()
+                            TextField("1", text: $customQty)
+                                .keyboardType(.numberPad)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 80)
                         }
-                        Spacer()
-                        Stepper("\(quantities[item.firestoreId, default: 1])",
-                                value: Binding(
-                                    get: { quantities[item.firestoreId, default: 1] },
-                                    set: { quantities[item.firestoreId] = $0 }
-                                ),
-                                in: 1...max(1, item.quantity))
-                        .labelsHidden()
-                        .font(.system(size: 13))
+                        .font(.system(size: 15))
+                        HStack {
+                            Text("Unit Price (₹)")
+                                .foregroundColor(AppTheme.textSecondary)
+                            Spacer()
+                            TextField("0", text: $customPrice)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 100)
+                        }
+                        .font(.system(size: 15))
 
                         Button {
-                            let qty = quantities[item.firestoreId, default: 1]
-                            onSelect(item, qty)
+                            let qty = Int(customQty) ?? 1
+                            let price = Double(customPrice) ?? 0
+                            guard !customName.trimmingCharacters(in: .whitespaces).isEmpty, price > 0 else { return }
+                            onAdd(InvoiceLineItem(
+                                name: customName.trimmingCharacters(in: .whitespaces),
+                                unitPrice: price,
+                                quantity: max(1, qty)
+                            ))
                             dismiss()
                         } label: {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 24))
+                            HStack {
+                                Spacer()
+                                Text("Add Custom Item").fontWeight(.semibold)
+                                Spacer()
+                            }
+                            .foregroundColor(.white)
+                        }
+                        .listRowBackground(AppTheme.primary)
+                    } else {
+                        Button {
+                            showCustomItemForm = true
+                        } label: {
+                            Label("Add Custom Item", systemImage: "plus.circle")
                                 .foregroundColor(AppTheme.primary)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
             }
-            .navigationTitle("Select Item")
+            .navigationTitle("Add Item")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -335,20 +351,6 @@ struct InventoryItemPickerSheet: View {
                 }
             }
         }
-    }
-
-    @ViewBuilder
-    private func categoryChip(_ cat: InventoryCategory?, label: String) -> some View {
-        let isSelected = categoryFilter == cat
-        Button { categoryFilter = cat } label: {
-            Text(label)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .foregroundColor(isSelected ? .white : AppTheme.primary)
-                .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(isSelected ? AppTheme.primary : AppTheme.primary.opacity(0.1))
-                .cornerRadius(12)
-        }
-        .buttonStyle(.plain)
     }
 }
 
