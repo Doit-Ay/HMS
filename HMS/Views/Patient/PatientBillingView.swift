@@ -246,8 +246,8 @@ struct InvoiceBillCard: View {
                     .foregroundColor(AppTheme.primary)
             }
 
-            // Action Button
-            if let onPay = onPay {
+            // Action Button — show Pay Now for unpaid, View PDF for paid
+            if invoice.status == .pending, let onPay = onPay {
                 Button(action: onPay) {
                     HStack {
                         Image(systemName: "creditcard.fill")
@@ -266,13 +266,11 @@ struct InvoiceBillCard: View {
                     .cornerRadius(14)
                     .shadow(color: AppTheme.primary.opacity(0.3), radius: 8, x: 0, y: 4)
                 }
-            }
-            
-            if let onViewPDF = onViewPDF {
+            } else if invoice.status == .paid, let onViewPDF = onViewPDF {
                 Button(action: onViewPDF) {
                     HStack {
                         Image(systemName: "doc.text.fill")
-                        Text("Pay Now")
+                        Text("View / Download PDF")
                             .fontWeight(.bold)
                     }
                     .foregroundColor(AppTheme.primary)
