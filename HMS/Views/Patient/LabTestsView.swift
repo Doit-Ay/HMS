@@ -126,23 +126,20 @@ struct LabTestsView: View {
                         ScrollView(showsIndicators: false) {
                             LazyVStack(spacing: 16) {
                                 ForEach(filteredRequestedTests) { request in
-                                    // In the Requested Tests Section, update the ForEach:
-                                    ForEach(filteredRequestedTests) { request in
-                                        ForEach(request.testNames, id: \.self) { testName in
-                                            RequestedTestCard(
-                                                testName: testName,
-                                                doctorName: request.doctorName,
-                                                dateReferred: request.dateReferred,
-                                                requestId: request.id,  // Pass the request ID
-                                                onAddToCart: {
-                                                    cartManager.addRequestedTestToCart(
-                                                        testName: testName,
-                                                        price: 599,
-                                                        doctorName: request.doctorName
-                                                    )
-                                                }
-                                            )
-                                        }
+                                    ForEach(request.testNames, id: \.self) { testName in
+                                        RequestedTestCard(
+                                            testName: testName,
+                                            doctorName: request.doctorName,
+                                            dateReferred: request.dateReferred,
+                                            requestId: request.id,
+                                            onAddToCart: {
+                                                cartManager.addRequestedTestToCart(
+                                                    testName: testName,
+                                                    price: 599,
+                                                    doctorName: request.doctorName
+                                                )
+                                            }
+                                        )
                                     }
                                 }
                             }
