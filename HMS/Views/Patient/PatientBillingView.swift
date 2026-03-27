@@ -272,7 +272,7 @@ struct InvoiceBillCard: View {
                 Button(action: onViewPDF) {
                     HStack {
                         Image(systemName: "doc.text.fill")
-                        Text("View / Download PDF")
+                        Text("Pay Now")
                             .fontWeight(.bold)
                     }
                     .foregroundColor(AppTheme.primary)
